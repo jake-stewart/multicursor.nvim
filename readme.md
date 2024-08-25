@@ -54,7 +54,7 @@ https://github.com/user-attachments/assets/3b3554e0-3d62-47a0-a4e1-a4fd16a0ed02
 ### how to use
 
 using the default config, you can add cursors above/below with `<up>` and `<down>`.
-you can match the word under the word with `<c-n>` or `<c-s>` to skip.
+you can match the word under the cursor with `<c-n>` or `<c-s>` to skip.
 you can also use the mouse with `<c-leftmouse>`.
 
 once you have your cursors, you use vim normally as you would with a single cursor.
