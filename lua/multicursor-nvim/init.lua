@@ -78,6 +78,7 @@ function setMode(newMode, cursor)
 end
 local ESC = vim.api.nvim_replace_termcodes("<esc>", true, true, true)
 CTRL_V = vim.api.nvim_replace_termcodes("<c-v>", true, true, true)
+local CTRL_R = vim.api.nvim_replace_termcodes("<c-r>", true, true, true)
 local NOT_STRICT = {strict = false}
 local CursorManager = __TS__Class()
 CursorManager.name = "CursorManager"
@@ -390,7 +391,7 @@ function CursorManager.prototype.performMacro(self, macro)
     vim.o.clipboard = origClipboard
     setCursor(origCursor)
 end
-function CursorManager.prototype.undo(self)
+function CursorManager.prototype.loadUndoItem(self)
     local undoTree = vim.fn.undotree()
     local undoItem = self.undoItems[undoTree.seq_cur]
     if undoItem then
@@ -401,9 +402,17 @@ function CursorManager.prototype.undo(self)
             ____self_cursors_4[#____self_cursors_4 + 1] = self:drawCursor(c)
         end
         setCursor(undoItem.cursor)
-    else
+        return true
+    end
+    return false
+end
+function CursorManager.prototype.undo(self)
+    if not self:loadUndoItem() then
         self:clear()
     end
+end
+function CursorManager.prototype.redo(self)
+    self:loadUndoItem()
 end
 local InputManager = __TS__Class()
 InputManager.name = "InputManager"
@@ -474,6 +483,8 @@ function InputManager.prototype.onSafeState(self)
         self.applying = true
         if self.macro == "u" then
             self.cursorManager:undo()
+        elseif self.macro == CTRL_R then
+            self.cursorManager:redo()
         elseif self.expanding then
             if self.macro ~= "\\" then
                 self.expanding = false
@@ -490,10 +501,14 @@ function InputManager.prototype.isDisabled(self)
 end
 function InputManager.prototype.onKey(self, key, typed)
     if not self:isDisabled() then
-        self.macro = self.macro .. typed
+        if self.macro == "" and (key == "u" or key == CTRL_R) then
+            self.macro = key
+        else
+            self.macro = self.macro .. typed
+        end
     end
 end
-function InputManager.prototype.addCursorAtMouse(self)
+function InputManager.prototype.addCursorWithMouse(self)
     if self:isDisabled() then
         return
     end
@@ -534,6 +549,16 @@ function InputManager.prototype.addCursorWithMotion(self, motion)
     self.cursorManager:update(getCursor())
     self.applying = false
 end
+function InputManager.prototype.skipCursorWithMotion(self, motion)
+    if self:isDisabled() then
+        return
+    end
+    self.applying = true
+    self.macro = ""
+    vim.cmd.norm(motion)
+    self.cursorManager:update(getCursor())
+    self.applying = false
+end
 vim.cmd.hi("link", "MultiCursorCursor", "Cursor")
 vim.cmd.hi("link", "MultiCursorVisual", "Visual")
 local cursorManager
@@ -556,10 +581,13 @@ end
 function ____exports.clearCursors()
     cursorManager:clear()
 end
-function ____exports.addCursorWithMotion(motion)
+function ____exports.addCursor(motion)
     inputManager:addCursorWithMotion(motion)
 end
-function ____exports.addCursorWithMouse()
-    inputManager:addCursorAtMouse()
+function ____exports.skipCursor(motion)
+    inputManager:skipCursorWithMotion(motion)
+end
+function ____exports.handleMouse()
+    inputManager:addCursorWithMouse()
 end
 return ____exports
