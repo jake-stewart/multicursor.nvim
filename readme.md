@@ -2,11 +2,14 @@
 
 multiple cursors in neovim which work how you expect.
 
+https://github.com/user-attachments/assets/3b3554e0-3d62-47a0-a4e1-a4fd16a0ed02
+
 ### features
 
 - visual modes (char, block, line)
 - replace & insert modes
 - undo/redo
+- cursor specific unnamed register
 - should work with most plugins and remaps
 
 ### example config (lazy.nvim)
@@ -51,7 +54,7 @@ multiple cursors in neovim which work how you expect.
 ### how to use
 
 using the default config, you can add cursors above/below with `<up>` and `<down>`.
-you can match the word under the word with `<c-n>` or `<c-s>` to skip.
+you can match the word under the cursor with `<c-n>` or `<c-s>` to skip.
 you can also use the mouse with `<c-leftmouse>`.
 
 once you have your cursors, you use vim normally as you would with a single cursor.
