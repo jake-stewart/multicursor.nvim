@@ -455,11 +455,11 @@ function InputManager.prototype.____constructor(self, nsid, cursorManager)
         function(key, typed) return self:onKey(key, typed) end,
         nsid
     )
-    vim.keymap.set(
-        "n",
-        "\\",
-        function() return self:onPressPrefix() end
-    )
+    -- vim.keymap.set(
+    --     "n",
+    --     "\\",
+    --     function() return self:onPressPrefix() end
+    -- )
 end
 function InputManager.prototype.onInsertMode(self, enabled)
     self.inInsertMode = enabled
