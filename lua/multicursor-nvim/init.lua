@@ -15,7 +15,7 @@ local getCursor, setCursor, setMode, CTRL_V
 function getCursor()
     local mode = vim.fn.mode()
     local pos = vim.fn.getcurpos()
-    setMode("n")
+    setMode("n", nil, true)
     return {
         mode = mode,
         register = vim.fn.getreg(""),
@@ -26,55 +26,60 @@ function getCursor()
         }
     }
 end
-function setCursor(cursor)
+function setCursor(cursor, apply)
     vim.fn.setreg("", cursor.register)
     vim.fn.setpos("'<", cursor.visual[1])
     vim.fn.setpos("'>", cursor.visual[2])
     vim.fn.setpos(".", cursor.pos)
-    setMode(cursor.mode, cursor)
+    return setMode(cursor.mode, cursor, apply)
 end
-function setMode(newMode, cursor)
+function setMode(newMode, cursor, apply)
     local mode = vim.fn.mode()
+    local result = ""
     if mode == newMode then
-        return
+        return result
     end
     if cursor then
         if newMode == "v" or newMode == "V" or newMode == CTRL_V then
             if mode == "n" then
                 if (cursor and cursor.pos[3]) == (cursor and cursor.visual[1][3]) and (cursor and cursor.pos[2]) == (cursor and cursor.visual[1][2]) then
-                    vim.cmd.norm({args = {"gvo"}, bang = true})
+                    result = "gvo"
                 else
-                    vim.cmd.norm({args = {"gv"}, bang = true})
+                    result = "gv"
                 end
             end
         elseif newMode == "n" then
             if mode == "v" or mode == "V" or mode == CTRL_V then
-                vim.cmd.norm({args = {"v"}, bang = true})
+                result = "v"
             end
         end
     else
         if newMode == "n" then
             if mode == "v" then
-                vim.cmd.norm("v")
+                result = "v"
             elseif mode == "V" then
-                vim.cmd.norm("V")
+                result = "V"
             elseif mode == CTRL_V then
-                vim.cmd.norm(CTRL_V)
+                result = CTRL_V
             end
         elseif newMode == "v" then
             if mode == "n" then
-                vim.cmd.norm("v")
+                result = "v"
             end
         elseif newMode == "V" then
             if mode == "n" then
-                vim.cmd.norm("V")
+                result = "V"
             end
         elseif newMode == CTRL_V then
             if mode == "n" then
-                vim.cmd.norm(CTRL_V)
+                result = CTRL_V
             end
         end
     end
+    if apply then
+        vim.cmd.norm({args = {result}, bang = true})
+    end
+    return result
 end
 local ESC = vim.api.nvim_replace_termcodes("<esc>", true, true, true)
 CTRL_V = vim.api.nvim_replace_termcodes("<c-v>", true, true, true)
@@ -370,8 +375,8 @@ function CursorManager.prototype.performMacro(self, macro)
     for ____, cursor in ipairs(self.cursors) do
         cursor = self:updateCursorPos(cursor, cursor.cursorId, cursor.visualStartId, cursor.visualEndId)
         vim.api.nvim_buf_del_extmark(0, self.nsid, cursor.cursorId)
-        setCursor(cursor)
-        vim.cmd.norm({args = {macro}, bang = false})
+        macro = setCursor(cursor, false) .. macro
+        vim.fn.feedkeys(macro, "x")
         newCursors[#newCursors + 1] = self:drawCursor(getCursor())
     end
     newCursors = __TS__ArrayMap(
@@ -389,7 +394,7 @@ function CursorManager.prototype.performMacro(self, macro)
     self.cursors = newCursors
     self:update(origCursor)
     vim.o.clipboard = origClipboard
-    setCursor(origCursor)
+    setCursor(origCursor, true)
 end
 function CursorManager.prototype.loadUndoItem(self)
     local undoTree = vim.fn.undotree()
@@ -401,7 +406,7 @@ function CursorManager.prototype.loadUndoItem(self)
             local ____self_cursors_4 = self.cursors
             ____self_cursors_4[#____self_cursors_4 + 1] = self:drawCursor(c)
         end
-        setCursor(undoItem.cursor)
+        setCursor(undoItem.cursor, true)
         return true
     end
     return false
@@ -516,7 +521,7 @@ function InputManager.prototype.addCursorWithMouse(self)
     if mousePos.line == vim.fn.line(".") and mousePos.column == vim.fn.col(".") then
         local cursor = self.cursorManager:popCursor()
         if cursor then
-            setCursor(cursor)
+            setCursor(cursor, true)
             self.cursorManager:update(cursor)
         end
     else
