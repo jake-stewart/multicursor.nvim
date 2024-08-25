@@ -2,11 +2,14 @@
 
 multiple cursors in neovim which work how you expect.
 
+https://github.com/user-attachments/assets/3b3554e0-3d62-47a0-a4e1-a4fd16a0ed02
+
 ### features
 
 - visual modes (char, block, line)
 - replace & insert modes
 - undo/redo
+- cursor specific unnamed register
 - should work with most plugins and remaps
 
 ### example config (lazy.nvim)
