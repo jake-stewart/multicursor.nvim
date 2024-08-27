@@ -13,6 +13,7 @@ local CTRL_R = vim.api.nvim_replace_termcodes("<c-r>", true, true, true);
 -- interface Cursor {
 --     pos: CursorPos;
 --     register: string;
+--     search: string;
 --     visual: [ start: MarkPos, end: MarkPos ];
 --     mode: string;
 -- }
@@ -131,6 +132,7 @@ local function getCursor()
     return {
         mode = mode,
         register = vim.fn.getreg(""),
+        search = vim.fn.getreg("/"),
         pos = pos,
         visual = {vim.fn.getpos("'<"), vim.fn.getpos("'>")},
     }
@@ -138,6 +140,7 @@ end
 
 local function setCursor(cursor)
     vim.fn.setreg("", cursor.register);
+    vim.fn.setreg("/", cursor.search);
     vim.fn.setpos("'<", cursor.visual[1]);
     vim.fn.setpos("'>", cursor.visual[2]);
     vim.fn.setpos(".", cursor.pos);
@@ -602,15 +605,10 @@ local function CursorManager(nsid)
 end
 
 function InputManager(nsid, cursorManager)
-    local inCmdMode = false
+    local cmdType
     local inInsertMode = false
     local applying = false
-    local expanding = false
     local macro = ""
-
-    local function isDisabled()
-        return inCmdMode or applying or inInsertMode;
-    end
 
     local function onInsertMode(enabled)
         inInsertMode = enabled;
@@ -619,32 +617,26 @@ function InputManager(nsid, cursorManager)
         end
     end
 
-    local function onCommandLineMode(enabled)
-        inCmdMode = enabled;
-        macro = "";
-    end
-
-    -- local function onPressPrefix()
-    --     if isDisabled() then
-    --         return
-    --     end
-    --     cursorManager.addCursor(getCursor());
-    --     expanding = true;
-    -- end
-
     local function onSafeState()
-        if isDisabled() then
+        if applying or inInsertMode then
             return
+        end
+        if vim.fn.mode() == "c" then
+            cmdType = vim.fn.getcmdtype()
+            return
+        elseif cmdType then
+            if cmdType == ":" then
+                cmdType = nil
+                macro = ""
+                return
+            end
+            cmdType = nil
         end
         applying = true;
         if macro == "u" then
             cursorManager.undo();
         elseif macro == CTRL_R then
             cursorManager.redo();
-        elseif expanding then
-            if macro ~= "\\" then
-                expanding = false;
-            end
         elseif #macro > 0 then
             cursorManager.performMacro(macro);
         end
@@ -653,7 +645,7 @@ function InputManager(nsid, cursorManager)
     end
 
     local function onKey(key, typed)
-        if isDisabled() then
+        if applying or inInsertMode then
             return
         end
         if macro == "" and (key == "u" or key == CTRL_R) then
@@ -664,7 +656,7 @@ function InputManager(nsid, cursorManager)
     end
 
     local function addCursorWithMouse()
-        if isDisabled() then
+        if applying or inInsertMode or cmdType then
             return
         end
         local mousePos = vim.fn.getmousepos();
@@ -681,14 +673,20 @@ function InputManager(nsid, cursorManager)
             else
                 local cursor = getCursor();
                 cursorManager.addCursor(cursor);
-                vim.fn.setpos(".", {cursor.pos[1], mousePos.line, mousePos.column, 0, mousePos.column});
+                vim.fn.setpos(".", {
+                    cursor.pos[1],
+                    mousePos.line,
+                    mousePos.column,
+                    0,
+                    mousePos.column
+                });
                 cursorManager.update(getCursor());
             end
         end
     end
 
     local function addCursorWithMotion(motion)
-        if isDisabled() then
+        if applying or inInsertMode or cmdType then
             return;
         end
         applying = true;
@@ -701,7 +699,7 @@ function InputManager(nsid, cursorManager)
     end
 
     local function skipCursorWithMotion(motion)
-        if isDisabled() then
+        if applying or inInsertMode or cmdType then
             return;
         end
         applying = true;
@@ -718,14 +716,11 @@ function InputManager(nsid, cursorManager)
         });
     end
 
-    au("ModeChanged", "*:c", function() onCommandLineMode(true) end);
-    au("ModeChanged", "c:*", function() onCommandLineMode(false) end);
     au("ModeChanged", "*:[iR]", function() onInsertMode(true) end);
     au("ModeChanged", "[iR]:*", function() onInsertMode(false) end);
     au("SafeState", "*", onSafeState);
 
     vim.on_key(function (key, typed) onKey(key, typed) end, nsid);
-    -- vim.keymap.set("n", "\\", onPressPrefix);
 
     return {
         skipCursorWithMotion = skipCursorWithMotion,
