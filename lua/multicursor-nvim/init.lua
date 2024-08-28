@@ -366,10 +366,6 @@ local function CursorManager(nsid)
         undoItems = {}
     end
 
-    local function addCursor(cursor)
-        cursors[#cursors + 1] = drawCursor(cursor)
-    end
-
     local function getCursorAtPosition(row, col)
         local extmarks = vim.api.nvim_buf_get_extmarks(
             0,
@@ -410,12 +406,11 @@ local function CursorManager(nsid)
         end)
     end
 
-    local function popCursor()
-        local cursor = cursors[#cursors]
-        if cursor then
-            deleteCursor(cursor)
-        end
-        return cursor
+    local function insertCursor(_end, cursor)
+        table.insert(
+            cursors, _end == 1 and 1 or #cursors + 1,
+            drawCursor(cursor)
+        )
     end
 
     local function mergeCursors(mainCursor)
@@ -534,8 +529,10 @@ local function CursorManager(nsid)
                 vim.api.nvim_buf_del_extmark(0, nsid, cursor.visualEndId)
             end
             setCursor(cursor);
-            vim.fn.feedkeys(macro, "x");
-            newCursors[#newCursors + 1] = drawCursor(getCursor())
+            local success = pcall(function()
+                vim.fn.feedkeys(macro, "x");
+            end)
+            newCursors[#newCursors + 1] = drawCursor(success and getCursor() or cursor)
         end
 
         newCursors = map(newCursors, function (c)
@@ -590,15 +587,66 @@ local function CursorManager(nsid)
         loadUndoItem()
     end
 
+    local function sortCursors()
+        table.sort(cursors, function(a, b)
+            if a.pos[2] == b.pos[2] then
+                return a.pos[3] < b.pos[3]
+            end
+            return a.pos[2] < b.pos[2]
+        end)
+    end
+
+    local function closerCursor(to, a, b)
+        local aRowDist = math.abs(a.pos[2] - to.pos[2])
+        local bRowDist = math.abs(b.pos[2] - to.pos[2])
+        if aRowDist < bRowDist then
+            return a
+        elseif bRowDist < aRowDist then
+            return b
+        else
+            local aColDist = math.abs(a.pos[3] - to.pos[3])
+            local bColDist = math.abs(b.pos[3] - to.pos[3])
+            if aColDist < bColDist then
+                return a
+            else
+                return b
+            end
+        end
+    end
+
+    local function findNextCursor(cursor, direction)
+        if #cursors == 0 then
+            return
+        elseif #cursors == 1 then
+            return cursors[1]
+        end
+        sortCursors()
+        local lastCursor = cursors[#cursors]
+        for _, c in ipairs(cursors) do
+            if c.pos[2] > cursor.pos[2]
+                or c.pos[2] == cursor.pos[2] and c.pos[3] > cursor.pos[3]
+            then
+                return direction == 1 and c
+                    or direction == -1 and lastCursor
+                    or closerCursor(cursor, c, lastCursor)
+            else
+                lastCursor = c
+            end
+        end
+        return direction == 1 and cursors[1]
+            or direction == -1 and cursors[#cursors]
+            or closerCursor(cursor, cursors[1], cursors[#cursors])
+    end
+
     return {
         undo = undo,
         redo = redo,
-        popCursor = popCursor,
         hasCursors = hasCursors,
         deleteCursor = deleteCursor,
         performMacro = performMacro,
-        addCursor = addCursor,
+        insertCursor = insertCursor,
         getCursorAtPosition = getCursorAtPosition,
+        findNextCursor = findNextCursor,
         update = update,
         clear = clear,
     }
@@ -655,24 +703,32 @@ function InputManager(nsid, cursorManager)
         end
     end
 
+    local function deleteCursor()
+        if applying or inInsertMode or cmdType then
+            return;
+        end
+        local cursor = cursorManager.findNextCursor(getCursor())
+        if cursor then
+            cursorManager.deleteCursor(cursor)
+            setCursor(cursor)
+            cursorManager.update(cursor)
+        end
+    end
+
     local function addCursorWithMouse()
         if applying or inInsertMode or cmdType then
             return
         end
         local mousePos = vim.fn.getmousepos();
         if mousePos.line == vim.fn.line(".") and mousePos.column == vim.fn.col(".") then
-            local cursor = cursorManager.popCursor();
-            if cursor then
-                setCursor(cursor);
-                cursorManager.update(cursor);
-            end
+            deleteCursor()
         else
             local existingCursor = cursorManager.getCursorAtPosition(mousePos.line, mousePos.column);
             if existingCursor then
                 cursorManager.deleteCursor(existingCursor);
             else
                 local cursor = getCursor();
-                cursorManager.addCursor(cursor);
+                cursorManager.insertCursor(-1, cursor);
                 vim.fn.setpos(".", {
                     cursor.pos[1],
                     mousePos.line,
@@ -693,7 +749,7 @@ function InputManager(nsid, cursorManager)
         macro = "";
         local origCursor = getCursor();
         vim.cmd.norm(motion);
-        cursorManager.addCursor(origCursor);
+        cursorManager.insertCursor(-1, origCursor);
         cursorManager.update(getCursor());
         applying = false;
     end
@@ -707,6 +763,21 @@ function InputManager(nsid, cursorManager)
         vim.cmd.norm(motion);
         cursorManager.update(getCursor());
         applying = false;
+    end
+
+
+    local function rotateCursor(direction)
+        if applying or inInsertMode or cmdType then
+            return;
+        end
+        local mainCursor = getCursor()
+        local cursor = cursorManager.findNextCursor(mainCursor, direction)
+        if cursor then
+            cursorManager.deleteCursor(cursor)
+            cursorManager.insertCursor(1, mainCursor)
+            setCursor(cursor)
+            cursorManager.update(cursor)
+        end
     end
 
     local function au(event, pattern, callback)
@@ -726,6 +797,8 @@ function InputManager(nsid, cursorManager)
         skipCursorWithMotion = skipCursorWithMotion,
         addCursorWithMotion = addCursorWithMotion,
         addCursorWithMouse = addCursorWithMouse,
+        rotateCursor = rotateCursor,
+        deleteCursor = deleteCursor,
     };
 end
 
@@ -766,6 +839,18 @@ end
 
 function exports.handleMouse()
     inputManager.addCursorWithMouse()
+end
+
+function exports.nextCursor()
+    inputManager.rotateCursor(1)
+end
+
+function exports.prevCursor()
+    inputManager.rotateCursor(-1)
+end
+
+function exports.deleteCursor()
+    inputManager.deleteCursor()
 end
 
 return exports
