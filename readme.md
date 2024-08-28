@@ -46,6 +46,13 @@ https://github.com/user-attachments/assets/3b3554e0-3d62-47a0-a4e1-a4fd16a0ed02
         -- jump to the next word under cursor but do not add a cursor
         vim.keymap.set("n", "<c-s>", function() mc.skipCursor("*") end)
 
+        -- rotate the main cursor
+        vim.keymap.set({"n", "v"}, "<left>", mc.nextCursor)
+        vim.keymap.set({"n", "v"}, "<right>", mc.prevCursor)
+
+        -- delete the main cursor
+        vim.keymap.set({"n", "v"}, "<leader>x", mc.deleteCursor)
+
         -- add and remove cursors with control + left click
         vim.keymap.set("n", "<c-leftmouse>", mc.handleMouse)
     end,
