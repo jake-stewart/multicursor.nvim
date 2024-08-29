@@ -2,7 +2,9 @@ table.unpack = table.unpack or unpack
 
 local ESC = vim.api.nvim_replace_termcodes("<esc>", true, true, true);
 local CTRL_V = vim.api.nvim_replace_termcodes("<c-v>", true, true, true);
+local CTRL_S = vim.api.nvim_replace_termcodes("<c-s>", true, true, true);
 local CTRL_R = vim.api.nvim_replace_termcodes("<c-r>", true, true, true);
+local CTRL_G = vim.api.nvim_replace_termcodes("<c-g>", true, true, true);
 
 -- see :h getcurpos()
 -- type CursorPos = [buf: number, lnum: number, col: number, off: number, curswant: number]
@@ -68,6 +70,15 @@ local function ternary(cond, T, F, ...)
     if cond then return T(...) else return F(...) end
 end
 
+local visualSelectModes = {
+    v = { visual = "v", select = "" },
+    V = { visual = "V", select = "" },
+    [CTRL_V] = { visual = CTRL_V, select = "" },
+    s = { visual = "v", select = CTRL_G },
+    S = { visual = "V", select = CTRL_G },
+    [CTRL_S] = { visual = CTRL_V, select = CTRL_G },
+}
+
 local function setMode(newMode, cursor)
     local mode = vim.fn.mode()
     if mode == newMode then
@@ -75,53 +86,40 @@ local function setMode(newMode, cursor)
     end
     local result
     if cursor then
-        if newMode == "v" or newMode == "V" or newMode == CTRL_V then
+        local info = visualSelectModes[newMode]
+        if info then
             if mode == "n" then
                 if cursor.pos[3] == cursor.visual[1][3]
                     and cursor.pos[2] == cursor.visual[1][2]
                 then
                     result = cursor.visual[2][2] .. "G"
                         .. cursor.visual[2][3] .. "|"
-                        .. newMode
+                        .. info.visual
                         .. cursor.visual[1][2] .. "G"
                         .. cursor.pos[3] .. "|"
                 else
                     result = cursor.visual[1][2] .. "G"
                         .. cursor.visual[1][3] .. "|"
-                        .. newMode
+                        .. info.visual
                         .. cursor.visual[2][2] .. "G"
                         .. cursor.pos[3] .. "|"
                 end
+                result = result .. info.select
             end
         elseif newMode == "n" then
-            if mode == "v" or mode == "V" or mode == CTRL_V then
-                result = "v"
-            end
+            result = ESC
         end
     else
         if newMode == "n" then
-            if mode == "v" then
-                result = "v"
-            elseif mode == "V" then
-                result = "V"
-            elseif mode == CTRL_V then
-                result = CTRL_V
-            end
-        elseif newMode == "v" then
-            if mode == "n" then
-                result = "v"
-            end
-        elseif newMode == "V" then
-            if mode == "n" then
-                result = "v"
-            end
-        elseif newMode == CTRL_V then
-            if mode == "n" then
-                result = "v"
+            result = ESC
+        else
+            local info = visualSelectModes[newMode]
+            if info then
+                result = info.visual + info.select
             end
         end
     end
-    vim.cmd.norm({ args = { result }, bang = true})
+    vim.fn.feedkeys(result, "nx")
 end
 
 local function getCursor()
@@ -203,7 +201,7 @@ local function CursorManager(nsid)
         local start
         local _end
 
-        if cursor.mode == "v" or cursor.mode == "V" or cursor.mode == CTRL_V then
+        if visualSelectModes[cursor.mode] then
             start = math.max(math.min(cursor.visual[1][2], cursor.pos[2]) - 1, 0);
             _end = math.max(math.max(cursor.visual[2][2], cursor.pos[2]) - 1, start);
         else
@@ -223,7 +221,7 @@ local function CursorManager(nsid)
 
         local visualIds = {}
 
-        if cursor.mode == "v" then
+        if cursor.mode == "v" or cursor.mode == "s" then
             local i = cursor.visual[1][2]
             while i <= cursor.visual[2][2] do
                 local row = i - 1;
@@ -250,7 +248,7 @@ local function CursorManager(nsid)
                 visualIds[#visualIds + 1] = id;
                 i = i + 1
             end
-        elseif cursor.mode == "V" then
+        elseif cursor.mode == "V" or cursor.mode == "S" then
             local i = cursor.visual[1][2]
             while i <= cursor.visual[2][2] do
                 local row = i - 1;
@@ -278,7 +276,7 @@ local function CursorManager(nsid)
                 visualIds[#visualIds + 1] = id;
                 i = i + 1
             end
-        elseif cursor.mode == CTRL_V then
+        elseif cursor.mode == CTRL_V or cursor.mode == CTRL_S then
             local range = {cursor.visual[1][3] - 1, cursor.visual[2][3] - 1};
             local startCol = math.min(range[1], range[2]);
             local endCol = math.max(range[1], range[2]);
@@ -803,10 +801,7 @@ function InputManager(nsid, cursorManager)
             cursorManager.insertCursor(-1, origCursor);
         end
         local newCursor = getCursor();
-        if origCursor.mode == "v"
-            or origCursor.mode == "V"
-            or origCursor.mode == CTRL_V
-        then
+        if visualSelectModes[origCursor.mode] then
             adjustVisualCursor(origCursor, newCursor)
         end
         newCursor.mode = origCursor.mode
