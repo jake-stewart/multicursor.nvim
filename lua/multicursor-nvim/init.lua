@@ -110,7 +110,6 @@ local function setMode(newMode, cursor)
         elseif newMode == "v" then
             if mode == "n" then
                 result = "v"
-                vim.cmd.norm("v")
             end
         elseif newMode == "V" then
             if mode == "n" then
@@ -748,9 +747,65 @@ function InputManager(nsid, cursorManager)
         applying = true;
         macro = "";
         local origCursor = getCursor();
-        vim.cmd.norm(motion);
+        setCursor(origCursor);
+        if not pcall(function() vim.fn.feedkeys(motion, "x") end) then
+            applying = false
+            return
+        end
         cursorManager.insertCursor(-1, origCursor);
-        cursorManager.update(getCursor());
+        local newCursor = getCursor();
+        if origCursor.mode == "v"
+            or origCursor.mode == "V"
+            or origCursor.mode == CTRL_V
+        then
+            local visStart = origCursor.visual[1]
+            local visEnd = origCursor.visual[2]
+
+            local atVisStart = origCursor.pos[2] == visStart[2]
+                and origCursor.pos[3] == visStart[3]
+
+            local atVisEnd = origCursor.pos[2] == visEnd[2]
+                and origCursor.pos[3] == visEnd[3]
+
+            local rowDiff = newCursor.pos[2] - visEnd[2]
+            local colDiff
+
+            if newCursor.mode == "n" then
+                colDiff = newCursor.pos[3] - visStart[3]
+            else
+                colDiff = atVisStart
+                    and visEnd[3] - newCursor.pos[3]
+                    or newCursor.pos[3] - visEnd[3]
+            end
+
+            newCursor.visual = {
+                {
+                    visStart[1],
+                    visStart[2] + rowDiff,
+                    visStart[3] + colDiff,
+                    visStart[4],
+                },
+                {
+                    visEnd[1],
+                    visEnd[2] + rowDiff,
+                    visEnd[3] + colDiff,
+                    visEnd[4],
+                },
+            }
+
+            if newCursor.mode == "n" and atVisEnd then
+                newCursor.pos = {
+                    newCursor.visual[2][1],
+                    newCursor.visual[2][2],
+                    newCursor.visual[2][3],
+                    newCursor.visual[2][4],
+                    newCursor.visual[2][3],
+                }
+            end
+        end
+        newCursor.mode = origCursor.mode
+        setCursor(newCursor);
+        cursorManager.update(newCursor);
         applying = false;
     end
 
@@ -760,7 +815,7 @@ function InputManager(nsid, cursorManager)
         end
         applying = true;
         macro = "";
-        vim.cmd.norm(motion);
+        vim.fn.feedkeys(motion, "x");
         cursorManager.update(getCursor());
         applying = false;
     end
