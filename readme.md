@@ -37,14 +37,14 @@ https://github.com/user-attachments/assets/3b3554e0-3d62-47a0-a4e1-a4fd16a0ed02
         end)
 
         -- add cursors above/below the main cursor
-        vim.keymap.set("n", "<up>", function() mc.addCursor("k") end)
-        vim.keymap.set("n", "<down>", function() mc.addCursor("j") end)
+        vim.keymap.set({"n", "v"}, "<up>", function() mc.addCursor("k") end)
+        vim.keymap.set({"n", "v"}, "<down>", function() mc.addCursor("j") end)
 
         -- add a cursor and jump to the next word under cursor
-        vim.keymap.set("n", "<c-n>", function() mc.addCursor("*") end)
+        vim.keymap.set({"n", "v"}, "<c-n>", function() mc.addCursor("*") end)
 
         -- jump to the next word under cursor but do not add a cursor
-        vim.keymap.set("n", "<c-s>", function() mc.skipCursor("*") end)
+        vim.keymap.set({"n", "v"}, "<c-s>", function() mc.skipCursor("*") end)
 
         -- rotate the main cursor
         vim.keymap.set({"n", "v"}, "<left>", mc.nextCursor)
