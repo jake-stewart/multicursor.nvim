@@ -740,7 +740,54 @@ function InputManager(nsid, cursorManager)
         end
     end
 
-    local function addCursorWithMotion(motion)
+    local function adjustVisualCursor(origCursor, newCursor)
+        local visStart = origCursor.visual[1]
+        local visEnd = origCursor.visual[2]
+
+        local atVisStart = origCursor.pos[2] == visStart[2]
+            and origCursor.pos[3] == visStart[3]
+
+        local atVisEnd = origCursor.pos[2] == visEnd[2]
+            and origCursor.pos[3] == visEnd[3]
+
+        local rowDiff = newCursor.pos[2] - visEnd[2]
+        local colDiff
+
+        if newCursor.mode == "n" then
+            colDiff = newCursor.pos[3] - visStart[3]
+        else
+            colDiff = atVisStart
+                and visEnd[3] - newCursor.pos[3]
+                or newCursor.pos[3] - visEnd[3]
+        end
+
+        newCursor.visual = {
+            {
+                visStart[1],
+                visStart[2] + rowDiff,
+                visStart[3] + colDiff,
+                visStart[4],
+            },
+            {
+                visEnd[1],
+                visEnd[2] + rowDiff,
+                visEnd[3] + colDiff,
+                visEnd[4],
+            },
+        }
+
+        if newCursor.mode == "n" and atVisEnd then
+            newCursor.pos = {
+                newCursor.visual[2][1],
+                newCursor.visual[2][2],
+                newCursor.visual[2][3],
+                newCursor.visual[2][4],
+                newCursor.visual[2][3],
+            }
+        end
+    end
+
+    local function applyCursorMotion(motion, skip)
         if applying or inInsertMode or cmdType then
             return;
         end
@@ -752,56 +799,15 @@ function InputManager(nsid, cursorManager)
             applying = false
             return
         end
-        cursorManager.insertCursor(-1, origCursor);
+        if not skip then
+            cursorManager.insertCursor(-1, origCursor);
+        end
         local newCursor = getCursor();
         if origCursor.mode == "v"
             or origCursor.mode == "V"
             or origCursor.mode == CTRL_V
         then
-            local visStart = origCursor.visual[1]
-            local visEnd = origCursor.visual[2]
-
-            local atVisStart = origCursor.pos[2] == visStart[2]
-                and origCursor.pos[3] == visStart[3]
-
-            local atVisEnd = origCursor.pos[2] == visEnd[2]
-                and origCursor.pos[3] == visEnd[3]
-
-            local rowDiff = newCursor.pos[2] - visEnd[2]
-            local colDiff
-
-            if newCursor.mode == "n" then
-                colDiff = newCursor.pos[3] - visStart[3]
-            else
-                colDiff = atVisStart
-                    and visEnd[3] - newCursor.pos[3]
-                    or newCursor.pos[3] - visEnd[3]
-            end
-
-            newCursor.visual = {
-                {
-                    visStart[1],
-                    visStart[2] + rowDiff,
-                    visStart[3] + colDiff,
-                    visStart[4],
-                },
-                {
-                    visEnd[1],
-                    visEnd[2] + rowDiff,
-                    visEnd[3] + colDiff,
-                    visEnd[4],
-                },
-            }
-
-            if newCursor.mode == "n" and atVisEnd then
-                newCursor.pos = {
-                    newCursor.visual[2][1],
-                    newCursor.visual[2][2],
-                    newCursor.visual[2][3],
-                    newCursor.visual[2][4],
-                    newCursor.visual[2][3],
-                }
-            end
+            adjustVisualCursor(origCursor, newCursor)
         end
         newCursor.mode = origCursor.mode
         setCursor(newCursor);
@@ -809,15 +815,12 @@ function InputManager(nsid, cursorManager)
         applying = false;
     end
 
+    local function addCursorWithMotion(motion)
+        applyCursorMotion(motion, false)
+    end
+
     local function skipCursorWithMotion(motion)
-        if applying or inInsertMode or cmdType then
-            return;
-        end
-        applying = true;
-        macro = "";
-        vim.fn.feedkeys(motion, "x");
-        cursorManager.update(getCursor());
-        applying = false;
+        applyCursorMotion(motion, true)
     end
 
 
