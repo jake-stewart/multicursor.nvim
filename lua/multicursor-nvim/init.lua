@@ -123,7 +123,7 @@ local function setMode(newMode, cursor)
     vim.fn.feedkeys(result, "nx")
 end
 
-local function getCursor()
+local function readCursor()
     local mode = vim.fn.mode();
     local pos = vim.fn.getcurpos();
     setMode("n");
@@ -136,7 +136,7 @@ local function getCursor()
     }
 end
 
-local function setCursor(cursor)
+local function writeCursor(cursor)
     vim.fn.setreg("", cursor.register);
     vim.fn.setreg("/", cursor.search);
     vim.fn.setpos("'<", cursor.visual[1]);
@@ -145,6 +145,12 @@ local function setCursor(cursor)
     setMode(cursor.mode, cursor);
 end
 
+local function compareCursors(a, b)
+    if a.pos[2] == b.pos[2] then
+        return a.pos[3] < b.pos[3]
+    end
+    return a.pos[2] < b.pos[2]
+end
 
 local function CursorManager(nsid)
     local cursors = {} -- CursorExtmark[];
@@ -456,7 +462,7 @@ local function CursorManager(nsid)
             return;
         end
 
-        local origCursor = getCursor();
+        local origCursor = readCursor();
 
         local origClipboard = vim.o.clipboard;
         vim.o.clipboard = "";
@@ -526,11 +532,11 @@ local function CursorManager(nsid)
             if cursor.visualEndId then
                 vim.api.nvim_buf_del_extmark(0, nsid, cursor.visualEndId)
             end
-            setCursor(cursor);
+            writeCursor(cursor);
             local success = pcall(function()
                 vim.fn.feedkeys(macro, "x");
             end)
-            newCursors[#newCursors + 1] = drawCursor(success and getCursor() or cursor)
+            newCursors[#newCursors + 1] = drawCursor(success and readCursor() or cursor)
         end
 
         newCursors = map(newCursors, function (c)
@@ -556,7 +562,7 @@ local function CursorManager(nsid)
         cursors = newCursors
         update(origCursor)
         vim.o.clipboard = origClipboard
-        setCursor(origCursor)
+        writeCursor(origCursor)
     end
 
     local function loadUndoItem()
@@ -569,7 +575,7 @@ local function CursorManager(nsid)
                 cursors[#cursors + 1] = drawCursor(c);
             end
 
-            setCursor(undoItem.cursor)
+            writeCursor(undoItem.cursor)
             return true
         end
         return false
@@ -583,15 +589,6 @@ local function CursorManager(nsid)
 
     local function redo()
         loadUndoItem()
-    end
-
-    local function sortCursors()
-        table.sort(cursors, function(a, b)
-            if a.pos[2] == b.pos[2] then
-                return a.pos[3] < b.pos[3]
-            end
-            return a.pos[2] < b.pos[2]
-        end)
     end
 
     local function closerCursor(to, a, b)
@@ -618,7 +615,7 @@ local function CursorManager(nsid)
         elseif #cursors == 1 then
             return cursors[1]
         end
-        sortCursors()
+        table.sort(cursors, compareCursors)
         local lastCursor = cursors[#cursors]
         for _, c in ipairs(cursors) do
             if c.pos[2] > cursor.pos[2]
@@ -636,6 +633,19 @@ local function CursorManager(nsid)
             or closerCursor(cursor, cursors[1], cursors[#cursors])
     end
 
+    local function getCursor(index)
+        if #cursors == 0 then
+            return
+        elseif #cursors == 1 then
+            return cursors[1]
+        end
+        table.sort(cursors, compareCursors)
+        if index < 0 then
+            index = #cursors + index + 1
+        end
+        return cursors[index]
+    end
+
     return {
         undo = undo,
         redo = redo,
@@ -644,6 +654,7 @@ local function CursorManager(nsid)
         performMacro = performMacro,
         insertCursor = insertCursor,
         getCursorAtPosition = getCursorAtPosition,
+        getCursor = getCursor,
         findNextCursor = findNextCursor,
         update = update,
         clear = clear,
@@ -712,10 +723,10 @@ function InputManager(nsid, cursorManager)
         if applying or inInsertMode or cmdType then
             return;
         end
-        local cursor = cursorManager.findNextCursor(getCursor())
+        local cursor = cursorManager.findNextCursor(readCursor())
         if cursor then
             cursorManager.deleteCursor(cursor)
-            setCursor(cursor)
+            writeCursor(cursor)
             cursorManager.update(cursor)
         end
     end
@@ -732,7 +743,7 @@ function InputManager(nsid, cursorManager)
             if existingCursor then
                 cursorManager.deleteCursor(existingCursor);
             else
-                local cursor = getCursor();
+                local cursor = readCursor();
                 cursorManager.insertCursor(-1, cursor);
                 vim.fn.setpos(".", {
                     cursor.pos[1],
@@ -741,7 +752,7 @@ function InputManager(nsid, cursorManager)
                     0,
                     mousePos.column
                 });
-                cursorManager.update(getCursor());
+                cursorManager.update(readCursor());
             end
         end
     end
@@ -799,8 +810,8 @@ function InputManager(nsid, cursorManager)
         end
         applying = true;
         macro = "";
-        local origCursor = getCursor();
-        setCursor(origCursor);
+        local origCursor = readCursor();
+        writeCursor(origCursor);
         if not pcall(function() vim.fn.feedkeys(motion, "x") end) then
             applying = false
             return
@@ -808,12 +819,12 @@ function InputManager(nsid, cursorManager)
         if not skip then
             cursorManager.insertCursor(-1, origCursor);
         end
-        local newCursor = getCursor();
+        local newCursor = readCursor();
         if visualSelectModes[origCursor.mode] then
             adjustVisualCursor(origCursor, newCursor)
         end
         newCursor.mode = origCursor.mode
-        setCursor(newCursor);
+        writeCursor(newCursor);
         cursorManager.update(newCursor);
         applying = false;
     end
@@ -831,12 +842,35 @@ function InputManager(nsid, cursorManager)
         if applying or inInsertMode or cmdType then
             return;
         end
-        local mainCursor = getCursor()
+        local mainCursor = readCursor()
         local cursor = cursorManager.findNextCursor(mainCursor, direction)
         if cursor then
             cursorManager.deleteCursor(cursor)
             cursorManager.insertCursor(1, mainCursor)
-            setCursor(cursor)
+            writeCursor(cursor)
+            cursorManager.update(cursor)
+        end
+    end
+
+    local function selectCursor(index)
+        if applying or inInsertMode or cmdType then
+            return;
+        end
+        local cursor = cursorManager.getCursor(index)
+        if cursor then
+            local mainCursor = readCursor()
+            if index > 0 then
+                if compareCursors(mainCursor, cursor) then
+                    return
+                end
+            else
+                if compareCursors(cursor, mainCursor) then
+                    return
+                end
+            end
+            cursorManager.deleteCursor(cursor)
+            cursorManager.insertCursor(1, mainCursor)
+            writeCursor(cursor)
             cursorManager.update(cursor)
         end
     end
@@ -867,6 +901,7 @@ function InputManager(nsid, cursorManager)
         skipCursorWithMotion = skipCursorWithMotion,
         addCursorWithMotion = addCursorWithMotion,
         addCursorWithMouse = addCursorWithMouse,
+        selectCursor = selectCursor,
         rotateCursor = rotateCursor,
         deleteCursor = deleteCursor,
     };
@@ -909,6 +944,14 @@ end
 
 function exports.handleMouse()
     inputManager.addCursorWithMouse()
+end
+
+function exports.firstCursor()
+    inputManager.selectCursor(1)
+end
+
+function exports.lastCursor()
+    inputManager.selectCursor(-1)
 end
 
 function exports.nextCursor()
