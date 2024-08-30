@@ -6,11 +6,9 @@ https://github.com/user-attachments/assets/3b3554e0-3d62-47a0-a4e1-a4fd16a0ed02
 
 ### features
 
-- visual modes (char, block, line)
-- replace & insert modes
+- visual & select modes (char, block, line). insert and replace modes.
 - undo/redo
-- searching with cursor specific search registers
-- cursor specific unnamed registers
+- cursor specific search register and unnamed register (when yanking)
 - should work with most plugins and remaps
 
 ### example config (lazy.nvim)
