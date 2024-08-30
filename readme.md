@@ -69,17 +69,17 @@ when you want to collapse your cursors back into one, press `<esc>`.
 
 
 ### api
-| name         | arguments | return  | desc                                                    |
-| ------------ | --------- | ------- | ------------------------------------------------------- |
-| addCursor    | string    | void    | add a cursor and move only the main cursor using motion |
-| skipCursor   | string    | void    | move only the main cursor using motion                  |
-| nextCursor   |           | void    | select the cursor after the main cursor                 |
-| prevCursor   |           | void    | select the cursor before the main cursor                |
-| firstCursor  |           | void    | select the first cursor                                 |
-| lastCursor   |           | void    | select the last cursor                                  |
-| hasCursors   |           | boolean | returns whether multiple cursors exist                  |
-| clearCursors |           | void    | clear all cursors except main cursor                    |
-| handleMouse  |           | void    | use in a mouse mapping to handle mouse input            |
+| name         | arguments          | return  | desc                                                    |
+| ------------ | -----------------  | ------- | ------------------------------------------------------- |
+| addCursor    | string \| function | void    | add a cursor and move only the main cursor using motion |
+| skipCursor   | string \| function | void    | move only the main cursor using motion                  |
+| nextCursor   |                    | void    | select the cursor after the main cursor                 |
+| prevCursor   |                    | void    | select the cursor before the main cursor                |
+| firstCursor  |                    | void    | select the first cursor                                 |
+| lastCursor   |                    | void    | select the last cursor                                  |
+| hasCursors   |                    | boolean | returns whether multiple cursors exist                  |
+| clearCursors |                    | void    | clear all cursors except main cursor                    |
+| handleMouse  |                    | void    | use in a mouse mapping to handle mouse input            |
 
 
 ### tips
