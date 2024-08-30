@@ -68,3 +68,32 @@ you can also use the mouse with `<c-leftmouse>`.
 once you have your cursors, you use vim normally as you would with a single cursor.
 
 when you want to collapse your cursors back into one, press `<esc>`.
+
+
+### api
+| name         | arguments | return  | desc                                                    |
+| ------------ | --------- | ------- | ------------------------------------------------------- |
+| addCursor    | string    | void    | add a cursor and move only the main cursor using motion |
+| skipCursor   | string    | void    | move only the main cursor using motion                  |
+| nextCursor   |           | void    | select the cursor after the main cursor                 |
+| prevCursor   |           | void    | select the cursor before the main cursor                |
+| firstCursor  |           | void    | select the first cursor                                 |
+| lastCursor   |           | void    | select the last cursor                                  |
+| hasCursors   |           | boolean | returns whether multiple cursors exist                  |
+| clearCursors |           | void    | clear all cursors except main cursor                    |
+| handleMouse  |           | void    | use in a mouse mapping to handle mouse input            |
+
+
+### tips
+
+you may find it useful to select the first cursor before clearing cursors.
+this multiple cursors behave similar to visual mode when performing operations where it jumps to the first line of your selection.
+
+```lua
+vim.keymap.set("n", "<esc>", function()
+    if mc.hasCursors() then
+        mc.firstCursor()
+        mc.clearCursors()
+    end
+end)
+```
