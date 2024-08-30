@@ -85,7 +85,8 @@ when you want to collapse your cursors back into one, press `<esc>`.
 ### tips
 
 you may find it useful to select the first cursor before clearing cursors.
-this multiple cursors behave similar to visual mode when performing operations where it jumps to the first line of your selection.
+this makes multiple cursors behave similar to visual mode when performing
+operations where it jumps to the first line of your selection.
 
 ```lua
 vim.keymap.set("n", "<esc>", function()
