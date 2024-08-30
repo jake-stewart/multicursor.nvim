@@ -157,7 +157,7 @@ local function CursorManager(nsid)
         local cursorExtmark = vim.api.nvim_buf_get_extmark_by_id(
             0, nsid, cursorId, {});
 
-        if cursorExtmark then
+        if cursorExtmark and #cursorExtmark > 0 then
             newCursor.pos = {
                 newCursor.pos[1],
                 cursorExtmark[1] + 1,
@@ -172,7 +172,7 @@ local function CursorManager(nsid)
         if visualStartId then
             local visualStartExtmark = vim.api.nvim_buf_get_extmark_by_id(
                     0, nsid, visualStartId, {});
-            if visualStartExtmark then
+            if visualStartExtmark and #visualStartExtmark > 0 then
                 newCursor.visual[1] = {
                     newCursor.visual[1][1],
                     visualStartExtmark[1] + 1,
@@ -185,7 +185,7 @@ local function CursorManager(nsid)
         if visualEndId then
             local visualEndExtmark = vim.api.nvim_buf_get_extmark_by_id(
                     0, nsid, visualEndId, {});
-            if visualEndExtmark then
+            if visualEndExtmark and #visualEndExtmark > 0 then
                 newCursor.visual[2] = {
                     newCursor.visual[2][1],
                     visualEndExtmark[1] + 1,
@@ -848,6 +848,13 @@ function InputManager(nsid, cursorManager)
         });
     end
 
+    local function clear()
+        if applying or inInsertMode or cmdType then
+            return;
+        end
+        cursorManager.clear()
+    end
+
     au("ModeChanged", "[vV\x16ns]*:[iR]", function() onInsertMode(true) end);
     au("ModeChanged", "[S\x13]*:[iR]", function() onInsertMode(true, true) end);
     au("ModeChanged", "[iR]:*", function() onInsertMode(false) end);
@@ -856,6 +863,7 @@ function InputManager(nsid, cursorManager)
     vim.on_key(function (key, typed) onKey(key, typed) end, nsid);
 
     return {
+        clear = clear,
         skipCursorWithMotion = skipCursorWithMotion,
         addCursorWithMotion = addCursorWithMotion,
         addCursorWithMouse = addCursorWithMouse,
@@ -888,7 +896,7 @@ function exports.hasCursors()
 end
 
 function exports.clearCursors()
-    cursorManager.clear()
+    inputManager.clear()
 end
 
 function exports.addCursor(motion)
