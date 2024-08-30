@@ -804,7 +804,7 @@ function InputManager(nsid, cursorManager)
         end
     end
 
-    local function applyCursorMotion(motion, skip)
+    local function moveCursor(motion, addCursor)
         if applying or inInsertMode or cmdType then
             return;
         end
@@ -812,11 +812,18 @@ function InputManager(nsid, cursorManager)
         macro = "";
         local origCursor = readCursor();
         writeCursor(origCursor);
-        if not pcall(function() vim.fn.feedkeys(motion, "x") end) then
+        local apply = function()
+            if type(motion) == "string" then
+                vim.fn.feedkeys(motion, "x")
+            elseif type(motion) == "function" then
+                motion()
+            end
+        end
+        if not pcall(apply) then
             applying = false
             return
         end
-        if not skip then
+        if addCursor then
             cursorManager.insertCursor(-1, origCursor);
         end
         local newCursor = readCursor();
@@ -828,15 +835,6 @@ function InputManager(nsid, cursorManager)
         cursorManager.update(newCursor);
         applying = false;
     end
-
-    local function addCursorWithMotion(motion)
-        applyCursorMotion(motion, false)
-    end
-
-    local function skipCursorWithMotion(motion)
-        applyCursorMotion(motion, true)
-    end
-
 
     local function rotateCursor(direction)
         if applying or inInsertMode or cmdType then
@@ -898,8 +896,7 @@ function InputManager(nsid, cursorManager)
 
     return {
         clear = clear,
-        skipCursorWithMotion = skipCursorWithMotion,
-        addCursorWithMotion = addCursorWithMotion,
+        moveCursor = moveCursor,
         addCursorWithMouse = addCursorWithMouse,
         selectCursor = selectCursor,
         rotateCursor = rotateCursor,
@@ -935,11 +932,11 @@ function exports.clearCursors()
 end
 
 function exports.addCursor(motion)
-    inputManager.addCursorWithMotion(motion)
+    inputManager.moveCursor(motion, true)
 end
 
 function exports.skipCursor(motion)
-    inputManager.skipCursorWithMotion(motion)
+    inputManager.moveCursor(motion, false)
 end
 
 function exports.handleMouse()
