@@ -97,14 +97,15 @@ local function setMode(newMode, cursor)
                         .. info.visual
                         .. cursor.visual[1][2] .. "G"
                         .. cursor.pos[3] .. "|"
+                        .. info.select
                 else
                     result = cursor.visual[1][2] .. "G"
                         .. cursor.visual[1][3] .. "|"
                         .. info.visual
                         .. cursor.visual[2][2] .. "G"
                         .. cursor.pos[3] .. "|"
+                        .. info.select
                 end
-                result = result .. info.select
             end
         elseif newMode == "n" then
             result = ESC
@@ -654,12 +655,19 @@ function InputManager(nsid, cursorManager)
     local inInsertMode = false
     local applying = false
     local macro = ""
+    local fromSelectMode = false
 
-    local function onInsertMode(enabled)
+    local function onInsertMode(enabled, selectMode)
         inInsertMode = enabled;
         if not enabled then
-            macro = macro .. vim.fn.getreg(".") .. ESC;
+            local insertReg = vim.fn.getreg(".")
+            if fromSelectMode then
+                macro = macro .. string.sub(insertReg, 2, #insertReg) .. ESC;
+            else
+                macro = macro .. insertReg .. ESC;
+            end
         end
+        fromSelectMode = selectMode
     end
 
     local function onSafeState()
@@ -840,7 +848,8 @@ function InputManager(nsid, cursorManager)
         });
     end
 
-    au("ModeChanged", "*:[iR]", function() onInsertMode(true) end);
+    au("ModeChanged", "[vV\x16ns]*:[iR]", function() onInsertMode(true) end);
+    au("ModeChanged", "[S\x13]*:[iR]", function() onInsertMode(true, true) end);
     au("ModeChanged", "[iR]:*", function() onInsertMode(false) end);
     au("SafeState", "*", onSafeState);
 
