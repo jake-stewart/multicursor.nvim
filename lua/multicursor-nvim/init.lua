@@ -21,7 +21,8 @@ local CTRL_G = vim.api.nvim_replace_termcodes("<c-g>", true, true, true);
 -- }
 
 -- interface CursorExtmark extends Cursor {
---     visualIds: number[];    // (extarks used for decoration)
+--     invisible?: boolean;
+--     visualIds?: number[];   // (extarks used for decoration)
 --     cursorId: number;       // (extmark used to track cursor)
 --     visualStartId?: number; // (extmark used to track start of visual)
 --     visualEndId?: number;   // (extmark used to track end of visual)
@@ -56,6 +57,20 @@ local function filter(t, callback)
         end
     end
     return result
+end
+
+local function reduce(t, callback, initial)
+    if initial then
+        for i, v in ipairs(t) do
+            initial = callback(initial, v, i, t)
+        end
+    else
+        initial = t[1]
+        for i = 2, #t do
+            initial = callback(initial, t[i], i, t)
+        end
+    end
+    return initial
 end
 
 local function find(t, callback)
@@ -156,12 +171,12 @@ local function CursorManager(nsid)
     local cursors = {} -- CursorExtmark[];
     local undoItems = {} -- LuaMap<number, MultiCursorUndo>;
 
-    local function updateCursorPos(cursor, cursorId, visualStartId, visualEndId)
+    local function updateCursorPos(cursor)
         local newCursor = shallow_copy(cursor);
         newCursor.visual = {table.unpack(newCursor.visual)};
 
         local cursorExtmark = vim.api.nvim_buf_get_extmark_by_id(
-            0, nsid, cursorId, {});
+            0, nsid, cursor.cursorId, {});
 
         if cursorExtmark and #cursorExtmark > 0 then
             newCursor.pos = {
@@ -175,9 +190,9 @@ local function CursorManager(nsid)
             }
         end
 
-        if visualStartId then
+        if cursor.visualStartId then
             local visualStartExtmark = vim.api.nvim_buf_get_extmark_by_id(
-                    0, nsid, visualStartId, {});
+                    0, nsid, cursor.visualStartId, {});
             if visualStartExtmark and #visualStartExtmark > 0 then
                 newCursor.visual[1] = {
                     newCursor.visual[1][1],
@@ -188,9 +203,9 @@ local function CursorManager(nsid)
             end
         end
 
-        if visualEndId then
+        if cursor.visualEndId then
             local visualEndExtmark = vim.api.nvim_buf_get_extmark_by_id(
-                    0, nsid, visualEndId, {});
+                    0, nsid, cursor.visualEndId, {});
             if visualEndExtmark and #visualEndExtmark > 0 then
                 newCursor.visual[2] = {
                     newCursor.visual[2][1],
@@ -204,7 +219,97 @@ local function CursorManager(nsid)
         return newCursor;
     end
 
-    local function drawCursor(cursor)
+    local function drawVisualChar(cursor, lines, start)
+        local visualIds = {}
+        local i = cursor.visual[1][2]
+        while i <= cursor.visual[2][2] do
+            local row = i - 1;
+            local line = lines[row - start + 1]
+            local col = i == cursor.visual[1][2]
+                and cursor.visual[1][3] - 1
+                or 0
+            local endCol = i == cursor.visual[2][2]
+                and cursor.visual[2][3] - 1
+                or (line and #line or 0)
+            local id = vim.api.nvim_buf_set_extmark(0, nsid, row, col, {
+                strict = false,
+                undo_restore = false,
+                virt_text = ternary(i == cursor.visual[2][2],
+                    function() return nil end,
+                    function() return {{" ", "MultiCursorVisual"}} end
+                ),
+                end_col = endCol + 1,
+                virt_text_pos = "inline",
+                virt_text_win_col = line and #line or 0,
+                hl_group = "MultiCursorVisual",
+            });
+            visualIds[#visualIds + 1] = id;
+            i = i + 1
+        end
+        return visualIds
+    end
+
+    local function drawVisualLine(cursor, lines, start)
+        local visualIds = {}
+        local i = cursor.visual[1][2]
+        while i <= cursor.visual[2][2] do
+            local row = i - 1;
+            local line = lines[row - start + 1];
+            local endCol = ternary(line,
+                function() return #line end,
+                function() return 0 end
+            );
+            local id = vim.api.nvim_buf_set_extmark(
+                0,
+                nsid,
+                row,
+                0,
+                {
+                    strict = false,
+                    undo_restore = false,
+                    virt_text = {{" ", "MultiCursorVisual"}},
+                    end_col = endCol + 1,
+                    virt_text_pos = "inline",
+                    virt_text_win_col = line and #line or 0,
+                    hl_group = "MultiCursorVisual",
+                }
+            );
+            visualIds[#visualIds + 1] = id;
+            i = i + 1
+        end
+        return visualIds
+    end
+
+    local function drawVisualBlock(cursor, lines, start)
+        local visualIds = {}
+        local range = {cursor.visual[1][3] - 1, cursor.visual[2][3] - 1};
+        local startCol = math.min(range[1], range[2]);
+        local endCol = math.max(range[1], range[2]);
+        local i = cursor.visual[1][2]
+        while i <= cursor.visual[2][2] do
+            local row = i - 1;
+            local line = lines[row - start + 1];
+            if line and #line >= startCol then
+                local id = vim.api.nvim_buf_set_extmark(
+                    0,
+                    nsid,
+                    row,
+                    startCol,
+                    {
+                        strict = false,
+                        undo_restore = false,
+                        end_col = endCol + 1,
+                        hl_group = "MultiCursorVisual",
+                    }
+                );
+                visualIds[#visualIds + 1] = id;
+            end
+            i = i + 1
+        end
+        return visualIds
+    end
+
+    local function drawCursor(cursor, invisible)
         local start
         local _end
 
@@ -212,8 +317,8 @@ local function CursorManager(nsid)
             start = math.max(math.min(cursor.visual[1][2], cursor.pos[2]) - 1, 0);
             _end = math.max(math.max(cursor.visual[2][2], cursor.pos[2]) - 1, start);
         else
-            start = cursor.pos[2] - 1;
-            _end = cursor.pos[2] - 1;
+            start = cursor.pos[2] - 1
+            _end = cursor.pos[2] - 1
         end
         local lines = vim.api.nvim_buf_get_lines(0, start, _end + 1, true);
 
@@ -226,87 +331,15 @@ local function CursorManager(nsid)
             char = " "
         end
 
-        local visualIds = {}
+        local visualIds
 
-        if cursor.mode == "v" or cursor.mode == "s" then
-            local i = cursor.visual[1][2]
-            while i <= cursor.visual[2][2] do
-                local row = i - 1;
-                local line = lines[row - start + 1]
-                local col = i == cursor.visual[1][2]
-                    and cursor.visual[1][3] - 1
-                    or 0
-                local endCol = i == cursor.visual[2][2]
-                    and cursor.visual[2][3] - 1
-                    or (line and #line or 0)
-
-                local id = vim.api.nvim_buf_set_extmark(0, nsid, row, col, {
-                    strict = false,
-                    undo_restore = false,
-                    virt_text = ternary(i == cursor.visual[2][2],
-                        function() return nil end,
-                        function() return {{" ", "MultiCursorVisual"}} end
-                    ),
-                    end_col = endCol + 1,
-                    virt_text_pos = "inline",
-                    virt_text_win_col = line and #line or 0,
-                    hl_group = "MultiCursorVisual",
-                });
-                visualIds[#visualIds + 1] = id;
-                i = i + 1
-            end
-        elseif cursor.mode == "V" or cursor.mode == "S" then
-            local i = cursor.visual[1][2]
-            while i <= cursor.visual[2][2] do
-                local row = i - 1;
-                local line = lines[row - start + 1];
-                local endCol = ternary(line,
-                    function() return #line end,
-                    function() return 0 end
-                );
-
-                local id = vim.api.nvim_buf_set_extmark(
-                    0,
-                    nsid,
-                    row,
-                    0,
-                    {
-                        strict = false,
-                        undo_restore = false,
-                        virt_text = {{" ", "MultiCursorVisual"}},
-                        end_col = endCol + 1,
-                        virt_text_pos = "inline",
-                        virt_text_win_col = line and #line or 0,
-                        hl_group = "MultiCursorVisual",
-                    }
-                );
-                visualIds[#visualIds + 1] = id;
-                i = i + 1
-            end
-        elseif cursor.mode == CTRL_V or cursor.mode == CTRL_S then
-            local range = {cursor.visual[1][3] - 1, cursor.visual[2][3] - 1};
-            local startCol = math.min(range[1], range[2]);
-            local endCol = math.max(range[1], range[2]);
-            local i = cursor.visual[1][2]
-            while i <= cursor.visual[2][2] do
-                local row = i - 1;
-                local line = lines[row - start + 1];
-                if line and #line >= startCol then
-                    local id = vim.api.nvim_buf_set_extmark(
-                        0,
-                        nsid,
-                        row,
-                        startCol,
-                        {
-                            strict = false,
-                            undo_restore = false,
-                            end_col = endCol + 1,
-                            hl_group = "MultiCursorVisual",
-                        }
-                    );
-                    visualIds[#visualIds + 1] = id;
-                end
-                i = i + 1
+        if not invisible then
+            if cursor.mode == "v" or cursor.mode == "s" then
+                visualIds = drawVisualChar(cursor, lines, start)
+            elseif cursor.mode == "V" or cursor.mode == "S" then
+                visualIds = drawVisualLine(cursor, lines, start)
+            elseif cursor.mode == CTRL_V or cursor.mode == CTRL_S then
+                visualIds = drawVisualBlock(cursor, lines, start)
             end
         end
 
@@ -361,6 +394,7 @@ local function CursorManager(nsid)
         copy.visualIds = visualIds
         copy.visualStartId = visualStartId
         copy.visualEndId = visualEndId
+        copy.invisible = invisible
         return copy
     end
 
@@ -391,8 +425,10 @@ local function CursorManager(nsid)
     end
 
     local function eraseCursor(cursor)
-        for _, id in ipairs(cursor.visualIds) do
-            vim.api.nvim_buf_del_extmark(0, nsid, id)
+        if cursor.visualIds then
+            for _, id in ipairs(cursor.visualIds) do
+                vim.api.nvim_buf_del_extmark(0, nsid, id)
+            end
         end
         vim.api.nvim_buf_del_extmark(0, nsid, cursor.cursorId)
         if cursor.visualStartId then
@@ -457,112 +493,62 @@ local function CursorManager(nsid)
         return #cursors > 0;
     end
 
-    local function performMacro(macro)
-        if not hasCursors() or #macro == 0 then
+    local function getCursors(includeMainCursor)
+        local cursorsCopy = {table.unpack(cursors)}
+        if includeMainCursor then
+            cursorsCopy[#cursorsCopy + 1] = readCursor()
+        end
+        table.sort(cursorsCopy, compareCursors)
+        return cursorsCopy
+    end
+
+    local function performMacro(applyToMainCursor, macro, remap)
+        if remap == nil then
+            remap = true
+        end
+        if not hasCursors() then
             return;
         end
 
-        local origCursor = readCursor();
-
+        local origCursor = readCursor()
         local origClipboard = vim.o.clipboard;
         vim.o.clipboard = "";
 
-        local cursorId = vim.api.nvim_buf_set_extmark(
-            0,
-            nsid,
-            origCursor.pos[2] - 1,
-            origCursor.pos[3] - 1,
-            {
-                strict = false,
-                undo_restore = false
-            }
-        );
+        local apply = type(macro) == "string"
+            and function() vim.fn.feedkeys(macro, "x" .. (remap and "" or "n")) end
+            or macro
 
-        local visualStartId
-        local visualEndId
+        local newCursors = { table.unpack(cursors) }
 
-        if origCursor.visual[1][2] > 0
-            and origCursor.visual[1][3] > 0
-        then
-            visualStartId = vim.api.nvim_buf_set_extmark(
-                0,
-                nsid,
-                origCursor.visual[1][2] - 1,
-                origCursor.visual[1][3] - 1,
-                {
-                    strict = false,
-                    undo_restore = false
-                }
-            );
-        end
+        newCursors[#newCursors + 1] = drawCursor(origCursor, true)
 
-        if origCursor.visual[2][2] > 0
-            and origCursor.visual[2][3] > 0
-        then
-            visualEndId = vim.api.nvim_buf_set_extmark(
-                0,
-                nsid,
-                origCursor.visual[2][2] - 1,
-                origCursor.visual[2][3] - 1,
-                {
-                    strict = false,
-                    undo_restore = false
-                }
-            );
-        end
+        table.sort(newCursors, compareCursors)
 
-        for _, cursor in ipairs(cursors) do
-            for _, id in ipairs(cursor.visualIds) do
-                vim.api.nvim_buf_del_extmark(0, nsid, id)
+        for i, cursor in ipairs(newCursors) do
+            if not cursor.invisible or applyToMainCursor then
+                local newCursor = updateCursorPos(cursor)
+                eraseCursor(cursor)
+                writeCursor(newCursor);
+                local success = pcall(apply, newCursor)
+                newCursor = success and readCursor() or newCursor
+                newCursors[i] = drawCursor(newCursor, cursor.invisible)
             end
         end
 
-        local newCursors = {}
-        for _, cursor in ipairs(cursors) do
-            cursor = updateCursorPos(
-                cursor,
-                cursor.cursorId,
-                cursor.visualStartId,
-                cursor.visualEndId
-            )
-            vim.api.nvim_buf_del_extmark(0, nsid, cursor.cursorId)
-            if cursor.visualStartId then
-                vim.api.nvim_buf_del_extmark(0, nsid, cursor.visualStartId)
-            end
-            if cursor.visualEndId then
-                vim.api.nvim_buf_del_extmark(0, nsid, cursor.visualEndId)
-            end
-            writeCursor(cursor);
-            local success = pcall(function()
-                vim.fn.feedkeys(macro, "x");
-            end)
-            newCursors[#newCursors + 1] = drawCursor(success and readCursor() or cursor)
-        end
+        newCursors = map(newCursors, updateCursorPos)
 
-        newCursors = map(newCursors, function (c)
-            return updateCursorPos(
-                c,
-                c.cursorId,
-                c.visualStartId,
-                c.visualEndId
-            )
+        local mainCursor
+        cursors = filter(newCursors, function(c)
+            if c.invisible then
+                mainCursor = c
+                return false
+            end
+            return true
         end)
-
-        origCursor = updateCursorPos(
-            origCursor, cursorId, visualStartId, visualEndId)
-        vim.api.nvim_buf_del_extmark(0, nsid, cursorId)
-
-        if visualStartId then
-            vim.api.nvim_buf_del_extmark(0, nsid, visualStartId)
-        end
-        if visualEndId then
-            vim.api.nvim_buf_del_extmark(0, nsid, visualEndId)
-        end
-
-        cursors = newCursors
-        update(origCursor)
+        eraseCursor(mainCursor)
+        writeCursor(mainCursor)
+        update(mainCursor)
         vim.o.clipboard = origClipboard
-        writeCursor(origCursor)
     end
 
     local function loadUndoItem()
@@ -574,7 +560,6 @@ local function CursorManager(nsid)
             for _, c in ipairs(undoItem.cursors) do
                 cursors[#cursors + 1] = drawCursor(c);
             end
-
             writeCursor(undoItem.cursor)
             return true
         end
@@ -650,6 +635,7 @@ local function CursorManager(nsid)
         undo = undo,
         redo = redo,
         hasCursors = hasCursors,
+        getCursors = getCursors,
         deleteCursor = deleteCursor,
         performMacro = performMacro,
         insertCursor = insertCursor,
@@ -666,9 +652,13 @@ function InputManager(nsid, cursorManager)
     local inInsertMode = false
     local applying = false
     local macro = ""
+    local specialKey = nil
     local fromSelectMode = false
 
     local function onInsertMode(enabled, selectMode)
+        if applying then
+            return
+        end
         inInsertMode = enabled;
         if not enabled then
             local insertReg = vim.fn.getreg(".")
@@ -697,23 +687,28 @@ function InputManager(nsid, cursorManager)
             cmdType = nil
         end
         applying = true;
-        if macro == "u" then
-            cursorManager.undo();
-        elseif macro == CTRL_R then
-            cursorManager.redo();
+        if specialKey then
+            if specialKey == "u" then
+                cursorManager.undo();
+            elseif specialKey == CTRL_R then
+                cursorManager.redo();
+            elseif specialKey == "." then
+                cursorManager.performMacro(false, ".", false);
+            end
+            specialKey = nil
         elseif #macro > 0 then
-            cursorManager.performMacro(macro);
+            cursorManager.performMacro(false, macro);
         end
-        macro = "";
-        applying = false;
+        macro = ""
+        applying = false
     end
 
     local function onKey(key, typed)
         if applying or inInsertMode then
             return
         end
-        if macro == "" and (key == "u" or key == CTRL_R) then
-            macro = key;
+        if macro == "" and (key == "u" or key == CTRL_R or key == ".") then
+            specialKey = key;
         else
             macro = macro .. typed;
         end
@@ -812,13 +807,9 @@ function InputManager(nsid, cursorManager)
         macro = "";
         local origCursor = readCursor();
         writeCursor(origCursor);
-        local apply = function()
-            if type(motion) == "string" then
-                vim.fn.feedkeys(motion, "x")
-            elseif type(motion) == "function" then
-                motion()
-            end
-        end
+        local apply = type(motion) == "function"
+            and motion
+            or function() vim.fn.feedkeys(motion, "x") end
         if not pcall(apply) then
             applying = false
             return
@@ -887,6 +878,61 @@ function InputManager(nsid, cursorManager)
         cursorManager.clear()
     end
 
+    local function alignCursors()
+        if applying or inInsertMode or cmdType then
+            return;
+        end
+        macro = ""
+        applying = true
+        local cursors = cursorManager.getCursors(true)
+        local rows = {}
+
+        local lastLine = nil
+        for _, cursor in ipairs(cursors) do
+            local row
+            if lastLine == cursor.pos[2] then
+                row = rows[#rows]
+            else
+                row = {}
+                rows[#rows + 1] = row
+                lastLine = cursor.pos[2]
+            end
+            row[#row + 1] = cursor.pos[3]
+        end
+
+        local numColumns = reduce(rows,
+            function(n, row) return math.max(n, #row) end, 0)
+
+        for i = 1, numColumns do
+            local maxCol = reduce(rows,
+                function (n, row) return math.max(n, row[i] or 0) end, 0)
+            for _, row in ipairs(rows) do
+                row[i] = maxCol - row[i]
+                for j = i + 1, numColumns do
+                    row[j] = (row[j] or 0) + row[i]
+                end
+            end
+        end
+
+        lastLine = nil
+        local rowIdx = 0
+        local colIdx = 0
+        cursorManager.performMacro(true, function(cursor)
+            if lastLine ~= cursor.pos[2] then
+                lastLine = cursor.pos[2]
+                rowIdx = rowIdx + 1
+                colIdx = 0
+            end
+            colIdx = colIdx + 1
+            local row = rows[rowIdx]
+            local distance = row[colIdx]
+            if distance > 0 then
+                vim.fn.feedkeys(distance .. "i " .. ESC .. "l", "xn")
+            end
+        end)
+        applying = false
+    end
+
     au("ModeChanged", "[vV\x16ns]*:[iR]", function() onInsertMode(true) end);
     au("ModeChanged", "[S\x13]*:[iR]", function() onInsertMode(true, true) end);
     au("ModeChanged", "[iR]:*", function() onInsertMode(false) end);
@@ -896,6 +942,7 @@ function InputManager(nsid, cursorManager)
 
     return {
         clear = clear,
+        alignCursors = alignCursors,
         moveCursor = moveCursor,
         addCursorWithMouse = addCursorWithMouse,
         selectCursor = selectCursor,
@@ -961,6 +1008,10 @@ end
 
 function exports.deleteCursor()
     inputManager.deleteCursor()
+end
+
+function exports.alignCursors()
+    inputManager.alignCursors()
 end
 
 return exports
