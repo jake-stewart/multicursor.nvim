@@ -81,6 +81,7 @@ when you want to collapse your cursors back into one, press `<esc>`.
 | deleteCursor |                    | void    | delete the main cursor                                  |
 | clearCursors |                    | void    | clear all cursors except main cursor                    |
 | handleMouse  |                    | void    | use in a mouse mapping to handle mouse input            |
+| alignCursors |                    | void    | align columns of cursors on multiple lines              |
 
 
 ### tips
