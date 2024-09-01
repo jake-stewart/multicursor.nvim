@@ -21,19 +21,6 @@ https://github.com/user-attachments/assets/3b3554e0-3d62-47a0-a4e1-a4fd16a0ed02
 
         mc.setup()
 
-        -- use MultiCursorCursor and MultiCursorVisual to customize
-        -- additional cursors appearance
-        vim.cmd.hi("link", "MultiCursorCursor", "Cursor")
-        vim.cmd.hi("link", "MultiCursorVisual", "Visual")
-
-        vim.keymap.set("n", "<esc>", function()
-            if mc.hasCursors() then
-                mc.clearCursors()
-            else
-                -- default <esc> handler
-            end
-        end)
-
         -- add cursors above/below the main cursor
         vim.keymap.set({"n", "v"}, "<up>", function() mc.addCursor("k") end)
         vim.keymap.set({"n", "v"}, "<down>", function() mc.addCursor("j") end)
@@ -53,6 +40,41 @@ https://github.com/user-attachments/assets/3b3554e0-3d62-47a0-a4e1-a4fd16a0ed02
 
         -- add and remove cursors with control + left click
         vim.keymap.set("n", "<c-leftmouse>", mc.handleMouse)
+
+        vim.keymap.set({"n", "v"}, "<c-q>", function()
+            if mc.cursorsEnabled() then
+                -- stop other cursors from moving. this allows you to reposition the main cursor
+                mc.disableCursors()
+            else
+                mc.addCursor()
+            end
+        end)
+
+        vim.keymap.set("n", "<esc>", function()
+            if not mc.cursorsEnabled() then
+                mc.enableCursors()
+            elseif mc.hasCursors() then
+                mc.clearCursors()
+            else
+                -- default <esc> handler
+            end
+        end)
+
+        -- split visual selections by regex
+        vim.keymap.set("v", "S", mc.splitCursors) 
+
+        -- match new cursors within visual selections by regex
+        vim.keymap.set({"n", "v"}, "M", mc.matchCursors)
+
+        -- rotate visual selection contents
+        vim.keymap.set("v", "<leader>t", function() mc.transposeCursors(1) end)
+        vim.keymap.set("v", "<leader>T", function() mc.transposeCursors(-1) end)
+
+        -- customize how cursors look
+        vim.cmd.hi("link", "MultiCursorCursor", "Cursor")
+        vim.cmd.hi("link", "MultiCursorVisual", "Visual")
+        vim.cmd.hi("link", "MultiCursorDisabledCursor", "Visual")
+        vim.cmd.hi("link", "MultiCursorDisabledVisual", "Visual")
     end,
 }
 ```
@@ -85,6 +107,9 @@ when you want to collapse your cursors back into one, press `<esc>`.
 | splitCursors     |                    | void    | split visual selections with a regex separator. for example, visually selecting "a,b,c,d" and splitting with "," will create four cursors, one on each letter.                                   |
 | matchCursors     |                    | void    | match a pattern over a visual selection, creating a new cursor for each match. for example, visually selecting "foo bar foo" and matching with "foo" will create two cursors, one on each "foo". |
 | transposeCursors | number             | void    | rotate the contents of each visual selection for each cursor. call with `1` for clockwise rotation and `-1` for anti-clockwise.                                                                  |
+| disableCursors   |                    | void    | locks the cursors from moving. this is useful for repositioning main cursor for adding more cursors                                                                                              |
+| enableCursors    |                    | void    | unlocks the cursors from moving.                                                                                                                                                                 |
+| cursorsEnabled   |                    | boolean | returns whether the cursors are locked from moving.                                                                                                                                              |
 
 
 ### tips
