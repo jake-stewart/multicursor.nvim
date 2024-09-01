@@ -9,6 +9,9 @@ https://github.com/user-attachments/assets/3b3554e0-3d62-47a0-a4e1-a4fd16a0ed02
 - visual, select, normal, insert, and replace modes
 - undo/redo
 - cursor specific registers for searching and yanking
+- match & split cursor selections with regex
+- transpose cursor selections
+- align cursor columns
 - should work with most plugins and remaps
 
 ### example config (lazy.nvim)
@@ -59,6 +62,9 @@ https://github.com/user-attachments/assets/3b3554e0-3d62-47a0-a4e1-a4fd16a0ed02
                 -- default <esc> handler
             end
         end)
+
+        -- align cursor columns
+        vim.keymap.set("n", "<leader>a", mc.alignCursors) 
 
         -- split visual selections by regex
         vim.keymap.set("v", "S", mc.splitCursors) 
