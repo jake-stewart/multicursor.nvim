@@ -1353,8 +1353,8 @@ function exports.handleMouse()
     addCursorWithMouse()
 end
 
-function exports.cursorsDisabled()
-    return inputManager.areCursorsDisabled()
+function exports.cursorsEnabled()
+    return not inputManager.areCursorsDisabled()
 end
 
 function exports.disableCursors()
