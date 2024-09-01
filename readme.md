@@ -69,19 +69,22 @@ when you want to collapse your cursors back into one, press `<esc>`.
 
 
 ### api
-| name         | arguments          | return  | desc                                                    |
-| ------------ | -----------------  | ------- | ------------------------------------------------------- |
-| addCursor    | string \| function | void    | add a cursor and move only the main cursor using motion |
-| skipCursor   | string \| function | void    | move only the main cursor using motion                  |
-| nextCursor   |                    | void    | select the cursor after the main cursor                 |
-| prevCursor   |                    | void    | select the cursor before the main cursor                |
-| firstCursor  |                    | void    | select the first cursor                                 |
-| lastCursor   |                    | void    | select the last cursor                                  |
-| hasCursors   |                    | boolean | returns whether multiple cursors exist                  |
-| deleteCursor |                    | void    | delete the main cursor                                  |
-| clearCursors |                    | void    | clear all cursors except main cursor                    |
-| handleMouse  |                    | void    | use in a mouse mapping to handle mouse input            |
-| alignCursors |                    | void    | align columns of cursors on multiple lines              |
+| name             | arguments          | return  | desc                                                                                                                                                                                             |
+| ------------     | -----------------  | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| addCursor        | string \| function | void    | add a cursor and move only the main cursor using motion                                                                                                                                          |
+| skipCursor       | string \| function | void    | move only the main cursor using motion                                                                                                                                                           |
+| nextCursor       |                    | void    | select the cursor after the main cursor                                                                                                                                                          |
+| prevCursor       |                    | void    | select the cursor before the main cursor                                                                                                                                                         |
+| firstCursor      |                    | void    | select the first cursor                                                                                                                                                                          |
+| lastCursor       |                    | void    | select the last cursor                                                                                                                                                                           |
+| hasCursors       |                    | boolean | returns whether multiple cursors exist                                                                                                                                                           |
+| deleteCursor     |                    | void    | delete the main cursor                                                                                                                                                                           |
+| clearCursors     |                    | void    | clear all cursors except main cursor                                                                                                                                                             |
+| handleMouse      |                    | void    | use in a mouse mapping to handle mouse input                                                                                                                                                     |
+| alignCursors     |                    | void    | align columns of cursors on multiple lines                                                                                                                                                       |
+| splitCursors     |                    | void    | split visual selections with a regex separator. for example, visually selecting "a,b,c,d" and splitting with "," will create four cursors, one on each letter.                                   |
+| matchCursors     |                    | void    | match a pattern over a visual selection, creating a new cursor for each match. for example, visually selecting "foo bar foo" and matching with "foo" will create two cursors, one on each "foo". |
+| transposeCursors | number             | void    | rotate the contents of each visual selection for each cursor. call with `1` for clockwise rotation and `-1` for anti-clockwise.                                                                  |
 
 
 ### tips
