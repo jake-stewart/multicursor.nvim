@@ -13,7 +13,7 @@ local function FeedkeysManager()
                 end
             end
         end
-        originalFeedkeys(macro, mode, escape)
+        return originalFeedkeys(macro, mode, escape)
     end
 
     local function wasFedKeys(typed)
