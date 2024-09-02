@@ -389,6 +389,7 @@ end
 
 local function alignCursors()
     inputManager.performAction(function()
+        local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
         local cursors = cursorManager.getCursors(true)
         local rows = {}
 
@@ -402,7 +403,8 @@ local function alignCursors()
                 rows[#rows + 1] = row
                 lastLine = cursor.pos[2]
             end
-            row[#row + 1] = cursor.pos[3]
+            local col = #lines[cursor.pos[2]] > 0 and cursor.pos[3] or 0
+            row[#row + 1] = col
         end
 
         local numColumns = tbl.reduce(rows,
