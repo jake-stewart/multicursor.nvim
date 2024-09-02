@@ -788,11 +788,12 @@ local function CursorManager(nsid)
     end
 
     local function performMacro(macro, opts)
-        if not hasCursors() then
+        opts = opts or {}
+
+        if not hasCursors() and not opts.mainCursor then
             return;
         end
 
-        opts = opts or {}
         local origCursor = readCursor()
         local origClipboard = vim.o.clipboard;
         vim.o.clipboard = "";
@@ -1302,7 +1303,7 @@ function InputManager(nsid)
                 function (cursor) return visualSelectModes[cursor.mode] end)
             cursors = convertToSingleLineCursors(cursors, lines)
             cursorManager.setCursors(cursors)
-            -- cursorManager.performMacro(ESC, { mainCursor = true })
+            cursorManager.performMacro(ESC, { mainCursor = true })
         end)
     end
 
