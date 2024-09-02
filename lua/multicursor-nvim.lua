@@ -1,3 +1,47 @@
+
+local function FeedkeysManager()
+    local originalFeedkeys = vim.api.nvim_feedkeys
+    local fedKeys = ""
+
+    function vim.api.nvim_feedkeys(macro, mode, escape)
+        if type(mode) == "string" then
+            if string.find(mode, "t") then
+                if string.find(mode, "i") then
+                    fedKeys = macro .. fedKeys
+                else
+                    fedKeys = fedKeys .. macro
+                end
+            end
+        end
+        originalFeedkeys(macro, mode, escape)
+    end
+
+    local function wasFedKeys(typed)
+        if #fedKeys > 0 then
+            local start, _end = string.find(fedKeys, typed, 1, true)
+            if start == 1 and _end then
+                fedKeys = string.sub(fedKeys, _end + 1, #fedKeys)
+                return true
+            else
+                fedKeys = ""
+            end
+        end
+        return false
+    end
+
+    return {
+        feedkeys = originalFeedkeys,
+        wasFedKeys = wasFedKeys,
+    }
+end
+
+local feedkeysManager = FeedkeysManager()
+
+local function feedkeys(macro, opts)
+    local mode = (opts and opts.remap and "" or "n") .. "x"
+    feedkeysManager.feedkeys(macro, mode, false)
+end
+
 local tbl = {}
 
 function tbl.concat(...)
@@ -125,11 +169,6 @@ local CTRL_G = vim.api.nvim_replace_termcodes("<c-g>", true, true, true);
 --     cursors: Cursor[]; (additional cursors)
 --     cursor: Cursor; (main cursor)
 -- }
-
-local function feedkeys(macro, opts)
-    local mode = (opts and opts.remap and "" or "n") .. "x"
-    vim.api.nvim_feedkeys(macro, mode, false)
-end
 
 local function echoerr(message)
     message = type(message) == "string"
@@ -1032,7 +1071,7 @@ function InputManager(nsid)
             cmdType = vim.fn.getcmdtype()
             return
         elseif cmdType then
-            if cmdType == ":" then
+            if cmdType == ":" or cmdType == "@" then
                 cmdType = nil
                 macro = ""
                 return
@@ -1058,6 +1097,9 @@ function InputManager(nsid)
 
     local function onKey(key, typed)
         if applying or inInsertMode then
+            return
+        end
+        if feedkeysManager.wasFedKeys(typed) then
             return
         end
         if macro == "" and (key == "u" or key == CTRL_R or key == ".") then
@@ -1143,10 +1185,13 @@ function InputManager(nsid)
 
     local function matchCursors(pattern)
         performAction(function()
+            pattern = pattern or vim.fn.input("Match: ")
+            if not pattern or pattern == "" then
+                return
+            end
             cursorsDisabled = false
             cursorManager.setDisabled(false)
             local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
-            pattern = pattern or vim.fn.input("Match: ")
             local cursors = cursorManager.getCursors(true)
             cursors = tbl.filter(cursors,
                 function (cursor) return visualSelectModes[cursor.mode] end)
@@ -1190,10 +1235,13 @@ function InputManager(nsid)
 
     local function splitCursors(pattern)
         performAction(function()
+            pattern = pattern or vim.fn.input("Split: ")
+            if not pattern or pattern == "" then
+                return
+            end
             cursorsDisabled = false
             cursorManager.setDisabled(false)
             local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
-            pattern = pattern or vim.fn.input("Split: ")
             local cursors = cursorManager.getCursors(true)
             cursors = tbl.filter(cursors,
                 function (cursor) return visualSelectModes[cursor.mode] end)
@@ -1242,6 +1290,20 @@ function InputManager(nsid)
         end)
     end
 
+    local function visualToCursors()
+        performAction(function()
+            cursorsDisabled = false
+            cursorManager.setDisabled(false)
+            local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+            local cursors = cursorManager.getCursors(true)
+            cursors = tbl.filter(cursors,
+                function (cursor) return visualSelectModes[cursor.mode] end)
+            cursors = convertToSingleLineCursors(cursors, lines)
+            cursorManager.setCursors(cursors)
+            -- cursorManager.performMacro(ESC, { mainCursor = true })
+        end)
+    end
+
     local function transposeCursors(direction)
         performAction(function()
             cursorsDisabled = false
@@ -1265,7 +1327,6 @@ function InputManager(nsid)
             cursorManager.setCursors(cursors)
             cursorManager.performMacro(function()
                 local idx = ((i - direction - 1) % #cursors) + 1
-                vim.print(idx .. "," .. #cursors)
                 i = i + 1
                 feedkeys('"_c' .. values[idx] .. ESC .. "v`<")
             end, {mainCursor = true})
@@ -1305,6 +1366,7 @@ function InputManager(nsid)
         splitCursors = splitCursors,
         matchCursors = matchCursors,
         transposeCursors = transposeCursors,
+        visualToCursors = visualToCursors,
         setCursorsDisabled = setCursorsDisabled,
         areCursorsDisabled = areCursorsDisabled,
         addCursor = addCursor,
@@ -1375,6 +1437,10 @@ end
 
 function exports.transposeCursors(direction)
     inputManager.transposeCursors(direction)
+end
+
+function exports.visualToCursors()
+    inputManager.visualToCursors()
 end
 
 function exports.firstCursor()
