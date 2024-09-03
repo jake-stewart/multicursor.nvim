@@ -440,6 +440,24 @@ local function alignCursors()
     end)
 end
 
+local function getLineRange(cursors)
+    local lines = {}
+    for _, cursor in ipairs(cursors) do
+        lines[#lines + 1] = cursor.pos[2]
+        if cursor.visual[1][2] > 0 then
+            lines[#lines + 1] = cursor.visual[1][2]
+        end
+        if cursor.visual[2][2] > 0 then
+            lines[#lines + 1] = cursor.visual[2][2]
+        end
+    end
+    local min = tbl.reduce(lines,
+        function (a, b) return math.min(a, b) end)
+    local max = tbl.reduce(lines,
+        function (a, b) return math.max(a, b) end)
+    return min, max
+end
+
 
 local function CursorManager(nsid)
     local cursors = {} -- CursorExtmark[];
@@ -903,6 +921,7 @@ local function CursorManager(nsid)
     return {
         undo = undo,
         redo = redo,
+        getLineRange = getLineRange,
         setDisabled = setDisabled,
         setCursors = setCursors,
         hasCursors = hasCursors,
@@ -1117,7 +1136,7 @@ function InputManager(nsid)
         cursorManager.clear()
     end
 
-    local function convertToSingleLineCursors(cursors, lines)
+    local function convertToSingleLineCursors(cursors, lines, offset)
         local newCursors = {}
         for _, cursor in ipairs(cursors) do
             if visualSelectModes[cursor.mode] then
@@ -1136,7 +1155,7 @@ function InputManager(nsid)
                             {
                                 cursor.visual[2][1],
                                 i,
-                                i == cursor.visual[2][2] and cursor.visual[2][3] or #lines[i],
+                                i == cursor.visual[2][2] and cursor.visual[2][3] or #lines[i - offset],
                                 0,
                             },
                         }
@@ -1153,7 +1172,7 @@ function InputManager(nsid)
                         local newCursor = shallow_copy(cursor)
                         newCursor.visual = {
                             { cursor.visual[1][1], i, 1, 0 },
-                            { cursor.visual[2][1], i, #lines[i], 0 },
+                            { cursor.visual[2][1], i, #lines[i - offset], 0 },
                         }
                         local newCursorPos = atVisualEnd
                             and newCursor.visual[2]
@@ -1194,16 +1213,18 @@ function InputManager(nsid)
             end
             cursorsDisabled = false
             cursorManager.setDisabled(false)
-            local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
             local cursors = cursorManager.getCursors(true)
             cursors = tbl.filter(cursors,
                 function (cursor) return visualSelectModes[cursor.mode] end)
-            cursors = convertToSingleLineCursors(cursors, lines)
+            local start, _end = getLineRange(cursors)
+            local offset = start - 1
+            local lines = vim.api.nvim_buf_get_lines(0, offset, _end, false)
+            cursors = convertToSingleLineCursors(cursors, lines, offset)
             local newCursors = {}
             for _, cursor in ipairs(cursors) do
                 local atVisualEnd = cursor.pos[2] == cursor.visual[2][2]
                     and cursor.pos[3] == cursor.visual[2][3]
-                local line = lines[cursor.pos[2]]
+                local line = lines[cursor.pos[2] - offset]
                 local selection = string.sub(line, cursor.visual[1][3], cursor.visual[2][3])
                 local matches = matchlist({selection}, pattern, { userConfig = true })
                 for _, match in ipairs(matches) do
@@ -1244,25 +1265,27 @@ function InputManager(nsid)
             end
             cursorsDisabled = false
             cursorManager.setDisabled(false)
-            local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
             local cursors = cursorManager.getCursors(true)
             cursors = tbl.filter(cursors,
                 function (cursor) return visualSelectModes[cursor.mode] end)
-            cursors = convertToSingleLineCursors(cursors, lines)
+            local start, _end = getLineRange(cursors)
+            local offset = start - 1
+            local lines = vim.api.nvim_buf_get_lines(0, offset, _end, false)
+            cursors = convertToSingleLineCursors(cursors, lines, offset)
             local newCursors = {}
-            local function pushCursor(cursor, atVisualEnd, start, _end)
+            local function pushCursor(cursor, atVisualEnd, startCol, endCol)
                 local newCursor = shallow_copy(cursor)
                 newCursor.visual = {
                     {
                         cursor.visual[1][1],
                         cursor.pos[2],
-                        cursor.visual[1][3] + start,
+                        cursor.visual[1][3] + startCol,
                         0,
                     },
                     {
                         cursor.visual[2][1],
                         cursor.pos[2],
-                        cursor.visual[1][3] + _end,
+                        cursor.visual[1][3] + endCol,
                         0,
                     }
                 }
@@ -1275,7 +1298,7 @@ function InputManager(nsid)
             for _, cursor in ipairs(cursors) do
                 local atVisualEnd = cursor.pos[2] == cursor.visual[2][2]
                     and cursor.pos[3] == cursor.visual[2][3]
-                local line = lines[cursor.pos[2]]
+                local line = lines[cursor.pos[2] - offset]
                 local selection = string.sub(line, cursor.visual[1][3], cursor.visual[2][3])
                 local matches = matchlist({selection}, pattern, { userConfig = true })
                 local nextIdx = 0
@@ -1297,11 +1320,13 @@ function InputManager(nsid)
         performAction(function()
             cursorsDisabled = false
             cursorManager.setDisabled(false)
-            local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
             local cursors = cursorManager.getCursors(true)
             cursors = tbl.filter(cursors,
                 function (cursor) return visualSelectModes[cursor.mode] end)
-            cursors = convertToSingleLineCursors(cursors, lines)
+            local start, _end = getLineRange(cursors)
+            local offset = start - 1
+            local lines = vim.api.nvim_buf_get_lines(0, offset, _end, false)
+            cursors = convertToSingleLineCursors(cursors, lines, offset)
             cursorManager.setCursors(cursors)
             cursorManager.performMacro(ESC, { mainCursor = true })
         end)
@@ -1311,13 +1336,15 @@ function InputManager(nsid)
         performAction(function()
             cursorsDisabled = false
             cursorManager.setDisabled(false)
-            local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
             local cursors = cursorManager.getCursors(true)
             cursors = tbl.filter(cursors,
                 function (cursor) return visualSelectModes[cursor.mode] end)
-            cursors = convertToSingleLineCursors(cursors, lines)
+            local start, _end = getLineRange(cursors)
+            local offset = start - 1
+            local lines = vim.api.nvim_buf_get_lines(0, offset, _end, false)
+            cursors = convertToSingleLineCursors(cursors, lines, offset)
             local values = tbl.map(cursors, function(cursor)
-                local line = lines[cursor.pos[2]]
+                local line = lines[cursor.pos[2] - offset]
                 return string.sub(line, cursor.visual[1][3], cursor.visual[2][3])
             end)
 
