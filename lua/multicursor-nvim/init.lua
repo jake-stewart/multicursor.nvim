@@ -48,8 +48,6 @@ function mc.clearCursors()
     cursorManager:clear()
 end
 
-vim.o.hlsearch = false
-
 local function addCursor(motion, opts)
     mc.action(function(ctx)
         opts = opts or {}

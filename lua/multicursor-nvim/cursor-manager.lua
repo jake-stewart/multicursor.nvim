@@ -409,6 +409,7 @@ function Cursor:select()
     cursorCtx:setMainCursor(self)
 end
 
+--- @return boolean
 function Cursor:atVisualStart()
     return self._pos[2] < self._v[2]
         or self._pos[2] == self._v[2]
