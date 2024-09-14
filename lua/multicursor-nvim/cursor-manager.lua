@@ -543,6 +543,7 @@ end
 local function cursorResetLastChange(cursor)
     cursor._modifiedId = state.modifiedId
     cursor._pos = { table.unpack(cursor._changePos) }
+    cursor._mode = "n"
     cursor._pos[3] = math.min(cursor._pos[3], #cursor:getLine())
     cursor._pos[5] = cursor._pos[3]
 end

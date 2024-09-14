@@ -149,7 +149,10 @@ function InputManager:_onKey(key, typed)
     if feedkeysManager:wasFedKeys(typed) then
         return
     end
-    if self._macro == "" and (key == "u" or key == TERM_CODES.CTRL_R or key == ".") then
+    if not self._cmdType
+        and self._macro == ""
+        and (key == "u" or key == TERM_CODES.CTRL_R or key == ".")
+    then
         self._specialKey = key
     else
         self._macro = self._macro .. typed
