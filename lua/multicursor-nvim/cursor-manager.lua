@@ -38,10 +38,10 @@ end
 --- 1-indexed line and column.
 --- @alias SimplePos [integer, integer]
 
--- see :h getcurpos()
+--- See :h getcurpos()
 --- @alias CursorPos [integer, integer, integer, integer, integer]
 
--- see :h getpos()
+--- See :h getpos()
 --- @alias MarkPos [integer, integer, integer, integer]
 
 --- @enum CursorState

@@ -3,13 +3,13 @@ local tbl = require("multicursor-nvim.tbl")
 local util = require("multicursor-nvim.util")
 local TERM_CODES = require("multicursor-nvim.term-codes")
 
--- all of the default actions like match, select, transpose
+-- All of the default actions like match, select, transpose
 -- are implemented using the same api provided to users.
 --
--- this file should be a good reference if you want to
+-- This file should be a good reference if you want to
 -- implement your own complex logic.
 --
--- if you feel like something is missing from the api then
+-- If you feel like something is missing from the api then
 -- please open an issue.
 
 local examples = {}
