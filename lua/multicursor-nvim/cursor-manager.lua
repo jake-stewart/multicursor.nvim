@@ -490,6 +490,7 @@ local function cursorErase(cursor)
         for _, id in ipairs(cursor._visualIds) do
             del_extmark(0, state.nsid, id)
         end
+        cursor._visualIds = nil
     end
 end
 
