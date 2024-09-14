@@ -6,7 +6,7 @@ function util.echoerr(message)
     vim.api.nvim_echo({{message, "Error"}}, false, {})
 end
 
---- wraps `:h matchstrlist()` and allow injecting user options
+--- Wraps `:h matchstrlist()` and allow injecting user options
 --- for `:h smartcase`, `:h ignorecase`, and `:h magic`
 --- @param lines string[]
 --- @param pattern string
@@ -30,7 +30,7 @@ function util.matchlist(lines, pattern, opts)
     return vim.fn.matchstrlist(lines, pattern)
 end
 
---- simple vimscript-esque autocommand wrapper
+--- Simple vimscript-esque autocommand wrapper
 --- @param event string
 --- @param pattern string
 --- @param callback function

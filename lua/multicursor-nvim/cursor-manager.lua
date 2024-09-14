@@ -35,7 +35,7 @@ local function compareCursorsPosition(a, b)
     return a._pos[2] < b._pos[2]
 end
 
---- 1-indexed line and column
+--- 1-indexed line and column.
 --- @alias SimplePos [integer, integer]
 
 -- see :h getcurpos()
@@ -560,7 +560,7 @@ local function cursorContextSetMainCursor(cursor)
     state.mainCursor = cursor
 end
 
---- when cursors are disabled, only the main cursor can be interacted with
+--- When cursors are disabled, only the main cursor can be interacted with.
 --- @param value boolean
 function CursorContext:setCursorsEnabled(value)
     if value ~= state.enabled then
@@ -573,7 +573,7 @@ function CursorContext:setCursorsEnabled(value)
     end
 end
 
---- returns a list of cursors, sorted by their position
+--- Returns a list of cursors, sorted by their position.
 --- @return Cursor[]
 function CursorContext:getCursors()
     if not state.enabled then
@@ -586,13 +586,13 @@ function CursorContext:getCursors()
     return cursors
 end
 
---- util which executes callback for each cursor, sorted by their position
+--- Util which executes callback for each cursor, sorted by their position.
 --- @param callback fun(cursor: Cursor, i: integer, t: Cursor[]): boolean | nil
 function CursorContext:forEachCursor(callback)
     tbl.forEach(self:getCursors(), callback)
 end
 
---- util method which maps each cursor to a value
+--- Util method which maps each cursor to a value.
 --- @generic T
 --- @param callback fun(cursor: Cursor, i: integer, t: Cursor[]): T
 --- @return T[]
@@ -600,17 +600,17 @@ function CursorContext:mapCursors(callback)
     return tbl.map(self:getCursors(), callback)
 end
 
---- util method which returns the first cursor matching the predicate
+--- Util method which returns the first cursor matching the predicate.
 --- @param predicate fun(cursor: Cursor, i: integer, t: Cursor[]): any
 --- @return Cursor | nil
 function CursorContext:findCursor(predicate)
     return tbl.find(self:getCursors(), predicate)
 end
 
---- returns the closest cursor which appears AFTER pos
---- a cursor exactly at pos will not be returned
---- it does not wrap, so if none are found, then nil is returned
---- if you wish to wrap, use `ctx:nextCursor(...) or ctx:firstCursor(...)`
+--- Returns the closest cursor which appears AFTER pos.
+--- A cursor exactly at pos will not be returned.
+--- It does not wrap, so if none are found, then nil is returned.
+--- If you wish to wrap, use `ctx:nextCursor(...) or ctx:firstCursor(...)`.
 --- @param pos SimplePos
 --- @return Cursor | nil
 function CursorContext:nextCursor(pos)
@@ -633,10 +633,10 @@ function CursorContext:nextCursor(pos)
     return nextCursor
 end
 
---- returns the closest cursor which appears BEFORE pos
---- a cursor exactly at pos will not be returned
---- it does not wrap, so if none are found, then nil is returned
---- if you wish to wrap, use `ctx:prevCursor(...) or ctx:lastCursor(...)`
+--- Returns the closest cursor which appears BEFORE pos.
+--- A cursor exactly at pos will not be returned.
+--- It does not wrap, so if none are found, then nil is returned.
+--- If you wish to wrap, use `ctx:prevCursor(...) or ctx:lastCursor(...)`.
 --- @param pos SimplePos
 --- @return Cursor | nil
 function CursorContext:prevCursor(pos)
@@ -659,8 +659,8 @@ function CursorContext:prevCursor(pos)
     return prevCursor
 end
 
---- returns the nearest cursor to pos, and accepts a cursor exactly at pos.
---- it is guarenteed to find a cursor.
+--- Returns the nearest cursor to pos, and accepts a cursor exactly at pos.
+--- It is guarenteed to find a cursor.
 --- @param pos SimplePos
 --- @return Cursor
 function CursorContext:nearestCursor(pos)
@@ -686,7 +686,7 @@ function CursorContext:nearestCursor(pos)
     return nearestCursor or self:mainCursor()
 end
 
---- returns the main cursor (the real one)
+--- Returns the main cursor (the real one).
 --- @return Cursor
 function CursorContext:mainCursor()
     if not state.mainCursor then
@@ -701,8 +701,8 @@ function CursorContext:mainCursor()
     return state.mainCursor
 end
 
---- returns the cursor closest to the start of the document
---- guarenteed to find a cursor
+--- Returns the cursor closest to the start of the document.
+--- Guarenteed to find a cursor.
 --- @return Cursor
 function CursorContext:firstCursor()
     local firstCursor
@@ -719,8 +719,8 @@ function CursorContext:firstCursor()
     return firstCursor
 end
 
---- returns the cursor closest to the end of the document
---- guarenteed to find a cursor
+--- Returns the cursor closest to the end of the document.
+--- Guarenteed to find a cursor.
 --- @return Cursor
 function CursorContext:lastCursor()
     local lastCursor
@@ -738,21 +738,21 @@ function CursorContext:lastCursor()
     return lastCursor
 end
 
---- returns this cursors current line number, 1 indexed
+--- Returns this cursors current line number, 1 indexed.
 --- @return integer
 function Cursor:line()
     cursorCheckUpdate(self)
     return self._pos[2]
 end
 
---- returns this cursors current column number, 1 indexed
+--- Returns this cursors current column number, 1 indexed.
 --- @return integer
 function Cursor:col()
     cursorCheckUpdate(self)
     return self._pos[3]
 end
 
---- returns the full line text of where this cursor is located
+--- Returns the full line text of where this cursor is located.
 --- @return string
 function Cursor:getLine()
     cursorCheckUpdate(self)
@@ -760,10 +760,10 @@ function Cursor:getLine()
         0, self._pos[2] - 1, self._pos[2], true)[1]
 end
 
---- deletes this cursor
---- if this is the main cursor then the closest cursor to it
+--- Deletes this cursor.
+--- If this is the main cursor then the closest cursor to it.
 --- is set as the new main cursor.
---- if this is the last remaining cursor, a new cursor is created
+--- If this is the last remaining cursor, a new cursor is created
 --- at its position.
 function Cursor:delete()
     self._state = CursorState.deleted
@@ -773,19 +773,19 @@ function Cursor:delete()
     end
 end
 
---- sets this cursor as the main cursor (the real one)
+--- Sets this cursor as the main cursor (the real one).
 function Cursor:select()
     cursorContextSetMainCursor(self)
 end
 
---- returns whether this cursor is the main cursor (the real one)
+--- Returns whether this cursor is the main cursor (the real one).
 --- @return boolean | nil
 function Cursor:isMainCursor()
     return self == state.mainCursor
 end
 
---- a cursor can either be at the start or end of a visual selection.
---- for example, if you select lines 10-20, your cursor can either be
+--- A cursor can either be at the start or end of a visual selection.
+--- For example, if you select lines 10-20, your cursor can either be
 --- on line 10 (start) or 20 (end). this method returns true when at
 --- the start.
 --- @return boolean
@@ -795,10 +795,9 @@ function Cursor:atVisualStart()
         and self._pos[3] <= self._vPos[3]
 end
 
---- for each line of the cursor's visual selection,
---- a new cursor is created, visually selecting only
---- the single line.
---- this method deletes the original cursor.
+--- For each line of the cursor's visual selection, a new cursor is
+--- created, visually selecting only the single line.
+--- This method deletes the original cursor.
 function Cursor:splitVisualLines()
     cursorCheckUpdate(self)
     local visualInfo = VISUAL_LOOKUP[self._mode]
@@ -821,7 +820,7 @@ function Cursor:setPos(pos)
     cursorSetMarks(self)
 end
 
---- returns a new cursor with the same position, registers,
+--- Returns a new cursor with the same position, registers,
 --- visual selection, and mode as this cursor.
 --- @return Cursor
 function Cursor:clone()
@@ -845,7 +844,7 @@ function Cursor:clone()
     return cursor
 end
 
---- returns only the text contained in each line of the visual selection
+--- Returns only the text contained in each line of the visual selection.
 --- @return string[]
 function Cursor:getVisualLines()
     cursorCheckUpdate(self)
@@ -855,7 +854,7 @@ function Cursor:getVisualLines()
     })
 end
 
---- returns the full line for each line of the visual selection
+--- Returns the full line for each line of the visual selection.
 --- @return string[]
 function Cursor:getFullVisualLines()
     cursorCheckUpdate(self)
@@ -863,8 +862,8 @@ function Cursor:getFullVisualLines()
         0, self._visual[1][2] - 1, self._visual[2][2], true)
 end
 
---- returns start and end positions of visual selection
---- start position is before or equal to end position
+--- Returns start and end positions of visual selection start position
+--- is before or equal to end position.
 --- @return SimplePos, SimplePos
 function Cursor:getVisual()
     cursorCheckUpdate(self)
@@ -884,23 +883,23 @@ function Cursor:getVisual()
         {self._visual[2][2], self._visual[2][3]}
 end
 
---- returns this cursor's current mode.
---- it should only ever be in normal, visual, or select modes.
+--- Returns this cursor's current mode.
+--- It should only ever be in normal, visual, or select modes.
 --- @return string: "n" | "v" | "V" | <c-v> | "s" | "S" | <c-s>
 function Cursor:mode()
     return self._mode
 end
 
---- sets this cursor's mode.
---- it should only ever be in normal, visual, or select modes.
+--- Sets this cursor's mode.
+--- It should only ever be in normal, visual, or select modes.
 --- @param mode string: "n" | "v" | "V" | <c-v> | "s" | "S" | <c-s>
 function Cursor:setMode(mode)
     self._mode = mode
 end
 
---- makes the cursor perform a command/commands.
---- for example, cursor:feedkeys('dw') will delete a word.
---- by default, keys are not remapped and keycodes are not parsed.
+--- Makes the cursor perform a command/commands.
+--- For example, cursor:feedkeys('dw') will delete a word.
+--- By default, keys are not remapped and keycodes are not parsed.
 --- @param keys string
 --- @param opts? { remap?: boolean, keycodes?: boolean }
 function Cursor:feedkeys(keys, opts)
@@ -917,7 +916,7 @@ function Cursor:feedkeys(keys, opts)
     end
 end
 
---- sets the visual selection and sets the cursor position to visualEnd
+--- Sets the visual selection and sets the cursor position to `visualEnd`.
 --- @param visualStart SimplePos
 --- @param visualEnd SimplePos
 function Cursor:setVisual(visualStart, visualEnd)
@@ -949,13 +948,13 @@ function Cursor:setVisual(visualStart, visualEnd)
     cursorSetMarks(self)
 end
 
---- returns true if in visual or select mode
+--- Returns true if in visual or select mode.
 --- @return boolean
 function Cursor:inVisualMode()
     return not not VISUAL_LOOKUP[self._mode]
 end
 
---- when cursors are disabled, only the main cursor can be interacted with
+--- When cursors are disabled, only the main cursor can be interacted with.
 --- @return boolean
 function CursorContext:cursorsEnabled()
     return state.enabled

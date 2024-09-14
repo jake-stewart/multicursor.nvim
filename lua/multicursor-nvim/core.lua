@@ -42,7 +42,7 @@ function core.feedkeys(keys, remap, escape_ks)
     )
 end
 
---- returns whether multiple cursors exist
+--- Returns whether multiple cursors exist
 --- @return boolean
 function core.hasCursors()
     return cursorManager:hasCursors()
