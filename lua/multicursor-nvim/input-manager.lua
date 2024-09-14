@@ -88,11 +88,12 @@ function InputManager:_onSafeState()
     if self._applying or self._inInsertMode then
         return
     end
-    if vim.fn.mode() == "c" then
-        self._cmdType = vim.fn.getcmdtype()
+    local cmdType = vim.fn.getcmdtype()
+    if cmdType ~= "" then
+        self._cmdType = cmdType
         return
     elseif self._cmdType then
-        if self._cmdType == ":" or self._cmdType == "@" then
+        if self._cmdType == ":" then
             self._cmdType = nil
             self._macro = ""
             return
