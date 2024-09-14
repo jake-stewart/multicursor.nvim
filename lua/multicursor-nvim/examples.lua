@@ -285,7 +285,7 @@ function examples.visualToCursors()
     end)
 end
 
-function examples.insertVisualStart()
+function examples.insertVisual()
     local mode = vim.fn.mode()
     mc.action(function(ctx)
         ctx:forEachCursor(function(cursor)
@@ -303,7 +303,7 @@ function examples.insertVisualStart()
     mc.feedkeys(mode == TERM_CODES.CTRL_V and "i" or "I")
 end
 
-function examples.insertVisualEnd()
+function examples.appendVisual()
     local mode = vim.fn.mode()
     mc.action(function(ctx)
         ctx:forEachCursor(function(cursor)
