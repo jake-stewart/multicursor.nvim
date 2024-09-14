@@ -848,10 +848,12 @@ end
 --- @return string[]
 function Cursor:getVisualLines()
     cursorCheckUpdate(self)
-    if self._vPos[2] == self._pos[2] then
-        return { self:getLine() }
+    local vPos = self._vPos
+    if vPos[3] == 0 then
+        vPos = { table.unpack(vPos) }
+        vPos[3] = 1
     end
-    return vim.fn.getregion(self._vPos, self._pos, {
+    return vim.fn.getregion(vPos, self._pos, {
         type = VISUAL_LOOKUP[self._mode].visual,
         exclusive = false
     })
