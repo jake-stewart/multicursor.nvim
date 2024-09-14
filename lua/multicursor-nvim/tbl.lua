@@ -28,6 +28,15 @@ end
 
 --- @generic T
 --- @param t T[]
+--- @param callback fun(v: T, i: integer, t: T[])
+function tbl.forEach(t, callback)
+    for i, v in ipairs(t) do
+        callback(v, i, t)
+    end
+end
+
+--- @generic T
+--- @param t T[]
 --- @callback fun(v: T, i: integer, t: T[]): any
 --- @return T[]
 function tbl.filter(t, callback)

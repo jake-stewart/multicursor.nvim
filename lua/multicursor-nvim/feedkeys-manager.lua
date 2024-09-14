@@ -2,19 +2,11 @@
 --- @field feedkeys function
 --- @field private _fedKeys string
 local FeedkeysManager = {}
-FeedkeysManager.__index = FeedkeysManager
-
---- @return FeedkeysManager
-local function newFeedkeysManager()
-    --- @type FeedkeysManager
-    local fields = {
-        feedkeys = vim.api.nvim_feedkeys,
-        _fedKeys = "",
-    }
-    return setmetatable(fields, FeedkeysManager)
-end
 
 function FeedkeysManager:setup()
+    self.feedkeys = vim.api.nvim_feedkeys
+    self._fedKeys = ""
+
     function vim.api.nvim_feedkeys(macro, mode, escape)
         if type(mode) == "string" then
             if string.find(mode, "t") then
@@ -58,5 +50,4 @@ function FeedkeysManager:wasFedKeys(typed)
     return false
 end
 
-
-return newFeedkeysManager()
+return FeedkeysManager

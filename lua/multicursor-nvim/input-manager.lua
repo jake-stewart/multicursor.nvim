@@ -1,11 +1,6 @@
 local TERM_CODES = require("multicursor-nvim.term-codes")
 local feedkeysManager = require("multicursor-nvim.feedkeys-manager")
-
-local function echoerr(message)
-    message = type(message) == "string"
-        and message or vim.inspect(message)
-    vim.api.nvim_echo({ { message, "Error" } }, false, {})
-end
+local util = require("multicursor-nvim.util")
 
 --- @class InputManager
 --- @field private _nsid number
@@ -17,22 +12,39 @@ end
 --- @field private _specialKey string | nil
 --- @field private _fromSelectMode boolean
 local InputManager = {}
-InputManager.__index = InputManager
 
 --- @param nsid number
 --- @param cursorManager CursorManager
---- @return InputManager
-local function newInputManager(nsid, cursorManager)
-    --- @type InputManager
-    local fields = {
-        _nsid = nsid,
-        _cursorManager = cursorManager,
-        _inInsertMode = false,
-        _applying = false,
-        _macro = "",
-        _fromSelectMode = false
-    }
-    return setmetatable(fields, InputManager)
+function InputManager:setup(nsid, cursorManager)
+    self._nsid = nsid
+    self._cursorManager = cursorManager
+    self._inInsertMode = false
+    self._applying = false
+    self._macro = ""
+    self._fromSelectMode = false
+
+    util.au("ModeChanged", "[vV\x16ns]*:[iR]", function()
+        self:_onInsertMode(true)
+    end)
+
+    util.au("ModeChanged", "[S\x13]*:[iR]", function()
+        self:_onInsertMode(true, true)
+    end)
+
+    util.au("ModeChanged", "[iR]:*", function()
+        self:_onInsertMode(false)
+    end)
+
+    util.au("SafeState", "*", function()
+        self:_onSafeState()
+    end)
+
+    vim.on_key(
+        function (key, typed)
+            self:_onKey(key, typed)
+        end,
+        self._nsid
+    )
 end
 
 --- @param callback function
@@ -46,26 +58,12 @@ function InputManager:performAction(callback)
     local success, err = pcall(callback)
     self._applying = false
     if not success then
-        echoerr(err)
+        util.echoerr(err)
     end
-end
-
-function InputManager:setup()
-    local function au(event, pattern, callback)
-        vim.api.nvim_create_autocmd(event, {
-            pattern = pattern,
-            callback = callback
-        })
-    end
-    au("ModeChanged", "[vV\x16ns]*:[iR]", function() self:onInsertMode(true) end)
-    au("ModeChanged", "[S\x13]*:[iR]", function() self:onInsertMode(true, true) end)
-    au("ModeChanged", "[iR]:*", function() self:onInsertMode(false) end)
-    au("SafeState", "*", function() self:onSafeState() end)
-    vim.on_key(function (key, typed) self:onKey(key, typed) end, self._nsid)
 end
 
 --- @private
-function InputManager:onInsertMode(enabled, selectMode)
+function InputManager:_onInsertMode(enabled, selectMode)
     if self._applying then
         return
     end
@@ -86,7 +84,7 @@ function InputManager:onInsertMode(enabled, selectMode)
 end
 
 --- @private
-function InputManager:onSafeState()
+function InputManager:_onSafeState()
     if self._applying or self._inInsertMode then
         return
     end
@@ -105,40 +103,46 @@ function InputManager:onSafeState()
     if self._specialKey then
         self._cursorManager:dirty()
         if self._specialKey == "u" then
-            self._cursorManager:undo()
+            self._cursorManager:loadUndoItem(-1)
         elseif self._specialKey == TERM_CODES.CTRL_R then
-            self._cursorManager:redo()
+            self._cursorManager:loadUndoItem(1)
         elseif self._specialKey == "." then
             if self._cursorManager:hasCursors() then
                 self._cursorManager:action(function(ctx)
-                    ctx:forEach(function(cursor)
+                    ctx:forEachCursor(function(cursor)
                         if not cursor:isMainCursor() then
-                            cursor:perform(".")
+                            cursor:feedkeys(".")
                         end
                     end)
                 end)
             end
         end
         self._specialKey = nil
-    elseif self._cursorManager:cursorsEnabled() and #self._macro > 0 then
-        if self._cursorManager:hasCursors() then
+    elseif #self._macro > 0 and self._cursorManager:hasCursors() then
+        if self._cursorManager:cursorsEnabled() then
             self._cursorManager:dirty()
             self._cursorManager:action(function(ctx)
-                ctx:forEach(function(cursor)
+                ctx:forEachCursor(function(cursor)
                     if not cursor:isMainCursor() then
-                        cursor:perform(self._macro, { remap = true })
+                        cursor:feedkeys(self._macro, { remap = true })
                     end
                 end)
             end)
+        else
+            -- to update the undo list
+            self._cursorManager:action(function() end)
         end
+    else
+        -- to update the undo list
+        self._cursorManager:action(function() end)
     end
     self._macro = ""
     self._applying = false
 end
 
 --- @private
-function InputManager:onKey(key, typed)
-    if self._applying or self._inInsertMode then
+function InputManager:_onKey(key, typed)
+    if self._applying or self._inInsertMode or self._specialKey then
         return
     end
     if feedkeysManager:wasFedKeys(typed) then
@@ -151,4 +155,4 @@ function InputManager:onKey(key, typed)
     end
 end
 
-return newInputManager
+return InputManager
