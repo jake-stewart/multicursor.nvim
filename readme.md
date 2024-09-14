@@ -4,7 +4,7 @@ Multiple cursors in Neovim which work how you expect.
 
 https://github.com/user-attachments/assets/3b3554e0-3d62-47a0-a4e1-a4fd16a0ed02
 
-### Features
+## Features
 
 - Visual and select modes with char/line/block selections.
 - Normal, insert, replace modes.
@@ -18,7 +18,7 @@ https://github.com/user-attachments/assets/3b3554e0-3d62-47a0-a4e1-a4fd16a0ed02
   which all the default features are implemented with.
 - Works with most plugins and remaps.
 
-### Example Config (lazy.nvim)
+## Example Config (lazy.nvim)
 
 ```lua
 {
@@ -94,27 +94,27 @@ https://github.com/user-attachments/assets/3b3554e0-3d62-47a0-a4e1-a4fd16a0ed02
 }
 ```
 
-### How to Use
+## How to Use
 This section explains the basic usage of multicursor.nvim with the default config.
 
-##### Selecting Cursors
+#### Selecting Cursors
 You can add cursors above/below the current cursor with `<up>` and `<down>`.
 You can match the word under the cursor with `<c-n>` or `<c-s>` to skip.
 You can also use the mouse with `<c-leftmouse>`.
 
-##### Using the Cursors
+#### Using the Cursors
 Once you have your cursors, you use vim normally as you would
 with a single cursor.
 
-##### Finished
+#### Finished
 When you want to collapse your cursors back into one, press `<esc>`.
 
-##### Getting More Advanced
+#### Getting More Advanced
 Read the comments in the default config for each mapping and experiment
 with them. You are free to remap or remove any bindings you like.
 If you want to do something more complex, see the Cursor API section.
 
-### Features Documentation
+## Features Documentation
 | name             | arguments          | return  | desc                                                                                                                                                                                             |
 | ------------     | -----------------  | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | addCursor        | string             | void    | Add a cursor and move only the main cursor using motion.                                                                                                                                         |
@@ -139,7 +139,7 @@ If you want to do something more complex, see the Cursor API section.
 | feedkeys         | string, table?     | void    | Use instead of `vim.fn.feedkeys()` or `vim.api.nvim_feedkeys()` in multicursor mappings to avoid bugs. Opts are `{ remap?: boolean, keycodes?: boolean }`.                                       |
 | action           | function           | void    | Perform a complex action using the Cursor API. See below for details.                                                                                                                            |
 
-### Cursor API
+## Cursor API
 All of the provided features are implemented using the Cursor API, which is
 accessible for writing your own complex multi-cursor logic.
 
@@ -169,7 +169,7 @@ And that's it. You can view `lua/multicursor-nvim/examples.lua` to
 see all the default features implemented using the Cursor API.
 Or, you can read the prototypes below.
 
-#### Cursor
+### Cursor
 ```lua
 --- Returns this cursors current line number, 1 indexed.
 --- @return integer
@@ -260,7 +260,7 @@ function Cursor:setVisual(visualStart, visualEnd)
 function Cursor:inVisualMode()
 ```
 
-#### CursorContext
+### CursorContext
 ```lua
 --- Returns a list of cursors, sorted by their position.
 --- @return Cursor[]
