@@ -15,14 +15,14 @@ local function undoItemId(cur)
     return vim.fn.bufnr() .. ":" .. cur
 end
 
---- @param macro string
+--- @param keys string
 --- @param opts? { remap?: boolean, keycodes?: boolean }
-local function feedkeys(macro, opts)
-    local mode = (opts and opts.remap and "" or "n") .. "x"
-    macro = opts and opts.keycodes
-        and replace_termcodes(macro, true, true, true)
-        or macro
-    feedkeysManager.feedkeys(macro, mode, false)
+local function feedkeys(keys, opts)
+    local mode = opts and opts.remap and "x" or "xn"
+    if opts and opts.keycodes then
+        keys = replace_termcodes(keys, true, true, true)
+    end
+    feedkeysManager.feedkeys(keys, mode, false)
 end
 
 --- @param a Cursor

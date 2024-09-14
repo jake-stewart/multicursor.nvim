@@ -32,14 +32,15 @@ function core.action(callback)
 end
 
 --- @param keys string
---- @param remap? boolean
---- @param escape_ks? boolean
-function core.feedkeys(keys, remap, escape_ks)
-    feedkeysManager.feedkeys(
-        keys,
-        remap and "t" or "tn",
-        escape_ks or false
-    )
+--- @param opts? { remap?: boolean, keycodes?: boolean }
+function core.feedkeys(keys, opts)
+    opts = opts or {}
+    local mode = opts and opts.remap and "t" or "tn"
+    if opts and opts.keycodes then
+        keys = vim.api.nvim_replace_termcodes(
+            keys, true, true, true)
+    end
+    feedkeysManager.feedkeys(keys, mode, false)
 end
 
 --- Returns whether multiple cursors exist
