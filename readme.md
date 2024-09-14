@@ -1,20 +1,24 @@
 # multicursor.nvim
 
-multiple cursors in neovim which work how you expect.
+Multiple cursors in Neovim which work how you expect.
 
 https://github.com/user-attachments/assets/3b3554e0-3d62-47a0-a4e1-a4fd16a0ed02
 
-### features
+### Features
 
-- visual, select, normal, insert, and replace modes
-- undo/redo
-- cursor specific registers for searching and yanking
-- match & split cursor selections with regex
-- transpose cursor selections
-- align cursor columns
-- should work with most plugins and remaps
+- Visual and select modes with char/line/block selections.
+- Normal, insert, replace modes.
+- Undo/redo
+- Virtualedit
+- Cursor specific registers for searching and yanking.
+- Match & split cursor selections with regex.
+- Transpose cursor selections.
+- Align cursor columns.
+- Easily extend with your own ideas thanks to the Cursor API,
+  which all the default features are implemented with.
+- Works with most plugins and remaps.
 
-### example config (lazy.nvim)
+### Example Config (lazy.nvim)
 
 ```lua
 {
@@ -24,29 +28,30 @@ https://github.com/user-attachments/assets/3b3554e0-3d62-47a0-a4e1-a4fd16a0ed02
 
         mc.setup()
 
-        -- add cursors above/below the main cursor
+        -- Add cursors above/below the main cursor.
         vim.keymap.set({"n", "v"}, "<up>", function() mc.addCursor("k") end)
         vim.keymap.set({"n", "v"}, "<down>", function() mc.addCursor("j") end)
 
-        -- add a cursor and jump to the next word under cursor
+        -- Add a cursor and jump to the next word under cursor.
         vim.keymap.set({"n", "v"}, "<c-n>", function() mc.addCursor("*") end)
 
-        -- jump to the next word under cursor but do not add a cursor
+        -- Jump to the next word under cursor but do not add a cursor.
         vim.keymap.set({"n", "v"}, "<c-s>", function() mc.skipCursor("*") end)
 
-        -- rotate the main cursor
+        -- Rotate the main cursor.
         vim.keymap.set({"n", "v"}, "<left>", mc.nextCursor)
         vim.keymap.set({"n", "v"}, "<right>", mc.prevCursor)
 
-        -- delete the main cursor
+        -- Delete the main cursor.
         vim.keymap.set({"n", "v"}, "<leader>x", mc.deleteCursor)
 
-        -- add and remove cursors with control + left click
+        -- Add and remove cursors with control + left click.
         vim.keymap.set("n", "<c-leftmouse>", mc.handleMouse)
 
         vim.keymap.set({"n", "v"}, "<c-q>", function()
             if mc.cursorsEnabled() then
-                -- stop other cursors from moving. this allows you to reposition the main cursor
+                -- Stop other cursors from moving.
+                -- This allows you to reposition the main cursor.
                 mc.disableCursors()
             else
                 mc.addCursor()
@@ -59,24 +64,28 @@ https://github.com/user-attachments/assets/3b3554e0-3d62-47a0-a4e1-a4fd16a0ed02
             elseif mc.hasCursors() then
                 mc.clearCursors()
             else
-                -- default <esc> handler
+                -- Default <esc> handler.
             end
         end)
 
-        -- align cursor columns
+        -- Align cursor columns.
         vim.keymap.set("n", "<leader>a", mc.alignCursors) 
 
-        -- split visual selections by regex
-        vim.keymap.set("v", "S", mc.splitCursors) 
+        -- Split visual selections by regex.
+        vim.keymap.set("v", "S", mc.splitCursors)
 
-        -- match new cursors within visual selections by regex
+        -- Append/insert for each line of visual selections.
+        vim.keymap.set("v", "I", mc.insertVisual)
+        vim.keymap.set("v", "A", mc.appendVisual)
+
+        -- match new cursors within visual selections by regex.
         vim.keymap.set({"n", "v"}, "M", mc.matchCursors)
 
-        -- rotate visual selection contents
+        -- Rotate visual selection contents.
         vim.keymap.set("v", "<leader>t", function() mc.transposeCursors(1) end)
         vim.keymap.set("v", "<leader>T", function() mc.transposeCursors(-1) end)
 
-        -- customize how cursors look
+        -- Customize how cursors look.
         vim.cmd.hi("link", "MultiCursorCursor", "Cursor")
         vim.cmd.hi("link", "MultiCursorVisual", "Visual")
         vim.cmd.hi("link", "MultiCursorDisabledCursor", "Visual")
@@ -85,50 +94,240 @@ https://github.com/user-attachments/assets/3b3554e0-3d62-47a0-a4e1-a4fd16a0ed02
 }
 ```
 
-### how to use
+### How to Use
+This section explains the basic usage of multicursor.nvim with the default config.
 
-using the default config, you can add cursors above/below with `<up>` and `<down>`.
-you can match the word under the cursor with `<c-n>` or `<c-s>` to skip.
-you can also use the mouse with `<c-leftmouse>`.
+##### Selecting Cursors
+You can add cursors above/below the current cursor with `<up>` and `<down>`.
+You can match the word under the cursor with `<c-n>` or `<c-s>` to skip.
+You can also use the mouse with `<c-leftmouse>`.
 
-once you have your cursors, you use vim normally as you would with a single cursor.
+##### Using the Cursors
+Once you have your cursors, you use vim normally as you would
+with a single cursor.
 
-when you want to collapse your cursors back into one, press `<esc>`.
+##### Finished
+When you want to collapse your cursors back into one, press `<esc>`.
 
+##### Getting More Advanced
+Read the comments in the default config for each mapping and experiment
+with them. You are free to remap or remove any bindings you like.
+If you want to do something more complex, see the Cursor API section.
 
-### api
+### Features Documentation
 | name             | arguments          | return  | desc                                                                                                                                                                                             |
 | ------------     | -----------------  | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| addCursor        | string \| function | void    | add a cursor and move only the main cursor using motion                                                                                                                                          |
-| skipCursor       | string \| function | void    | move only the main cursor using motion                                                                                                                                                           |
-| nextCursor       |                    | void    | select the cursor after the main cursor                                                                                                                                                          |
-| prevCursor       |                    | void    | select the cursor before the main cursor                                                                                                                                                         |
-| firstCursor      |                    | void    | select the first cursor                                                                                                                                                                          |
-| lastCursor       |                    | void    | select the last cursor                                                                                                                                                                           |
-| hasCursors       |                    | boolean | returns whether multiple cursors exist                                                                                                                                                           |
-| deleteCursor     |                    | void    | delete the main cursor                                                                                                                                                                           |
-| clearCursors     |                    | void    | clear all cursors except main cursor                                                                                                                                                             |
-| handleMouse      |                    | void    | use in a mouse mapping to handle mouse input                                                                                                                                                     |
-| alignCursors     |                    | void    | align columns of cursors on multiple lines                                                                                                                                                       |
-| splitCursors     |                    | void    | split visual selections with a regex separator. for example, visually selecting "a,b,c,d" and splitting with "," will create four cursors, one on each letter.                                   |
-| matchCursors     |                    | void    | match a pattern over a visual selection, creating a new cursor for each match. for example, visually selecting "foo bar foo" and matching with "foo" will create two cursors, one on each "foo". |
-| transposeCursors | number             | void    | rotate the contents of each visual selection for each cursor. call with `1` for clockwise rotation and `-1` for anti-clockwise.                                                                  |
-| disableCursors   |                    | void    | locks the cursors from moving. this is useful for repositioning main cursor for adding more cursors                                                                                              |
-| enableCursors    |                    | void    | unlocks the cursors from moving.                                                                                                                                                                 |
-| cursorsEnabled   |                    | boolean | returns whether the cursors are locked from moving.                                                                                                                                              |
+| addCursor        | string             | void    | Add a cursor and move only the main cursor using motion.                                                                                                                                         |
+| skipCursor       | string             | void    | Move only the main cursor using motion.                                                                                                                                                          |
+| nextCursor       |                    | void    | Select the cursor after the main cursor.                                                                                                                                                         |
+| prevCursor       |                    | void    | Select the cursor before the main cursor.                                                                                                                                                        |
+| firstCursor      |                    | void    | Select the first cursor.                                                                                                                                                                         |
+| lastCursor       |                    | void    | Select the last cursor.                                                                                                                                                                          |
+| hasCursors       |                    | boolean | Returns whether multiple cursors exist.                                                                                                                                                          |
+| deleteCursor     |                    | void    | Delete the main cursor.                                                                                                                                                                          |
+| clearCursors     |                    | void    | Clear all cursors except main cursor.                                                                                                                                                            |
+| handleMouse      |                    | void    | Use in a mouse mapping to handle mouse input.                                                                                                                                                    |
+| alignCursors     |                    | void    | Align columns of cursors on multiple lines.                                                                                                                                                      |
+| splitCursors     |                    | void    | Split visual selections with a regex separator. For example, visually selecting "a,b,c,d" and splitting with "," will create four cursors, one on each letter.                                   |
+| matchCursors     |                    | void    | Match a pattern over a visual selection, creating a new cursor for each match. For example, visually selecting "foo bar foo" and matching with "foo" will create two cursors, one on each "foo". |
+| transposeCursors | -1 \| 1            | void    | Rotate the contents of each visual selection for each cursor. Call with `1` for clockwise rotation and `-1` for anti-clockwise.                                                                  |
+| insertVisual     |                    | void    | Create a cursor for each line of the visual selection, and enter insert mode with `I`.                                                                                                           |
+| appendVisual     |                    | void    | Create a cursor for each line of the visual selection, and enter insert mode with `A`.                                                                                                           |
+| disableCursors   |                    | void    | Locks the cursors from moving. This is useful for repositioning main cursor for adding more cursors.                                                                                             |
+| enableCursors    |                    | void    | Unlocks the cursors from moving.                                                                                                                                                                 |
+| cursorsEnabled   |                    | boolean | Returns whether the cursors are locked from moving.                                                                                                                                              |
+| feedkeys         | string, table?     | void    | Use instead of `vim.fn.feedkeys()` or `vim.api.nvim_feedkeys()` in multicursor mappings to avoid bugs. Opts are `{ remap?: boolean, keycodes?: boolean }`.                                       |
+| action           | function           | void    | Perform a complex action using the Cursor API. See below for details.                                                                                                                            |
 
+### Cursor API
+All of the provided features are implemented using the Cursor API, which is
+accessible for writing your own complex multi-cursor logic.
 
-### tips
-
-you may find it useful to select the first cursor before clearing cursors.
-this makes multiple cursors behave similar to visual mode when performing
-operations where it jumps to the first line of your selection.
+You can use the Cursor API by calling `mc.action` with a callback, like so:
 
 ```lua
-vim.keymap.set("n", "<esc>", function()
-    if mc.hasCursors() then
-        mc.firstCursor()
-        mc.clearCursors()
-    end
+mc.action(function(ctx)
+    local cursors = ctx:getCursors()
 end)
 ```
+
+The `ctx` is a `CursorContext` which lets you query for cursors.
+In the snippet, we simply called `getCursors()` to get a list of all our cursors.
+
+In the next snippet, we will instead call `firstCursor()` to get only the
+highest cursor in the document. Once we have our cursor, we can interact with it.
+
+```lua
+mc.action(function(ctx)
+    local cursor = ctx:firstCursor()
+    vim.print(cursor:getLine())
+    cursor:feedkeys("ihello world")
+end)
+```
+
+And that's it. You can view `lua/multicursor-nvim/examples.lua` to
+see all the default features implemented using the Cursor API.
+Or, you can read the prototypes below.
+
+#### Cursor
+```lua
+--- Returns this cursors current line number, 1 indexed.
+--- @return integer
+function Cursor:line()
+
+--- Returns this cursors current column number, 1 indexed.
+--- @return integer
+function Cursor:col()
+
+--- Returns the full line text of where this cursor is located.
+--- @return string
+function Cursor:getLine()
+
+--- Deletes this cursor.
+--- If this is the main cursor then the closest cursor to it.
+--- is set as the new main cursor.
+--- If this is the last remaining cursor, a new cursor is created
+--- at its position.
+function Cursor:delete()
+
+--- Sets this cursor as the main cursor (the real one).
+function Cursor:select()
+
+--- Returns whether this cursor is the main cursor (the real one).
+--- @return boolean | nil
+function Cursor:isMainCursor()
+
+--- A cursor can either be at the start or end of a visual selection.
+--- For example, if you select lines 10-20, your cursor can either be
+--- on line 10 (start) or 20 (end). this method returns true when at
+--- the start.
+--- @return boolean
+function Cursor:atVisualStart()
+
+--- For each line of the cursor's visual selection, a new cursor is
+--- created, visually selecting only the single line.
+--- This method deletes the original cursor.
+function Cursor:splitVisualLines()
+
+--- @return [number, number]
+function Cursor:getPos()
+
+--- @param pos [number, number]
+function Cursor:setPos(pos)
+
+--- Returns a new cursor with the same position, registers,
+--- visual selection, and mode as this cursor.
+--- @return Cursor
+function Cursor:clone()
+
+--- Returns only the text contained in each line of the visual selection.
+--- @return string[]
+function Cursor:getVisualLines()
+
+--- Returns the full line for each line of the visual selection.
+--- @return string[]
+function Cursor:getFullVisualLines()
+
+--- Returns start and end positions of visual selection start position
+--- is before or equal to end position.
+--- @return [number, number], [number, number]
+function Cursor:getVisual()
+
+--- Returns this cursor's current mode.
+--- It should only ever be in normal, visual, or select modes.
+--- @return string: "n" | "v" | "V" | <c-v> | "s" | "S" | <c-s>
+function Cursor:mode()
+
+--- Sets this cursor's mode.
+--- It should only ever be in normal, visual, or select modes.
+--- @param mode string: "n" | "v" | "V" | <c-v> | "s" | "S" | <c-s>
+function Cursor:setMode(mode)
+
+--- Makes the cursor perform a command/commands.
+--- For example, cursor:feedkeys('dw') will delete a word.
+--- By default, keys are not remapped and keycodes are not parsed.
+--- @param keys string
+--- @param opts? { remap?: boolean, keycodes?: boolean }
+function Cursor:feedkeys(keys, opts)
+
+--- Sets the visual selection and sets the cursor position to `visualEnd`.
+--- @param visualStart [number, number]
+--- @param visualEnd [number, number]
+function Cursor:setVisual(visualStart, visualEnd)
+
+--- Returns true if in visual or select mode.
+--- @return boolean
+function Cursor:inVisualMode()
+```
+
+#### CursorContext
+```lua
+--- Returns a list of cursors, sorted by their position.
+--- @return Cursor[]
+function CursorContext:getCursors()
+
+--- Util which executes callback for each cursor, sorted by their position.
+--- @param callback fun(cursor: Cursor, i: integer, t: Cursor[]): boolean | nil
+function CursorContext:forEachCursor(callback)
+
+--- Util method which maps each cursor to a value.
+--- @generic T
+--- @param callback fun(cursor: Cursor, i: integer, t: Cursor[]): T
+--- @return T[]
+function CursorContext:mapCursors(callback)
+
+--- Util method which returns the first cursor matching the predicate.
+--- @param predicate fun(cursor: Cursor, i: integer, t: Cursor[]): any
+--- @return Cursor | nil
+function CursorContext:findCursor(predicate)
+
+--- When cursors are disabled, only the main cursor can be interacted with.
+--- @return boolean
+function CursorContext:cursorsEnabled()
+
+--- When cursors are disabled, only the main cursor can be interacted with.
+--- @param value boolean
+function CursorContext:setCursorsEnabled(value)
+
+--- Returns the closest cursor which appears AFTER pos.
+--- A cursor exactly at pos will not be returned.
+--- It does not wrap, so if none are found, then nil is returned.
+--- If you wish to wrap, use `ctx:nextCursor(...) or ctx:firstCursor(...)`.
+--- @param pos [integer, integer]
+--- @return Cursor | nil
+function CursorContext:nextCursor(pos)
+
+--- Returns the closest cursor which appears BEFORE pos.
+--- A cursor exactly at pos will not be returned.
+--- It does not wrap, so if none are found, then nil is returned.
+--- If you wish to wrap, use `ctx:prevCursor(...) or ctx:lastCursor(...)`.
+--- @param pos [integer, integer]
+--- @return Cursor | nil
+function CursorContext:prevCursor(pos)
+
+--- Returns the nearest cursor to pos, and accepts a cursor exactly at pos.
+--- It is guarenteed to find a cursor.
+--- @param pos [integer, integer]
+--- @return Cursor
+function CursorContext:nearestCursor(pos)
+
+--- Returns the main cursor (the real one).
+--- @return Cursor
+function CursorContext:mainCursor()
+
+--- Returns the cursor closest to the start of the document.
+--- Guarenteed to find a cursor.
+--- @return Cursor
+function CursorContext:firstCursor()
+
+--- Returns the cursor closest to the end of the document.
+--- Guarenteed to find a cursor.
+--- @return Cursor
+function CursorContext:lastCursor()
+
+--- @return boolean
+function CursorContext:hasCursors()
+
+function CursorContext:clear()
+```
+
