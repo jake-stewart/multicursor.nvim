@@ -201,7 +201,7 @@ local function cursorDrawVisualChar(cursor, lines, start, hl)
     if vs[2] == ve[2] then
         local line = lines[vs[2] - start]
         local id = set_extmark(0, state.nsid, vs[2] - 1, vs[3] - 1, {
-            strict = true,
+            strict = false,
             undo_restore = false,
             priority = 200,
             virt_text = ve[4] > 0
@@ -223,7 +223,7 @@ local function cursorDrawVisualChar(cursor, lines, start, hl)
                 and ve[3] - 1
                 or (line and #line or 0)
             local id = set_extmark(0, state.nsid, row, col, {
-                strict = true,
+                strict = false,
                 undo_restore = false,
                 virt_text = {{
                     i == ve[2]
@@ -255,7 +255,7 @@ local function cursorDrawVisualLine(cursor, lines, start, hl)
         local line = lines[row - start + 1]
         local endCol = not line and 0 or #line
         local id = set_extmark(0, state.nsid, row, 0, {
-            strict = true,
+            strict = false,
             undo_restore = false,
             virt_text = {{" ", hl}},
             end_col = endCol + 1,
@@ -284,7 +284,7 @@ local function cursorDrawVisualBlock(cursor, lines, start, hl)
         local line = lines[i - start]
         if line and #line >= startCol then
             local id = set_extmark(0, state.nsid, i - 1, startCol - 1, {
-                strict = true,
+                strict = false,
                 undo_restore = false,
                 end_col = endCol,
                 virt_text_pos = "inline",
@@ -445,7 +445,7 @@ local function cursorDraw(cursor)
     local col = cursor._pos[3] + cursor._pos[4] - 1
 
     local id = set_extmark(0, state.nsid, row, col, {
-        strict = true,
+        strict = false,
         undo_restore = false,
         virt_text_pos = "overlay",
         priority = 1000,
