@@ -96,6 +96,11 @@ function InputManager:_onSafeState()
         if self._cmdType == ":" then
             self._cmdType = nil
             self._macro = ""
+            self._cursorManager:action(function(ctx)
+                ctx:forEachCursor(function(cursor)
+                    cursor:feedkeys("")
+                end)
+            end)
             return
         end
         self._cmdType = nil
