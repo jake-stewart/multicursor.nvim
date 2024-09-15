@@ -1022,9 +1022,6 @@ local function cursorContextUpdate(mainCursor)
     state.mainCursor = mainCursor
     cursorContextMergeCursors(mainCursor)
     if #state.cursors == 0 then
-        local undoTree = vim.fn.undotree()
-        local id = undoItemId(undoTree.seq_cur)
-        state.undoItems[id] = nil
         CursorContext:clear()
     else
         local undoTree = vim.fn.undotree()
@@ -1072,13 +1069,16 @@ local CursorManager = {}
 function CursorManager:setup(nsid, preserveUndo)
     state.nsid = nsid
     state.preserveUndo = preserveUndo
+    vim.api.nvim_create_autocmd("BufEnter", {
+        pattern = "*",
+        callback = function()
+            state.currentSeq = vim.fn.undotree().seq_cur
+        end
+    })
 end
 
 --- @param callback fun(context: CursorContext)
 function CursorManager:action(callback)
-    if not state.currentSeq then
-        state.currentSeq = vim.fn.undotree().seq_cur
-    end
     state.virtualEditBlock = false
     for _, key in ipairs(vim.opt.virtualedit:get()) do
         if key == "block" or key == "all" then
@@ -1132,8 +1132,11 @@ end
 --- @param direction -1 | 1
 function CursorManager:loadUndoItem(direction)
     local undoTree = vim.fn.undotree()
-    state.currentSeq = undoTree.seq_cur
     local id = undoItemId(undoTree.seq_cur)
+    if state.currentSeq == undoTree.seq_cur then
+        return
+    end
+    state.currentSeq = undoTree.seq_cur
     local lookup = direction == 1 and state.redoItems or state.undoItems
     local undoItem = lookup[id];
     if not undoItem then
