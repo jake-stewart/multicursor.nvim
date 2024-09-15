@@ -22,6 +22,7 @@ https://github.com/user-attachments/assets/a8c136dc-4786-447b-95c0-8e2a48f5776f
 ```lua
 {
     "jake-stewart/multicursor.nvim",
+    branch = "1.0",
     config = function()
         local mc = require("multicursor-nvim")
 
