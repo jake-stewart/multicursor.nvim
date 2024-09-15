@@ -95,11 +95,26 @@ local state = {
     modifiedId = 0,
     enabled = true,
     nsid = 0,
+    numLines = 0,
 }
 
 --- @return Cursor
 local function createCursor(cursor)
     return setmetatable(cursor, Cursor)
+end
+
+local function safeGetExtmark(id)
+    local mark = get_extmark(0, state.nsid, id, {})
+    if mark and #mark > 0 then
+        if mark[1] >= state.numLines then
+            -- this is probably a neovim bug
+            -- the mark can be outside of the file
+            mark[1] = state.numLines - 1
+            mark[2] = 0
+        end
+        return mark
+    end
+    return nil
 end
 
 --- @param cursor Cursor
@@ -108,9 +123,8 @@ local function cursorUpdatePos(cursor)
     cursor._modifiedId = state.modifiedId
 
     if cursor._posId then
-        local mark = get_extmark(0, state.nsid, cursor._posId, {})
-
-        if mark and #mark > 0 then
+        local mark = safeGetExtmark(cursor._posId)
+        if mark then
             cursor._pos = {
                 cursor._pos[1],
                 mark[1] + 1,
@@ -122,24 +136,28 @@ local function cursorUpdatePos(cursor)
             }
             cursor._drift[1] = cursor._drift[1] + (cursor._pos[2] - oldPos[2])
             cursor._drift[2] = cursor._drift[2] + (cursor._pos[3] - oldPos[3])
+        else
+            cursor._posId = nil
         end
     end
 
     if cursor._changePosId then
-        local mark = get_extmark(0, state.nsid, cursor._changePosId, {})
-        if mark and #mark > 0 then
+        local mark = safeGetExtmark(cursor._changePosId)
+        if mark then
             cursor._changePos = {
                 cursor._changePos[1],
                 mark[1] + 1,
                 mark[2] + 1,
                 cursor._changePos[4],
             }
+        else
+            cursor._changePosId = nil
         end
     end
 
     if cursor._vPosId then
-        local mark = get_extmark(0, state.nsid, cursor._vPosId, {})
-        if mark and #mark > 0 then
+        local mark = safeGetExtmark(cursor._vPosId)
+        if mark then
             cursor._vPos = {
                 cursor._vPos[1],
                 mark[1] + 1,
@@ -147,6 +165,7 @@ local function cursorUpdatePos(cursor)
                 cursor._vPos[4],
             }
         else
+            cursor._vPosId = nil
             cursor._vPos = cursor._pos
         end
     else
@@ -182,7 +201,7 @@ local function cursorDrawVisualChar(cursor, lines, start, hl)
     if vs[2] == ve[2] then
         local line = lines[vs[2] - start]
         local id = set_extmark(0, state.nsid, vs[2] - 1, vs[3] - 1, {
-            strict = false,
+            strict = true,
             undo_restore = false,
             priority = 200,
             virt_text = ve[4] > 0
@@ -204,7 +223,7 @@ local function cursorDrawVisualChar(cursor, lines, start, hl)
                 and ve[3] - 1
                 or (line and #line or 0)
             local id = set_extmark(0, state.nsid, row, col, {
-                strict = false,
+                strict = true,
                 undo_restore = false,
                 virt_text = {{
                     i == ve[2]
@@ -236,7 +255,7 @@ local function cursorDrawVisualLine(cursor, lines, start, hl)
         local line = lines[row - start + 1]
         local endCol = not line and 0 or #line
         local id = set_extmark(0, state.nsid, row, 0, {
-            strict = false,
+            strict = true,
             undo_restore = false,
             virt_text = {{" ", hl}},
             end_col = endCol + 1,
@@ -265,7 +284,7 @@ local function cursorDrawVisualBlock(cursor, lines, start, hl)
         local line = lines[i - start]
         if line and #line >= startCol then
             local id = set_extmark(0, state.nsid, i - 1, startCol - 1, {
-                strict = false,
+                strict = true,
                 undo_restore = false,
                 end_col = endCol,
                 virt_text_pos = "inline",
@@ -426,7 +445,7 @@ local function cursorDraw(cursor)
     local col = cursor._pos[3] + cursor._pos[4] - 1
 
     local id = set_extmark(0, state.nsid, row, col, {
-        strict = false,
+        strict = true,
         undo_restore = false,
         virt_text_pos = "overlay",
         priority = 1000,
@@ -456,7 +475,7 @@ end
 --- @param cursor Cursor
 local function cursorSetMarks(cursor)
     cursorClearMarks(cursor)
-    local opts = { strict = false, undo_restore = false }
+    local opts = { strict = true, undo_restore = false }
     if cursor:inVisualMode() then
         cursor._vPosId = set_extmark(
             0,
@@ -915,6 +934,7 @@ function Cursor:feedkeys(keys, opts)
     self._state = CursorState.dirty
     cursorWrite(self)
     local success, err = pcall(feedkeys, keys, opts)
+    state.numLines = vim.fn.line("$")
     if success then
         cursorRead(self)
         cursorSetMarks(self)
@@ -1073,6 +1093,7 @@ function CursorManager:setup(nsid, preserveUndo)
         pattern = "*",
         callback = function()
             state.currentSeq = vim.fn.undotree().seq_cur
+            state.numLines = vim.fn.line("$")
         end
     })
 end
@@ -1162,6 +1183,7 @@ end
 
 function CursorManager:dirty()
     state.modifiedId = state.modifiedId + 1
+    state.numLines = vim.fn.line("$")
 end
 
 function CursorManager:cursorsEnabled()
