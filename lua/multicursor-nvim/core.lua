@@ -2,7 +2,9 @@ local feedkeysManager = require("multicursor-nvim.feedkeys-manager")
 local cursorManager = require("multicursor-nvim.cursor-manager")
 local inputManager = require("multicursor-nvim.input-manager")
 
-local core = {}
+local core = {
+    performingAction = false,
+}
 
 --- @param opts? { shallowUndo?: boolean }
 function core.setup(opts)
@@ -24,9 +26,14 @@ end
 
 --- @param callback fun(ctx: CursorContext)
 function core.action(callback)
+    if core.performingAction then
+        error("An action is already being performed")
+    end
+    core.performingAction = true
     inputManager:performAction(function()
         cursorManager:action(callback, true)
     end)
+    core.performingAction = false
 end
 
 --- @param keys string
