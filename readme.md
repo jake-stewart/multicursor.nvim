@@ -79,7 +79,7 @@ https://github.com/user-attachments/assets/a8c136dc-4786-447b-95c0-8e2a48f5776f
         vim.keymap.set("v", "A", mc.appendVisual)
 
         -- match new cursors within visual selections by regex.
-        vim.keymap.set({"n", "v"}, "M", mc.matchCursors)
+        vim.keymap.set("v", "M", mc.matchCursors)
 
         -- Rotate visual selection contents.
         vim.keymap.set("v", "<leader>t", function() mc.transposeCursors(1) end)
