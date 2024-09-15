@@ -4,15 +4,13 @@ local inputManager = require("multicursor-nvim.input-manager")
 
 local core = {}
 
---- @param opts? { preserveUndo?: boolean }
+--- @param opts? { shallowUndo?: boolean }
 function core.setup(opts)
     opts = opts or {}
-    opts.preserveUndo = opts.preserveUndo == nil
-        and true or opts.preserveUndo
 
     local nsid = vim.api.nvim_create_namespace("multicursor-nvim")
 
-    cursorManager:setup(nsid, opts.preserveUndo)
+    cursorManager:setup(nsid, opts.shallowUndo)
     feedkeysManager:setup()
     inputManager:setup(nsid, cursorManager)
 

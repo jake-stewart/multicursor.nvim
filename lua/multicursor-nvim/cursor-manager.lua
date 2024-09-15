@@ -84,13 +84,13 @@ Cursor.__index = Cursor
 --- @field undoItems table<string, MultiCursorUndoItem>
 --- @field redoItems table<string, MultiCursorUndoItem>
 --- @field currentSeq integer | nil
---- @field preserveUndo boolean
+--- @field shallowUndo boolean
 --- @field enabled boolean
 local state = {
     cursors = {},
     undoItems = {},
     redoItems = {},
-    preserveUndo = true,
+    shallowUndo = false,
     modifiedId = 0,
     enabled = true,
     nsid = 0,
@@ -1002,7 +1002,7 @@ function CursorContext:clear()
     clear_namespace(0, state.nsid, 0, -1)
     state.enabled = true
     state.cursors = {}
-    if not state.preserveUndo then
+    if state.shallowUndo then
         state.undoItems = {}
         state.redoItems = {}
         state.currentSeq = nil
@@ -1067,10 +1067,10 @@ end
 local CursorManager = {}
 
 --- @param nsid integer
---- @param preserveUndo boolean
-function CursorManager:setup(nsid, preserveUndo)
+--- @param shallowUndo boolean
+function CursorManager:setup(nsid, shallowUndo)
     state.nsid = nsid
-    state.preserveUndo = preserveUndo
+    state.shallowUndo = shallowUndo
     vim.api.nvim_create_autocmd("BufEnter", {
         pattern = "*",
         callback = function()
