@@ -14,8 +14,7 @@ https://github.com/user-attachments/assets/a8c136dc-4786-447b-95c0-8e2a48f5776f
 - Match & split cursor selections with regex.
 - Transpose cursor selections.
 - Align cursor columns.
-- Easily extend with your own ideas thanks to the Cursor API,
-  which all the default features are implemented with.
+- Easily extended with the Cursor API.
 - Works with most plugins and remaps.
 
 ## Example Config (lazy.nvim)
