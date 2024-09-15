@@ -25,7 +25,7 @@ end
 --- @param callback fun(ctx: CursorContext)
 function core.action(callback)
     inputManager:performAction(function()
-        cursorManager:action(callback)
+        cursorManager:action(callback, true)
     end)
 end
 

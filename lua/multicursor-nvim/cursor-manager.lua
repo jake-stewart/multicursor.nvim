@@ -56,6 +56,7 @@ local CursorState = {
 --- @field package _modifiedId      integer
 --- @field package _state           CursorState
 --- @field package _changePos       MarkPos
+--- @field package _origChangePos   MarkPos
 --- @field package _drift           [integer, integer]
 --- @field package _pos             CursorPos
 --- @field package _register        string
@@ -813,25 +814,29 @@ function Cursor:setPos(pos)
     cursorSetMarks(self)
 end
 
+--- @param cursor Cursor
+local function cursorCopy(cursor)
+    return {
+        _modifiedId = state.modifiedId,
+        _drift = cursor._drift,
+        _changePos = cursor._changePos,
+        -- _origChangePos = cursor._origChangePos,
+        _pos = cursor._pos,
+        _register = cursor._register,
+        _search = cursor._search,
+        _visual = cursor._visual,
+        _vPos = cursor._vPos,
+        _mode = cursor._mode,
+        _state = CursorState.new,
+    }
+end
+
 --- Returns a new cursor with the same position, registers,
 --- visual selection, and mode as this cursor.
 --- @return Cursor
 function Cursor:clone()
     cursorCheckUpdate(self)
-    --- @type Cursor
-    local fields = {
-        _modifiedId = state.modifiedId,
-        _drift = self._drift,
-        _changePos = self._changePos,
-        _pos = self._pos,
-        _register = self._register,
-        _search = self._search,
-        _visual = self._visual,
-        _vPos = self._vPos,
-        _mode = self._mode,
-        _state = CursorState.new,
-    }
-    local cursor = createCursor(fields)
+    local cursor = createCursor(cursorCopy(self))
     cursorSetMarks(cursor)
     state.cursors[#state.cursors + 1] = cursor
     return cursor
@@ -1011,15 +1016,20 @@ end
 
 --- @param cursor Cursor
 local function cursorApplyDrift(cursor)
-    cursor._changePos = { table.unpack(cursor._changePos) }
-    cursor._changePos[2] = cursor._changePos[2] - cursor._drift[1]
-    cursor._changePos[3] = cursor._changePos[3] - cursor._drift[2]
+    if not cursor._changePos then
+        cursor._changePos = cursor._pos
+    else
+        cursor._changePos = { table.unpack(cursor._changePos) }
+        cursor._changePos[2] = cursor._changePos[2] - cursor._drift[1]
+        cursor._changePos[3] = cursor._changePos[3] - cursor._drift[2]
+    end
     return cursor
 end
 
 local function cursorCreateRedoCopy(cursor)
-    cursor = tbl.shallow_copy(cursor)
-    if cursor._pos[2] ~= cursor._changePos[2] then
+    cursor = cursorCopy(cursor)
+    cursor._changePos = cursor._origChangePos
+    if not cursor._changePos or cursor._pos[2] ~= cursor._changePos[2] then
         cursor._changePos = cursor._pos
     end
     return cursor
@@ -1027,7 +1037,8 @@ end
 
 --- @package
 --- @param mainCursor Cursor
-local function cursorContextUpdate(mainCursor)
+--- @param applyToMainCursor boolean
+local function cursorContextUpdate(mainCursor, applyToMainCursor)
     state.mainCursor = mainCursor
     cursorContextMergeCursors(mainCursor)
     if #state.cursors == 0 then
@@ -1037,12 +1048,20 @@ local function cursorContextUpdate(mainCursor)
         if state.currentSeq ~= undoTree.seq_cur then
             local oldId = undoItemId(state.currentSeq)
             local id = undoItemId(undoTree.seq_cur)
+
+            local newMainCursor
+            if applyToMainCursor then
+                newMainCursor = cursorApplyDrift(cursorCopy(mainCursor))
+            else
+                newMainCursor = cursorCopy(mainCursor)
+                newMainCursor._changePos = mainCursor._origChangePos
+            end
+
             state.undoItems[oldId] = {
                 cursors = tbl.map(state.cursors, function(cursor)
-                    return cursorApplyDrift(
-                        tbl.shallow_copy(cursor))
+                    return cursorApplyDrift(cursorCopy(cursor))
                 end),
-                mainCursor = tbl.shallow_copy(mainCursor),
+                mainCursor = newMainCursor,
                 enabled = state.enabled
             }
             state.redoItems[id] = {
@@ -1052,6 +1071,12 @@ local function cursorContextUpdate(mainCursor)
             }
             state.currentSeq = undoTree.seq_cur
         end
+        for _, cursor in ipairs(state.cursors) do
+            cursor._changePos = cursor._changePos
+                or cursor._origChangePos
+        end
+        state.mainCursor._changePos = state.mainCursor._changePos
+            or state.mainCursor._origChangePos
     end
 end
 
@@ -1081,7 +1106,8 @@ function CursorManager:setup(nsid, shallowUndo)
 end
 
 --- @param callback fun(context: CursorContext)
-function CursorManager:action(callback)
+--- @param applyToMainCursor boolean
+function CursorManager:action(callback, applyToMainCursor)
     state.virtualEditBlock = false
     for _, key in ipairs(vim.opt.virtualedit:get()) do
         if key == "block" or key == "all" then
@@ -1095,8 +1121,17 @@ function CursorManager:action(callback)
     cursorRead(origCursor)
     cursorSetMarks(origCursor)
     state.mainCursor = origCursor
-    state.cursors[#state.cursors + 1] = origCursor
+    if applyToMainCursor then
+        state.cursors[#state.cursors + 1] = origCursor
+    else
+        origCursor._origChangePos = origCursor._changePos
+        origCursor._changePos = nil
+        origCursor._state = CursorState.none
+        origCursor._drift = { 0, 0 }
+    end
     for _, cursor in ipairs(state.cursors) do
+        cursor._origChangePos = cursor._changePos
+        cursor._changePos = nil
         cursor._state = CursorState.none
         cursor._drift = { 0, 0 }
     end
@@ -1126,7 +1161,7 @@ function CursorManager:action(callback)
     cursorCheckUpdate(state.mainCursor)
     cursorErase(state.mainCursor)
     cursorClearMarks(state.mainCursor)
-    cursorContextUpdate(state.mainCursor)
+    cursorContextUpdate(state.mainCursor, applyToMainCursor)
     cursorWrite(state.mainCursor)
     vim.o.clipboard = origClipboard
     return result
@@ -1148,11 +1183,11 @@ function CursorManager:loadUndoItem(direction)
     end
     state.enabled = undoItem.enabled
     state.cursors = tbl.map(undoItem.cursors, function(c)
-        local cursor = createCursor(tbl.shallow_copy(c))
+        local cursor = createCursor(cursorCopy(c))
         cursorResetLastChange(cursor)
         return cursor
     end)
-    local cursor = createCursor(tbl.shallow_copy(undoItem.mainCursor))
+    local cursor = createCursor(cursorCopy(undoItem.mainCursor))
     cursorResetLastChange(cursor)
     state.mainCursor = cursor
     cursorContextMergeCursors(cursor)

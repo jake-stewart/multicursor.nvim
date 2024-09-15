@@ -101,7 +101,7 @@ function InputManager:_onSafeState()
                 ctx:forEachCursor(function(cursor)
                     cursor:feedkeys("")
                 end)
-            end)
+            end, false)
             return
         end
         self._cmdType = nil
@@ -121,7 +121,7 @@ function InputManager:_onSafeState()
                             cursor:feedkeys(".")
                         end
                     end)
-                end)
+                end, false)
             end
         end
         self._specialKey = nil
@@ -134,14 +134,14 @@ function InputManager:_onSafeState()
                         cursor:feedkeys(self._macro, { remap = true })
                     end
                 end)
-            end)
+            end, false)
         else
             -- to update the undo list
-            self._cursorManager:action(function() end)
+            self._cursorManager:action(function() end, false)
         end
     else
         -- to update the undo list
-        self._cursorManager:action(function() end)
+        self._cursorManager:action(function() end, false)
     end
     self._macro = ""
     self._applying = false

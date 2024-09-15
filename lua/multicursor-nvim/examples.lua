@@ -118,7 +118,7 @@ function examples.alignCursors()
             0, startLine - 1, endLine, false)
 
         local rows = {}
-        local lastLine = nil
+        local prevLine = nil
         ctx:forEachCursor(function(cursor)
             local col = #lines[cursor:line() - startLine + 1] > 0
                 and cursor:col()
@@ -128,12 +128,12 @@ function examples.alignCursors()
             --     return
             -- end
             local row
-            if lastLine == cursor:line() then
+            if prevLine == cursor:line() then
                 row = rows[#rows]
             else
                 row = {}
                 rows[#rows + 1] = row
-                lastLine = cursor:line()
+                prevLine = cursor:line()
             end
             row[#row + 1] = col
         end)
@@ -152,13 +152,12 @@ function examples.alignCursors()
             end
         end
 
-        lastLine = nil
+        prevLine = nil
         local rowIdx = 0
         local colIdx = 0
-        local cursors = ctx:getCursors()
-        for _, cursor in ipairs(cursors) do
-            if lastLine ~= cursor:line() then
-                lastLine = cursor:line()
+        ctx:forEachCursor(function(cursor)
+            if prevLine ~= cursor:line() then
+                prevLine = cursor:line()
                 rowIdx = rowIdx + 1
                 colIdx = 0
             end
@@ -168,7 +167,7 @@ function examples.alignCursors()
             if distance > 0 then
                 cursor:feedkeys(distance .. "i <esc>l", { keycodes = true })
             end
-        end
+        end)
     end)
 end
 
