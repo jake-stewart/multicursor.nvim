@@ -475,7 +475,7 @@ end
 --- @param cursor Cursor
 local function cursorSetMarks(cursor)
     cursorClearMarks(cursor)
-    local opts = { strict = true, undo_restore = false }
+    local opts = { strict = false, undo_restore = false }
     if cursor:inVisualMode() then
         cursor._vPosId = set_extmark(
             0,
