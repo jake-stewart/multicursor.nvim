@@ -1,6 +1,8 @@
 local core = require("multicursor-nvim.core")
 local examples = require("multicursor-nvim.examples")
 
+table.unpack = table.unpack or unpack
+
 vim.cmd.hi("link", "MultiCursorCursor", "Cursor")
 vim.cmd.hi("link", "MultiCursorVisual", "Visual")
 vim.cmd.hi("link", "MultiCursorDisabledCursor", "Visual")
