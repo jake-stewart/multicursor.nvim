@@ -820,7 +820,6 @@ local function cursorCopy(cursor)
         _modifiedId = state.modifiedId,
         _drift = cursor._drift,
         _changePos = cursor._changePos,
-        -- _origChangePos = cursor._origChangePos,
         _pos = cursor._pos,
         _register = cursor._register,
         _search = cursor._search,
@@ -897,6 +896,7 @@ end
 --- It should only ever be in normal, visual, or select modes.
 --- @param mode string: "n" | "v" | "V" | <c-v> | "s" | "S" | <c-s>
 function Cursor:setMode(mode)
+    self._state = CursorState.dirty
     self._mode = mode
 end
 
