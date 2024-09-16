@@ -23,18 +23,6 @@ function InputManager:setup(nsid, cursorManager)
     self._macro = ""
     self._fromSelectMode = false
 
-    util.au("ModeChanged", "[vV\x16ns]*:[iR]", function()
-        self:_onInsertMode(true)
-    end)
-
-    util.au("ModeChanged", "[S\x13]*:[iR]", function()
-        self:_onInsertMode(true, true)
-    end)
-
-    util.au("ModeChanged", "[iR]:*", function()
-        self:_onInsertMode(false)
-    end)
-
     util.au("SafeState", "*", function()
         self:_onSafeState()
     end)
@@ -63,10 +51,7 @@ function InputManager:performAction(callback)
 end
 
 --- @private
-function InputManager:_onInsertMode(enabled, selectMode)
-    if self._applying then
-        return
-    end
+function InputManager:_onInsertMode(enabled)
     self._inInsertMode = enabled
     if not enabled then
         local insertReg = vim.fn.getreg(".")
@@ -80,11 +65,24 @@ function InputManager:_onInsertMode(enabled, selectMode)
                 .. TERM_CODES.ESC
         end
     end
-    self._fromSelectMode = selectMode
 end
 
 --- @private
 function InputManager:_onSafeState()
+    if self._applying then
+        return
+    end
+    local mode = vim.fn.mode()
+    local insertMode = mode == "i" or mode == "R"
+    if insertMode ~= self._inInsertMode then
+        self:_onInsertMode(insertMode)
+    end
+    if not insertMode then
+        local selectMode = mode == "s"
+            or mode == "S"
+            or mode == TERM_CODES.CTRL_S
+        self._fromSelectMode = selectMode
+    end
     if self._applying or self._inInsertMode then
         return
     end
@@ -130,9 +128,7 @@ function InputManager:_onSafeState()
             self._cursorManager:dirty()
             self._cursorManager:action(function(ctx)
                 ctx:forEachCursor(function(cursor)
-                    if not cursor:isMainCursor() then
-                        cursor:feedkeys(self._macro, { remap = true })
-                    end
+                    cursor:feedkeys(self._macro, { remap = true })
                 end)
             end, false)
         else

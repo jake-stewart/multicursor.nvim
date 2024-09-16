@@ -1138,6 +1138,9 @@ function CursorManager:action(callback, applyToMainCursor)
     local result = callback(CursorContext)
 
     state.cursors = tbl.filter(state.cursors, function(cursor)
+        if cursor._mode ~= "n" and not VISUAL_LOOKUP[cursor._mode] then
+            cursor._mode = "n"
+        end
         if cursor == state.mainCursor then
             return false
         elseif cursor._state == CursorState.deleted then
