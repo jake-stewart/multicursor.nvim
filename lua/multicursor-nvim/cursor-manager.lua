@@ -1043,9 +1043,12 @@ local function cursorContextUpdate(mainCursor, applyToMainCursor)
     cursorContextMergeCursors(mainCursor)
     if #state.cursors == 0 then
         CursorContext:clear()
+    elseif not state.currentSeq then
+        local undoTree = vim.fn.undotree()
+        state.currentSeq = undoTree.seq_cur
     else
         local undoTree = vim.fn.undotree()
-        if state.currentSeq ~= undoTree.seq_cur then
+        if undoTree.seq_cur and state.currentSeq ~= undoTree.seq_cur then
             local oldId = undoItemId(state.currentSeq)
             local id = undoItemId(undoTree.seq_cur)
 
