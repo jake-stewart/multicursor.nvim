@@ -1010,7 +1010,6 @@ function CursorContext:clear()
     if state.shallowUndo then
         state.undoItems = {}
         state.redoItems = {}
-        state.currentSeq = nil
     end
 end
 
