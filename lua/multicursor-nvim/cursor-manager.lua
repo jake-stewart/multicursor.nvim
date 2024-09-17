@@ -1127,6 +1127,7 @@ function CursorManager:action(callback, applyToMainCursor)
     vim.o.clipboard = ""
     local origCursor = createCursor({})
     cursorRead(origCursor)
+    local winStartLine = vim.fn.line("w0")
     cursorSetMarks(origCursor)
     state.mainCursor = origCursor
     if applyToMainCursor then
@@ -1174,6 +1175,14 @@ function CursorManager:action(callback, applyToMainCursor)
     cursorClearMarks(state.mainCursor)
     cursorContextUpdate(state.mainCursor, applyToMainCursor)
     cursorWrite(state.mainCursor)
+    if state.mainCursor == origCursor then
+        local delta = vim.fn.line("w0") - winStartLine - origCursor._drift[1]
+        if delta < 0 then
+            feedkeys(math.abs(delta) .. TERM_CODES.CTRL_E)
+        elseif delta > 0 then
+            feedkeys(delta .. TERM_CODES.CTRL_Y)
+        end
+    end
     vim.o.clipboard = origClipboard
     return result
 end
