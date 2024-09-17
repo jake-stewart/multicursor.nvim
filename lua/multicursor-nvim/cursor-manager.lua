@@ -456,7 +456,7 @@ local function cursorDraw(cursor)
         undo_restore = false,
         virt_text_pos = "overlay",
         priority = 1000,
-        virt_text_win_col = col >= vim.fn.strdisplaywidth(charLine) and col or nil,
+        -- virt_text_win_col = col >= vim.fn.strdisplaywidth(charLine) and col or nil,
         virt_text_hide = true,
         virt_text = virt_text
     })
