@@ -95,11 +95,15 @@ function InputManager:_onSafeState()
             self._cmdType = nil
             self._macro = ""
             self._cursorManager:dirty()
-            self._cursorManager:action(function(ctx)
-                ctx:forEachCursor(function(cursor)
-                    cursor:feedkeys("")
-                end)
-            end, false)
+            if self._cursorManager:hasCursors() then
+                self._cursorManager:action(function(ctx)
+                    ctx:forEachCursor(function(cursor)
+                        cursor:feedkeys("")
+                    end)
+                end, false)
+            else
+                self._cursorManager:update()
+            end
             return
         end
         self._cmdType = nil
@@ -115,29 +119,29 @@ function InputManager:_onSafeState()
             if self._cursorManager:hasCursors() then
                 self._cursorManager:action(function(ctx)
                     ctx:forEachCursor(function(cursor)
-                        if not cursor:isMainCursor() then
-                            cursor:feedkeys(".")
-                        end
+                        cursor:feedkeys(".")
                     end)
                 end, false)
+            else
+                self._cursorManager:update()
             end
         end
         self._specialKey = nil
     elseif #self._macro > 0 and self._cursorManager:hasCursors() then
-        if self._cursorManager:cursorsEnabled() then
-            self._cursorManager:dirty()
+        self._cursorManager:dirty()
+        if self._cursorManager:hasCursors()
+            and self._cursorManager:cursorsEnabled()
+        then
             self._cursorManager:action(function(ctx)
                 ctx:forEachCursor(function(cursor)
                     cursor:feedkeys(self._macro, { remap = true })
                 end)
             end, false)
         else
-            -- to update the undo list
-            self._cursorManager:action(function() end, false)
+            self._cursorManager:update()
         end
     else
-        -- to update the undo list
-        self._cursorManager:action(function() end, false)
+        self._cursorManager:update()
     end
     self._macro = ""
     self._applying = false

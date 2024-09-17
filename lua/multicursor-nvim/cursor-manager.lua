@@ -1104,6 +1104,15 @@ function CursorManager:setup(nsid, shallowUndo)
     })
 end
 
+function CursorManager:update()
+    local mainCursor = cursorRead(createCursor({}))
+    cursorContextUpdate(mainCursor, false)
+    local visualInfo = VISUAL_LOOKUP[mainCursor._mode]
+    if visualInfo then
+        feedkeys("gv" .. visualInfo.enterSelectKey)
+    end
+end
+
 --- @param callback fun(context: CursorContext)
 --- @param applyToMainCursor boolean
 function CursorManager:action(callback, applyToMainCursor)
