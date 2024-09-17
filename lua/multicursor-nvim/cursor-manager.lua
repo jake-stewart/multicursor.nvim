@@ -125,14 +125,15 @@ local function cursorUpdatePos(cursor)
     if cursor._posId then
         local mark = safeGetExtmark(cursor._posId)
         if mark then
+            local curswantVirtcol = vim.fn.virtcol({ mark[1] + 1, mark[2] + 1 })
             cursor._pos = {
                 cursor._pos[1],
                 mark[1] + 1,
                 mark[2] + 1,
                 cursor._pos[4],
                 mark[2] + 1 == cursor._pos[3]
-                    and math.max(cursor._pos[5], mark[2] + 1)
-                    or mark[2] + 1
+                    and math.max(cursor._pos[5], curswantVirtcol)
+                    or curswantVirtcol
             }
             cursor._drift[1] = cursor._drift[1] + (cursor._pos[2] - oldPos[2])
             cursor._drift[2] = cursor._drift[2] + (cursor._pos[3] - oldPos[3])
@@ -421,44 +422,19 @@ local function cursorDraw(cursor)
     local row = cursor._pos[2] - 1
     local col = cursor._pos[3] + cursor._pos[4] - 1
 
-    local char = ""
-    local virt_text
     local charLine = lines[cursor._pos[2] - start]
-    if charLine then
-        local idx = cursor._pos[3] + cursor._pos[4]
-        char = string.sub(charLine, idx, idx)
-        -- if char == "\t" then
-        --     char = " "
-        --     if visualInfo then
-        --         local hl = state.enabled
-        --             and "MultiCursorVisual"
-        --             or "MultiCursorDisabledVisual"
-        --         virt_text = {
-        --             { " ", cursorHL},
-        --             { string.rep(" ", vim.o.tabstop - 1), hl }
-        --         }
-        --     else
-        --         virt_text = {
-        --             { string.rep(" ", vim.o.tabstop - 1), "NONE" },
-        --             { " ", cursorHL}
-        --         }
-        --     end
-        if #char > 0 then
-            virt_text = {{ char, cursorHL }}
-        end
-    end
-    if not virt_text then
-        virt_text = {{ " ", cursorHL }}
-    end
+    local displayWidth = vim.fn.strdisplaywidth(charLine)
 
     local id = set_extmark(0, state.nsid, row, col, {
         strict = false,
         undo_restore = false,
         virt_text_pos = "overlay",
         priority = 1000,
-        -- virt_text_win_col = col >= vim.fn.strdisplaywidth(charLine) and col or nil,
+        virt_text_win_col = col >= displayWidth and displayWidth or nil,
+        hl_group = cursorHL,
+        end_col = col + 1,
         virt_text_hide = true,
-        virt_text = virt_text
+        virt_text = col >= #charLine and {{ " ", cursorHL, }} or nil,
     })
     cursor._visualIds[#cursor._visualIds + 1] = id
 end
@@ -535,16 +511,13 @@ local function cursorWrite(cursor)
     local mode = vim.fn.mode()
     local visualInfo = VISUAL_LOOKUP[cursor._mode]
     if visualInfo then
-        local startCol = cursor._vPos[3] + cursor._vPos[4]
-        local endCol = cursor._pos[3] + cursor._pos[4]
-        feedkeys((mode == "n" and "" or TERM_CODES.ESC)
-            .. visualInfo.enterVisualKey
-            .. cursor._vPos[2] .. "G"
-            .. "0" .. (startCol == 1 and "" or (startCol - 1) .. "l")
-            .. "o"
-            .. cursor._pos[2] .. "G"
-            .. "0" .. (endCol == 1 and "" or (endCol - 1) .. "l")
-            .. visualInfo.enterSelectKey)
+        feedkeys((mode == "n" and "" or TERM_CODES.ESC) .. visualInfo.enterVisualKey)
+        vim.fn.setpos(".", cursor._vPos)
+        feedkeys("o")
+        vim.fn.setpos(".", cursor._pos)
+        if #visualInfo.enterSelectKey > 0 then
+            feedkeys(visualInfo.enterSelectKey)
+        end
     elseif mode == "n" then
         if cursor._mode ~= "n" then
             feedkeys(TERM_CODES.ESC)
