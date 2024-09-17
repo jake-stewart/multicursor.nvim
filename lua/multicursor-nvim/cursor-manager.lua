@@ -247,6 +247,7 @@ local function cursorDrawVisualLine(cursor, lines, start, hl)
             virt_text = {{" ", hl}},
             end_col = endCol + 1,
             virt_text_pos = "inline",
+            priority = 200,
             virt_text_win_col = line and vim.fn.strdisplaywidth(line) or 0,
             hl_group = hl,
         })
