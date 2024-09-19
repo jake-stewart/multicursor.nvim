@@ -236,8 +236,9 @@ end
 --- @param start integer
 --- @param hl string
 local function cursorDrawVisualLine(cursor, lines, start, hl)
-    local i = cursor._visual[1][2]
-    while i <= cursor._visual[2][2] do
+    local visualStart, visualEnd = cursor:getVisual()
+    local i = visualStart[1]
+    while i <= visualEnd[1] do
         local row = i - 1
         local line = lines[row - start + 1]
         local endCol = not line and 0 or vim.fn.strdisplaywidth(line)
@@ -295,16 +296,17 @@ end
 --- @param cursor Cursor
 local function cursorSplitVisualChar(cursor)
     local atVisualStart = cursor:atVisualStart()
+    local visualStart, visualEnd = cursor:getVisual()
     local lines = get_lines(
-        0, cursor._visual[1][2] - 1, cursor._visual[2][2], false)
-    for i = cursor._visual[1][2], cursor._visual[2][2] do
+        0, visualStart[1] - 1, visualEnd[1], false)
+    for i = visualStart[1], visualEnd[1] do
         local newCursor = cursor:clone()
-        local startCol = i == cursor._visual[1][2]
-            and cursor._visual[1][3]
+        local startCol = i == visualStart[1]
+            and visualStart[2]
             or 1
-        local endCol = i == cursor._visual[2][2]
-            and cursor._visual[2][3]
-            or #lines[i - cursor._visual[1][2] + 1]
+        local endCol = i == visualEnd[1]
+            and visualEnd[2]
+            or #lines[i - visualStart[1] + 1]
         if atVisualStart then
             newCursor:setVisual({ i, endCol }, { i, startCol })
         else
@@ -316,12 +318,13 @@ end
 
 --- @param cursor Cursor
 local function cursorSplitVisualLine(cursor)
+    local visualStart, visualEnd = cursor:getVisual()
     local lines = get_lines(
-        0, cursor._visual[1][2] - 1, cursor._visual[2][2], false)
-    for i = cursor._visual[1][2], cursor._visual[2][2] do
+        0, visualStart[1] - 1, visualEnd[1], false)
+    for i = visualStart[1], visualEnd[1] do
         local newCursor = cursor:clone()
         newCursor:setVisual(
-            { i, #lines[i - cursor._visual[1][2] + 1] },
+            { i, #lines[i - visualStart[1] + 1] },
             { i, 1 }
         )
         newCursor._mode = "v"
@@ -331,17 +334,18 @@ end
 --- @param cursor Cursor
 local function cursorSplitVisualBlock(cursor)
     local atVisualStart = cursor:atVisualStart()
-    for i = cursor._visual[1][2], cursor._visual[2][2] do
+    local visualStart, visualEnd = cursor:getVisual()
+    for i = visualStart[1], visualEnd[1] do
         local newCursor = cursor:clone()
         if atVisualStart then
             newCursor:setVisual(
-                { i, cursor._visual[2][3] },
-                { i, cursor._visual[1][3] }
+                { i, visualEnd[2] },
+                { i, visualStart[2] }
             )
         else
             newCursor:setVisual(
-                { i, cursor._visual[1][3] },
-                { i, cursor._visual[2][3] }
+                { i, visualStart[2] },
+                { i, visualEnd[2] }
             )
         end
         newCursor._mode = "v"
@@ -401,14 +405,9 @@ local function cursorDraw(cursor)
 
     local visualInfo = VISUAL_LOOKUP[cursor._mode]
     if visualInfo then
-        start = math.max(
-            math.min(cursor._visual[1][2], cursor._pos[2]) - 1,
-            0
-        )
-        _end = math.max(
-            math.max(cursor._visual[2][2], cursor._pos[2]) - 1,
-            start
-        )
+        local visualStart, visualEnd = cursor:getVisual()
+        start = math.max(visualStart[1] - 1, 0)
+        _end = math.max(visualEnd[1] - 1, start)
     else
         start = cursor._pos[2] - 1
         _end = cursor._pos[2] - 1
@@ -491,15 +490,14 @@ local function cursorRead(cursor)
     cursor._vPos = vim.fn.getpos("v")
     cursor._changePos = vim.fn.getpos("'[")
     cursor._modifiedId = state.modifiedId
-    if vim.fn.mode() ~= "n" then
-        feedkeys(TERM_CODES.ESC)
-    end
     cursor._register = vim.fn.getreg("")
     cursor._search = vim.fn.getreg("/")
-    cursor._visual = {
-        vim.fn.getpos("'<"),
-        vim.fn.getpos("'>"),
-    }
+    if vim.fn.mode() == "n" or not cursor._visual then
+        cursor._visual = {
+            vim.fn.getpos("'<"),
+            vim.fn.getpos("'>"),
+        }
+    end
     return cursor
 end
 
@@ -519,8 +517,8 @@ local function cursorWrite(cursor)
         if #visualInfo.enterSelectKey > 0 then
             feedkeys(visualInfo.enterSelectKey)
         end
-    elseif mode == "n" then
-        if cursor._mode ~= "n" then
+    elseif cursor._mode == "n" then
+        if mode ~= "n" then
             feedkeys(TERM_CODES.ESC)
         end
         vim.fn.setpos(".", cursor._pos)
@@ -857,8 +855,9 @@ end
 --- @return string[]
 function Cursor:getFullVisualLines()
     cursorCheckUpdate(self)
+    local visualStart, visualEnd = self:getVisual()
     return get_lines(
-        0, self._visual[1][2] - 1, self._visual[2][2], true)
+        0, visualStart[1] - 1, visualEnd[1], true)
 end
 
 --- Returns start and end positions of visual selection start position
@@ -1107,10 +1106,6 @@ end
 function CursorManager:update()
     local mainCursor = cursorRead(createCursor({}))
     cursorContextUpdate(mainCursor, false)
-    local visualInfo = VISUAL_LOOKUP[mainCursor._mode]
-    if visualInfo then
-        feedkeys("gv" .. visualInfo.enterSelectKey)
-    end
 end
 
 --- @param callback fun(context: CursorContext)
@@ -1146,6 +1141,19 @@ function CursorManager:action(callback, applyToMainCursor)
     end
     local result = callback(CursorContext)
 
+    state.mainCursor = CursorContext:mainCursor()
+    cursorCheckUpdate(state.mainCursor)
+    cursorErase(state.mainCursor)
+    cursorClearMarks(state.mainCursor)
+    cursorWrite(state.mainCursor)
+    if state.mainCursor == origCursor then
+        local delta = vim.fn.line("w0") - winStartLine - origCursor._drift[1]
+        if delta < 0 then
+            feedkeys(math.abs(delta) .. TERM_CODES.CTRL_E)
+        elseif delta > 0 then
+            feedkeys(delta .. TERM_CODES.CTRL_Y)
+        end
+    end
     state.cursors = tbl.filter(state.cursors, function(cursor)
         if cursor._mode ~= "n" and not VISUAL_LOOKUP[cursor._mode] then
             cursor._mode = "n"
@@ -1169,20 +1177,7 @@ function CursorManager:action(callback, applyToMainCursor)
             return true
         end
     end)
-    state.mainCursor = CursorContext:mainCursor()
-    cursorCheckUpdate(state.mainCursor)
-    cursorErase(state.mainCursor)
-    cursorClearMarks(state.mainCursor)
     cursorContextUpdate(state.mainCursor, applyToMainCursor)
-    cursorWrite(state.mainCursor)
-    if state.mainCursor == origCursor then
-        local delta = vim.fn.line("w0") - winStartLine - origCursor._drift[1]
-        if delta < 0 then
-            feedkeys(math.abs(delta) .. TERM_CODES.CTRL_E)
-        elseif delta > 0 then
-            feedkeys(delta .. TERM_CODES.CTRL_Y)
-        end
-    end
     vim.o.clipboard = origClipboard
     return result
 end
