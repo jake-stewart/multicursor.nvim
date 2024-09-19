@@ -1142,6 +1142,9 @@ function CursorManager:action(callback, applyToMainCursor)
     local result = callback(CursorContext)
 
     state.mainCursor = CursorContext:mainCursor()
+    if not state.mainCursor:inVisualMode() then
+        state.mainCursor._mode = "n"
+    end
     cursorCheckUpdate(state.mainCursor)
     cursorErase(state.mainCursor)
     cursorClearMarks(state.mainCursor)
@@ -1154,28 +1157,27 @@ function CursorManager:action(callback, applyToMainCursor)
             feedkeys(delta .. TERM_CODES.CTRL_Y)
         end
     end
-    state.cursors = tbl.filter(state.cursors, function(cursor)
-        if cursor._mode ~= "n" and not VISUAL_LOOKUP[cursor._mode] then
-            cursor._mode = "n"
+    if state.enabled then
+        for _, cursor in ipairs(state.cursors) do
+            cursor._mode = state.mainCursor._mode
         end
-        if cursor == state.mainCursor then
-            return false
-        elseif cursor._state == CursorState.deleted then
+    end
+    state.mainCursor._state = CursorState.deleted
+    for _, cursor in ipairs(state.cursors) do
+        if cursor._state == CursorState.deleted then
             cursorErase(cursor)
             cursorClearMarks(cursor)
-            return false
         elseif cursor._state == CursorState.new then
             cursorCheckUpdate(cursor)
             cursorDraw(cursor)
-            return true
         elseif cursor._state == CursorState.dirty then
             cursorCheckUpdate(cursor)
             cursorErase(cursor)
             cursorDraw(cursor)
-            return true
-        else
-            return true
         end
+    end
+    state.cursors = tbl.filter(state.cursors, function(cursor)
+        return cursor._state ~= CursorState.deleted
     end)
     cursorContextUpdate(state.mainCursor, applyToMainCursor)
     vim.o.clipboard = origClipboard
