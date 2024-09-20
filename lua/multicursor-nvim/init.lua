@@ -3,10 +3,10 @@ local examples = require("multicursor-nvim.examples")
 
 table.unpack = table.unpack or unpack
 
-vim.cmd.hi("link", "MultiCursorCursor", "Cursor")
-vim.cmd.hi("link", "MultiCursorVisual", "Visual")
-vim.cmd.hi("link", "MultiCursorDisabledCursor", "Visual")
-vim.cmd.hi("link", "MultiCursorDisabledVisual", "Visual")
+vim.api.nvim_set_hl(0, "MultiCursorCursor", { link = "Cursor" })
+vim.api.nvim_set_hl(0, "MultiCursorVisual", { link = "Visual" })
+vim.api.nvim_set_hl(0, "MultiCursorDisabledCursor", { link = "Visual" })
+vim.api.nvim_set_hl(0, "MultiCursorDisabledVisual", { link = "Visual" })
 
 return {
     setup = core.setup,

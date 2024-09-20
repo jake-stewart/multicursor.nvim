@@ -86,10 +86,10 @@ https://github.com/user-attachments/assets/a8c136dc-4786-447b-95c0-8e2a48f5776f
         vim.keymap.set("v", "<leader>T", function() mc.transposeCursors(-1) end)
 
         -- Customize how cursors look.
-        vim.cmd.hi("link", "MultiCursorCursor", "Cursor")
-        vim.cmd.hi("link", "MultiCursorVisual", "Visual")
-        vim.cmd.hi("link", "MultiCursorDisabledCursor", "Visual")
-        vim.cmd.hi("link", "MultiCursorDisabledVisual", "Visual")
+        vim.api.nvim_set_hl(0, "MultiCursorCursor", { link = "Cursor" })
+        vim.api.nvim_set_hl(0, "MultiCursorVisual", { link = "Visual" })
+        vim.api.nvim_set_hl(0, "MultiCursorDisabledCursor", { link = "Visual" })
+        vim.api.nvim_set_hl(0, "MultiCursorDisabledVisual", { link = "Visual" })
     end,
 }
 ```
