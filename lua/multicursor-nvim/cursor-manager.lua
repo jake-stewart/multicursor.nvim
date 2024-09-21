@@ -1162,9 +1162,7 @@ end
 local function cursorContextUpdate(mainCursor, applyToMainCursor)
     state.mainCursor = mainCursor
     cursorContextMergeCursors(mainCursor)
-    if #state.cursors == 0 then
-        CursorContext:clear()
-    elseif not state.currentSeq then
+    if not state.currentSeq then
         local undoTree = vim.fn.undotree()
         state.currentSeq = undoTree.seq_cur
     else
@@ -1177,10 +1175,10 @@ local function cursorContextUpdate(mainCursor, applyToMainCursor)
             for _, cursor in ipairs(state.cursors) do
                 cursorApplyDrift(cursor)
             end
-            local undoItem = {
+            local undoItem = #state.cursors > 0 and {
                 data = packCursors(mainCursor, state.cursors),
                 enabled = state.enabled
-            }
+            } or nil
             state.undoItems[undoItemId(state.currentSeq)] = undoItem
             state.redoItems[undoItemId(undoTree.seq_cur)] = undoItem
             state.currentSeq = undoTree.seq_cur
@@ -1191,6 +1189,9 @@ local function cursorContextUpdate(mainCursor, applyToMainCursor)
         end
         state.mainCursor._changePos = state.mainCursor._changePos
             or state.mainCursor._origChangePos
+    end
+    if #state.cursors == 0 then
+        CursorContext:clear()
     end
 end
 
