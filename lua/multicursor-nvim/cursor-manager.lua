@@ -833,7 +833,7 @@ function Cursor:select()
 end
 
 --- Returns whether this cursor is the main cursor (the real one).
---- @return boolean | nil
+--- @return boolean
 function Cursor:isMainCursor()
     return self == state.mainCursor
 end
@@ -1018,9 +1018,11 @@ end
 --- Sets this cursor's mode.
 --- It should only ever be in normal, visual, or select modes.
 --- @param mode string: "n" | "v" | "V" | <c-v> | "s" | "S" | <c-s>
+--- @return self
 function Cursor:setMode(mode)
     self._state = CursorState.dirty
     self._mode = mode
+    return self
 end
 
 --- Makes the cursor perform a command/commands.
@@ -1047,6 +1049,7 @@ end
 --- Sets the visual selection and sets the cursor position to `visualEnd`.
 --- @param visualStart SimplePos
 --- @param visualEnd SimplePos
+--- @return self
 function Cursor:setVisual(visualStart, visualEnd)
     cursorCheckUpdate(self)
     local atVisualEnd = visualStart[1] > visualEnd[1]
@@ -1074,6 +1077,7 @@ function Cursor:setVisual(visualStart, visualEnd)
     end
     self._state = CursorState.dirty
     cursorSetMarks(self)
+    return self
 end
 
 --- Returns true if in visual or select mode.

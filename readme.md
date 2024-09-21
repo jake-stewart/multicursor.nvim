@@ -191,10 +191,11 @@ function Cursor:getLine()
 function Cursor:delete()
 
 --- Sets this cursor as the main cursor (the real one).
+--- @return self
 function Cursor:select()
 
 --- Returns whether this cursor is the main cursor (the real one).
---- @return boolean | nil
+--- @return boolean
 function Cursor:isMainCursor()
 
 --- A cursor can either be at the start or end of a visual selection.
@@ -214,6 +215,7 @@ function Cursor:splitVisualLines()
 function Cursor:getPos()
 
 --- @param pos [integer, integer], integer
+--- @return self
 function Cursor:setPos(pos)
 
 --- Returns a new cursor with the same position, registers,
@@ -242,6 +244,7 @@ function Cursor:mode()
 --- Sets this cursor's mode.
 --- It should only ever be in normal, visual, or select modes.
 --- @param mode string: "n" | "v" | "V" | <c-v> | "s" | "S" | <c-s>
+--- @return self
 function Cursor:setMode(mode)
 
 --- Makes the cursor perform a command/commands.
@@ -254,7 +257,14 @@ function Cursor:feedkeys(keys, opts)
 --- Sets the visual selection and sets the cursor position to `visualEnd`.
 --- @param visualStart [integer, integer]
 --- @param visualEnd [integer, integer]
+--- @return self
 function Cursor:setVisual(visualStart, visualEnd)
+
+--- Sets the opposite end position of the visual selection.
+--- @param pos [integer, integer]
+--- @param offset? integer
+--- @return self
+function Cursor:setVisualAnchor(pos, offset)
 
 --- Returns true if in visual or select mode.
 --- @return boolean
