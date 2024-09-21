@@ -1139,10 +1139,10 @@ local function cursorContextUpdate(mainCursor, applyToMainCursor)
     else
         local undoTree = vim.fn.undotree()
         if undoTree.seq_cur and state.currentSeq ~= undoTree.seq_cur then
+            mainCursor._changePos = mainCursor._origChangePos
             if applyToMainCursor then
-                mainCursor._changePos = mainCursor._origChangePos
+                cursorApplyDrift(mainCursor)
             end
-            cursorApplyDrift(mainCursor)
             for _, cursor in ipairs(state.cursors) do
                 cursorApplyDrift(cursor)
             end
