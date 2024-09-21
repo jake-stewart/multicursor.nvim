@@ -266,6 +266,11 @@ function Cursor:inVisualMode()
 --- @return Cursor[]
 function CursorContext:getCursors()
 
+--- Clones and returns the main cursor
+--- This is the same as doing ctx:mainCursor():clone()
+--- @return Cursor
+function CursorContext:addCursor()
+
 --- Util which executes callback for each cursor, sorted by their position.
 --- @param callback fun(cursor: Cursor, i: integer, t: Cursor[]): boolean | nil
 function CursorContext:forEachCursor(callback)
@@ -280,6 +285,10 @@ function CursorContext:mapCursors(callback)
 --- @param predicate fun(cursor: Cursor, i: integer, t: Cursor[]): any
 --- @return Cursor | nil
 function CursorContext:findCursor(predicate)
+
+--- @param pos [integer, integer]
+--- @return Cursor | nil
+function CursorContext:getCursorAtPos(pos)
 
 --- When cursors are disabled, only the main cursor can be interacted with.
 --- @return boolean
@@ -324,6 +333,10 @@ function CursorContext:firstCursor()
 --- Guarenteed to find a cursor.
 --- @return Cursor
 function CursorContext:lastCursor()
+
+--- Returns the cursor under the main cursor
+--- @return Cursor | nil
+function CursorContext:overlappedCursor()
 
 --- @return boolean
 function CursorContext:hasCursors()
