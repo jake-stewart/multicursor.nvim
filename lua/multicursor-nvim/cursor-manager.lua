@@ -901,8 +901,9 @@ end
 --- @param data number[]
 --- @param mainCursor Cursor
 --- @param cursors Cursor[]
+--- @param enabled boolean
 --- @return Cursor, Cursor[]
-local function unpackCursors(data, mainCursor, cursors)
+local function unpackCursors(data, mainCursor, cursors, enabled)
     local cursorLookup = { [mainCursor._id] = mainCursor }
     for _, cursor in ipairs(cursors) do
         cursorLookup[cursor._id] = cursor
@@ -1143,7 +1144,7 @@ local function cursorContextUpdate(mainCursor, applyToMainCursor)
     else
         local undoTree = vim.fn.undotree()
         if undoTree.seq_cur and state.currentSeq ~= undoTree.seq_cur then
-            if not applyToMainCursor then
+            if applyToMainCursor then
                 mainCursor._changePos = mainCursor._origChangePos
             end
             cursorApplyDrift(mainCursor)
@@ -1305,7 +1306,7 @@ function CursorManager:loadUndoItem(direction)
     end
     state.enabled = undoItem.enabled
     state.mainCursor, state.cursors = unpackCursors(
-        undoItem.data, state.mainCursor, state.cursors)
+        undoItem.data, state.mainCursor, state.cursors, state.enabled)
     cursorContextMergeCursors(state.mainCursor)
     if #state.cursors == 0 then
         CursorContext:clear()
