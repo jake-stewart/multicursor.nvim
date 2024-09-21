@@ -2,13 +2,29 @@ local TERM_CODES = require("multicursor-nvim.term-codes")
 local feedkeysManager = require("multicursor-nvim.feedkeys-manager")
 local util = require("multicursor-nvim.util")
 
+local SPECIAL_KEYS = {
+    [TERM_CODES.CTRL_R] = true,
+    ["u"] = true,
+    ["."] = true,
+    ["zs"] = true,
+    ["ze"] = true,
+    ["zh"] = true,
+    ["zl"] = true,
+    ["zH"] = true,
+    ["zL"] = true,
+    ["zz"] = true,
+    [TERM_CODES.CTRL_Y] = true,
+    [TERM_CODES.CTRL_E] = true,
+}
+
 --- @class InputManager
 --- @field private _nsid number
 --- @field private _cursorManager CursorManager
 --- @field private _cmdType string | nil
 --- @field private _inInsertMode boolean
 --- @field private _applying boolean
---- @field private _macro string
+--- @field private _typed string
+--- @field private _keys string
 --- @field private _specialKey string | nil
 --- @field private _fromSelectMode boolean
 local InputManager = {}
@@ -20,7 +36,8 @@ function InputManager:setup(nsid, cursorManager)
     self._cursorManager = cursorManager
     self._inInsertMode = false
     self._applying = false
-    self._macro = ""
+    self._keys = ""
+    self._typed = ""
     self._fromSelectMode = false
 
     util.au("SafeState", "*", function()
@@ -40,8 +57,8 @@ function InputManager:performAction(callback)
     if self._applying or self._inInsertMode or self._cmdType then
         return nil
     end
-    self._macro = ""
-    self._specialKey = nil
+    self._keys = ""
+    self._typed = ""
     self._applying = true
     local success, err = pcall(callback)
     self._applying = false
@@ -56,11 +73,11 @@ function InputManager:_onInsertMode(enabled)
     if not enabled then
         local insertReg = vim.fn.getreg(".")
         if self._fromSelectMode then
-            self._macro = self._macro
+            self._typed = self._typed
                 .. string.sub(insertReg, 2, #insertReg)
                 .. TERM_CODES.ESC
         else
-            self._macro = self._macro
+            self._typed = self._typed
                 .. insertReg
                 .. TERM_CODES.ESC
         end
@@ -93,7 +110,7 @@ function InputManager:_onSafeState()
     elseif self._cmdType then
         if self._cmdType == ":" then
             self._cmdType = nil
-            self._macro = ""
+            self._typed = ""
             self._cursorManager:dirty()
             if self._cursorManager:hasCursors() then
                 self._cursorManager:action(function(ctx)
@@ -109,33 +126,45 @@ function InputManager:_onSafeState()
         self._cmdType = nil
     end
     self._applying = true
-    if self._specialKey then
+
+    if SPECIAL_KEYS[string.match(self._keys, "%d*(.*)")] then
         self._cursorManager:dirty()
-        if self._specialKey == "u" then
+        if self._keys == "u" then
             self._cursorManager:loadUndoItem(-1)
-        elseif self._specialKey == TERM_CODES.CTRL_R then
+        elseif self._keys == TERM_CODES.CTRL_R then
             self._cursorManager:loadUndoItem(1)
-        elseif self._specialKey == "." then
+        elseif self._keys == "." then
             if self._cursorManager:hasCursors() then
                 self._cursorManager:action(function(ctx)
-                    ctx:forEachCursor(function(cursor)
-                        cursor:feedkeys(".")
-                    end)
+                    if ctx:cursorsEnabled() then
+                        ctx:forEachCursor(function(cursor)
+                            if not cursor:isMainCursor() then
+                                cursor:feedkeys(self._keys)
+                            end
+                        end)
+                    end
                 end, false)
             else
                 self._cursorManager:update()
             end
+        else
+            self._cursorManager:update()
         end
-        self._specialKey = nil
-    elseif #self._macro > 0 and self._cursorManager:hasCursors() then
+        self._typed = ""
+        self._keys = ""
+    elseif #self._typed > 0 and self._cursorManager:hasCursors() then
         self._cursorManager:dirty()
         if self._cursorManager:hasCursors()
             and self._cursorManager:cursorsEnabled()
         then
             self._cursorManager:action(function(ctx)
-                ctx:forEachCursor(function(cursor)
-                    cursor:feedkeys(self._macro, { remap = true })
-                end)
+                if ctx:cursorsEnabled() then
+                    ctx:forEachCursor(function(cursor)
+                        if not cursor:isMainCursor() then
+                            cursor:feedkeys(self._typed, { remap = true })
+                        end
+                    end)
+                end
             end, false)
         else
             self._cursorManager:update()
@@ -143,26 +172,21 @@ function InputManager:_onSafeState()
     else
         self._cursorManager:update()
     end
-    self._macro = ""
+    self._keys = ""
+    self._typed = ""
     self._applying = false
 end
 
 --- @private
 function InputManager:_onKey(key, typed)
-    if self._applying or self._inInsertMode or self._specialKey then
-        return
-    end
     if feedkeysManager:wasFedKeys(typed) then
         return
     end
-    if not self._cmdType
-        and self._macro == ""
-        and (key == "u" or key == TERM_CODES.CTRL_R or key == ".")
-    then
-        self._specialKey = key
-    else
-        self._macro = self._macro .. typed
+    if self._applying or self._inInsertMode then
+        return
     end
+    self._keys = self._keys .. key
+    self._typed = self._typed .. typed
 end
 
 return InputManager

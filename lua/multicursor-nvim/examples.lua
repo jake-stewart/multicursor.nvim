@@ -237,16 +237,12 @@ end
 function examples.handleMouse()
     mc.action(function(ctx)
         local mousePos = vim.fn.getmousepos()
-        local existingCursor = ctx:findCursor(function(cursor)
-            return cursor:line() == mousePos.line
-                and cursor:col() == mousePos.column
-        end)
+        local pos = {mousePos.line, mousePos.column}
+        local existingCursor = ctx:getCursorAtPos(pos)
         if existingCursor then
             existingCursor:delete()
         else
-            ctx:mainCursor()
-                :clone()
-                :setPos({ mousePos.line, mousePos.column })
+            ctx:addCursor():setPos(pos)
         end
     end)
 end
