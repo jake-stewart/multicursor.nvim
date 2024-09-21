@@ -3,10 +3,16 @@ local examples = require("multicursor-nvim.examples")
 
 table.unpack = table.unpack or unpack
 
-vim.api.nvim_set_hl(0, "MultiCursorCursor", { link = "Cursor" })
-vim.api.nvim_set_hl(0, "MultiCursorVisual", { link = "Visual" })
-vim.api.nvim_set_hl(0, "MultiCursorDisabledCursor", { link = "Visual" })
-vim.api.nvim_set_hl(0, "MultiCursorDisabledVisual", { link = "Visual" })
+local function setDefaultHighlight(name, link)
+    if vim.fn.hlexists(name) == 0 then
+        vim.api.nvim_set_hl(0, name, { link = link })
+    end
+end
+
+setDefaultHighlight("MultiCursorCursor", "Cursor")
+setDefaultHighlight("MultiCursorVisual", "Visual")
+setDefaultHighlight("MultiCursorDisabledCursor", "Visual")
+setDefaultHighlight("MultiCursorDisabledVisual", "Visual")
 
 return {
     setup = core.setup,
