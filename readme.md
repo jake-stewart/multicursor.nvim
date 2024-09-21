@@ -207,6 +207,7 @@ function Cursor:atVisualStart()
 --- For each line of the cursor's visual selection, a new cursor is
 --- created, visually selecting only the single line.
 --- This method deletes the original cursor.
+--- @return Cursor[]
 function Cursor:splitVisualLines()
 
 --- @return [number, number]

@@ -61,10 +61,16 @@ function examples.matchCursors(pattern)
         if not pattern or pattern == "" then
             return
         end
-        ctx:forEachCursor(function(cursor)
-            cursor:splitVisualLines()
-        end)
-        ctx:forEachCursor(function(cursor)
+        local newCursors = {}
+        if ctx:cursorsEnabled() then
+            ctx:forEachCursor(function(cursor)
+                newCursors = tbl.concat(
+                    newCursors, cursor:splitVisualLines())
+            end)
+        else
+            newCursors = ctx:mainCursor():splitVisualLines()
+        end
+        for _, cursor in ipairs(newCursors) do
             local selection = cursor:getVisualLines()
             local matches = util.matchlist(selection, pattern, {
                 userConfig = true,
@@ -81,7 +87,7 @@ function examples.matchCursors(pattern)
                 end
             end
             cursor:delete()
-        end)
+        end
         ctx:setCursorsEnabled(true)
     end)
 end

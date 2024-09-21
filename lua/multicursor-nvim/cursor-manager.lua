@@ -308,13 +308,16 @@ local function cursorDrawVisualBlock(cursor, lines, start, hl)
 end
 
 --- @param cursor Cursor
+--- @return Cursor[]
 local function cursorSplitVisualChar(cursor)
+    local newCursors = {}
     local atVisualStart = cursor:atVisualStart()
     local visualStart, visualEnd = cursor:getVisual()
     local lines = get_lines(
         0, visualStart[1] - 1, visualEnd[1], false)
     for i = visualStart[1], visualEnd[1] do
         local newCursor = cursor:clone()
+        newCursors[#newCursors + 1] = newCursor
         local startCol = i == visualStart[1]
             and visualStart[2]
             or 1
@@ -328,29 +331,37 @@ local function cursorSplitVisualChar(cursor)
         end
         newCursor._mode = "v"
     end
+    return newCursors
 end
 
 --- @param cursor Cursor
+--- @return Cursor[]
 local function cursorSplitVisualLine(cursor)
+    local newCursors = {}
     local visualStart, visualEnd = cursor:getVisual()
     local lines = get_lines(
         0, visualStart[1] - 1, visualEnd[1], false)
     for i = visualStart[1], visualEnd[1] do
         local newCursor = cursor:clone()
+        newCursors[#newCursors + 1] = newCursor
         newCursor:setVisual(
             { i, #lines[i - visualStart[1] + 1] },
             { i, 1 }
         )
         newCursor._mode = "v"
     end
+    return newCursors
 end
 
 --- @param cursor Cursor
+--- @return Cursor[]
 local function cursorSplitVisualBlock(cursor)
+    local newCursors = {}
     local atVisualStart = cursor:atVisualStart()
     local visualStart, visualEnd = cursor:getVisual()
     for i = visualStart[1], visualEnd[1] do
         local newCursor = cursor:clone()
+        newCursors[#newCursors + 1] = newCursor
         if atVisualStart then
             newCursor:setVisual(
                 { i, visualEnd[2] },
@@ -364,6 +375,7 @@ local function cursorSplitVisualBlock(cursor)
         end
         newCursor._mode = "v"
     end
+    return newCursors
 end
 
 
@@ -826,13 +838,16 @@ end
 --- For each line of the cursor's visual selection, a new cursor is
 --- created, visually selecting only the single line.
 --- This method deletes the original cursor.
+--- @return Cursor[]
 function Cursor:splitVisualLines()
     cursorCheckUpdate(self)
     local visualInfo = VISUAL_LOOKUP[self._mode]
     if visualInfo then
-        visualInfo.split(self)
+        local newCursors = visualInfo.split(self)
         self:delete()
+        return newCursors
     end
+    return {}
 end
 
 --- @return SimplePos
