@@ -901,9 +901,8 @@ end
 --- @param data number[]
 --- @param mainCursor Cursor
 --- @param cursors Cursor[]
---- @param enabled boolean
 --- @return Cursor, Cursor[]
-local function unpackCursors(data, mainCursor, cursors, enabled)
+local function unpackCursors(data, mainCursor, cursors)
     local cursorLookup = { [mainCursor._id] = mainCursor }
     for _, cursor in ipairs(cursors) do
         cursorLookup[cursor._id] = cursor
@@ -917,15 +916,11 @@ local function unpackCursors(data, mainCursor, cursors, enabled)
         cursor._vPos = cursor._pos
         cursor._changePos = cursor._pos
         cursor._modifiedId = state.modifiedId
-        if cursor._id == mainCursor._id then
+        if i == 1 then
             newMainCursor = cursor
         else
             newCursors[#newCursors + 1] = cursor
         end
-    end
-    if not newMainCursor then
-        newMainCursor = newCursors[#newCursors]
-        newCursors[#newCursors] = nil
     end
     return newMainCursor, newCursors
 end
@@ -1306,7 +1301,7 @@ function CursorManager:loadUndoItem(direction)
     end
     state.enabled = undoItem.enabled
     state.mainCursor, state.cursors = unpackCursors(
-        undoItem.data, state.mainCursor, state.cursors, state.enabled)
+        undoItem.data, state.mainCursor, state.cursors)
     cursorContextMergeCursors(state.mainCursor)
     if #state.cursors == 0 then
         CursorContext:clear()
