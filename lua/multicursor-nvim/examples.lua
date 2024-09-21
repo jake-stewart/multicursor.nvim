@@ -244,11 +244,16 @@ function examples.handleMouse()
     mc.action(function(ctx)
         local mousePos = vim.fn.getmousepos()
         local pos = {mousePos.line, mousePos.column}
-        local existingCursor = ctx:getCursorAtPos(pos)
+        local existingCursor = ctx:getCursorAtPos(pos, mousePos.coladd)
         if existingCursor then
             existingCursor:delete()
         else
-            ctx:addCursor():setPos(pos)
+            local offset = vim.o.virtualedit == "all"
+                and mousePos.coladd
+                or nil
+            ctx:addCursor()
+                :setPos(pos, offset)
+                :setVisualAnchor(pos, offset)
         end
     end)
 end

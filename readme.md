@@ -210,10 +210,10 @@ function Cursor:atVisualStart()
 --- @return Cursor[]
 function Cursor:splitVisualLines()
 
---- @return [number, number]
+--- @return [integer, integer], integer
 function Cursor:getPos()
 
---- @param pos [number, number]
+--- @param pos [integer, integer], integer
 function Cursor:setPos(pos)
 
 --- Returns a new cursor with the same position, registers,
@@ -231,7 +231,7 @@ function Cursor:getFullVisualLines()
 
 --- Returns start and end positions of visual selection start position
 --- is before or equal to end position.
---- @return [number, number], [number, number]
+--- @return [integer, integer], [integer, integer]
 function Cursor:getVisual()
 
 --- Returns this cursor's current mode.
@@ -252,8 +252,8 @@ function Cursor:setMode(mode)
 function Cursor:feedkeys(keys, opts)
 
 --- Sets the visual selection and sets the cursor position to `visualEnd`.
---- @param visualStart [number, number]
---- @param visualEnd [number, number]
+--- @param visualStart [integer, integer]
+--- @param visualEnd [integer, integer]
 function Cursor:setVisual(visualStart, visualEnd)
 
 --- Returns true if in visual or select mode.
@@ -288,8 +288,9 @@ function CursorContext:mapCursors(callback)
 function CursorContext:findCursor(predicate)
 
 --- @param pos [integer, integer]
+--- @param offset? integer
 --- @return Cursor | nil
-function CursorContext:getCursorAtPos(pos)
+function CursorContext:getCursorAtPos(pos, offset)
 
 --- When cursors are disabled, only the main cursor can be interacted with.
 --- @return boolean
@@ -304,22 +305,25 @@ function CursorContext:setCursorsEnabled(value)
 --- It does not wrap, so if none are found, then nil is returned.
 --- If you wish to wrap, use `ctx:nextCursor(...) or ctx:firstCursor(...)`.
 --- @param pos [integer, integer]
+--- @param offset? integer
 --- @return Cursor | nil
-function CursorContext:nextCursor(pos)
+function CursorContext:nextCursor(pos, offset)
 
 --- Returns the closest cursor which appears BEFORE pos.
 --- A cursor exactly at pos will not be returned.
 --- It does not wrap, so if none are found, then nil is returned.
 --- If you wish to wrap, use `ctx:prevCursor(...) or ctx:lastCursor(...)`.
 --- @param pos [integer, integer]
+--- @param offset? integer
 --- @return Cursor | nil
-function CursorContext:prevCursor(pos)
+function CursorContext:prevCursor(pos, offset)
 
 --- Returns the nearest cursor to pos, and accepts a cursor exactly at pos.
 --- It is guarenteed to find a cursor.
 --- @param pos [integer, integer]
+--- @param offset? integer
 --- @return Cursor
-function CursorContext:nearestCursor(pos)
+function CursorContext:nearestCursor(pos, offset)
 
 --- Returns the main cursor (the real one).
 --- @return Cursor

@@ -30,6 +30,9 @@ end
 --- @return boolean
 local function compareCursorsPosition(a, b)
     if a._pos[2] == b._pos[2] then
+        if a._pos[3] == b._pos[3] then
+            return a._pos[4] < b._pos[4]
+        end
         return a._pos[3] < b._pos[3]
     end
     return a._pos[2] < b._pos[2]
@@ -629,15 +632,17 @@ end
 --- It does not wrap, so if none are found, then nil is returned.
 --- If you wish to wrap, use `ctx:nextCursor(...) or ctx:firstCursor(...)`.
 --- @param pos SimplePos
+--- @param offset? integer
 --- @return Cursor | nil
-function CursorContext:nextCursor(pos)
+function CursorContext:nextCursor(pos, offset)
+    offset = offset or 0
     local nextCursor = nil
     for _, cursor in ipairs(state.cursors) do
         if cursor._state ~= CursorState.deleted then
             cursorCheckUpdate(cursor)
             if cursor._pos[2] > pos[1]
                 or cursor._pos[2] == pos[1]
-                and cursor._pos[3] > pos[2]
+                and (cursor._pos[3] + cursor._pos[4]) > (pos[2] + offset)
             then
                 if not nextCursor
                     or compareCursorsPosition(cursor, nextCursor)
@@ -655,15 +660,17 @@ end
 --- It does not wrap, so if none are found, then nil is returned.
 --- If you wish to wrap, use `ctx:prevCursor(...) or ctx:lastCursor(...)`.
 --- @param pos SimplePos
+--- @param offset? integer
 --- @return Cursor | nil
-function CursorContext:prevCursor(pos)
+function CursorContext:prevCursor(pos, offset)
+    offset = offset or 0
     local prevCursor = nil
     for _, cursor in ipairs(state.cursors) do
         if cursor._state ~= CursorState.deleted then
             cursorCheckUpdate(cursor)
             if cursor._pos[2] < pos[1]
                 or cursor._pos[2] == pos[1]
-                and cursor._pos[3] < pos[2]
+                and (cursor._pos[3] + cursor._pos[4]) < (pos[2] + offset)
             then
                 if not prevCursor
                     or compareCursorsPosition(prevCursor, cursor)
@@ -679,8 +686,10 @@ end
 --- Returns the nearest cursor to pos, and accepts a cursor exactly at pos.
 --- It is guarenteed to find a cursor.
 --- @param pos SimplePos
+--- @param offset? integer
 --- @return Cursor
-function CursorContext:nearestCursor(pos)
+function CursorContext:nearestCursor(pos, offset)
+    offset = offset or 0
     local nearestCursor = nil
     local nearestColDist = 0
     local nearestRowDist = 0
@@ -688,7 +697,8 @@ function CursorContext:nearestCursor(pos)
         if cursor._state ~= CursorState.deleted then
             cursorCheckUpdate(cursor)
             local rowDist = math.abs(cursor._pos[2] - pos[1])
-            local colDist = math.abs(cursor._pos[3] - pos[2])
+            local colDist = math.abs(
+                (cursor._pos[3] + cursor._pos[4]) - (pos[2] + offset))
             if not nearestCursor
                 or rowDist < nearestRowDist
                 or rowDist == nearestRowDist
@@ -704,12 +714,14 @@ function CursorContext:nearestCursor(pos)
 end
 
 --- @param pos SimplePos
+--- @param offset? number
 --- @return Cursor | nil
-function CursorContext:getCursorAtPos(pos)
+function CursorContext:getCursorAtPos(pos, offset)
     for _, cursor in ipairs(state.cursors) do
         if cursor._state ~= CursorState.deleted
             and cursor._pos[2] == pos[1]
-            and cursor._pos[3] + cursor._pos[4] == pos[2]
+            and cursor._pos[3] == pos[2]
+            and (not offset or cursor._pos[4] == offset)
         then
             return cursor
         end
@@ -814,8 +826,10 @@ function Cursor:delete()
 end
 
 --- Sets this cursor as the main cursor (the real one).
+--- @return self
 function Cursor:select()
     cursorContextSetMainCursor(self)
+    return self
 end
 
 --- Returns whether this cursor is the main cursor (the real one).
@@ -850,17 +864,30 @@ function Cursor:splitVisualLines()
     return {}
 end
 
---- @return SimplePos
+--- @return SimplePos, integer
 function Cursor:getPos()
     cursorCheckUpdate(self)
-    return {self._pos[2], self._pos[3]}
+    return {self._pos[2], self._pos[3]}, self._pos[4]
 end
 
 --- @param pos SimplePos
-function Cursor:setPos(pos)
+--- @param offset? number
+--- @return self
+function Cursor:setPos(pos, offset)
     cursorCheckUpdate(self)
-    self._pos = { self._pos[0], pos[1], pos[2], 0, pos[2] }
+    self._pos = { self._pos[0], pos[1], pos[2], offset or 0, pos[2] }
     cursorSetMarks(self)
+    return self
+end
+
+--- @param pos SimplePos
+--- @param offset? integer
+--- @return self
+function Cursor:setVisualAnchor(pos, offset)
+    cursorCheckUpdate(self)
+    self._vPos = { 0, pos[1], pos[2], offset or 0, pos[2] }
+    cursorSetMarks(self)
+    return self
 end
 
 --- @param cursor Cursor
