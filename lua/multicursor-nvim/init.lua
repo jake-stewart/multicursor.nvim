@@ -4,9 +4,7 @@ local examples = require("multicursor-nvim.examples")
 table.unpack = table.unpack or unpack
 
 local function setDefaultHighlight(name, link)
-    if vim.fn.hlexists(name) == 0 then
-        vim.api.nvim_set_hl(0, name, { link = link })
-    end
+    vim.api.nvim_set_hl(0, name, { link = link, default = true })
 end
 
 setDefaultHighlight("MultiCursorCursor", "Cursor")
