@@ -1134,8 +1134,10 @@ end
 
 function CursorContext:clear()
     clear_namespace(0, state.nsid, 0, -1)
-    vim.o.clipboard = state.clipboard
-    state.clipboard = nil
+    if state.clipboard then
+        vim.o.clipboard = state.clipboard
+        state.clipboard = nil
+    end
     state.enabled = true
     state.cursors = {}
     if state.shallowUndo then
@@ -1281,7 +1283,15 @@ function CursorManager:action(callback, applyToMainCursor)
     cursorClearMarks(state.mainCursor)
     cursorWrite(state.mainCursor)
     if state.mainCursor == origCursor then
-        local rowDelta = vim.fn.line("w0") - winStartLine - origCursor._drift[1]
+        local newStartLine = vim.fn.line("w0")
+        local newEndLine = vim.fn.line("w$")
+        local rowDelta = math.max(
+            newStartLine - origCursor._pos[2],
+            math.min(
+                newEndLine - origCursor._pos[2],
+                newStartLine - winStartLine - origCursor._drift[1]
+            )
+        )
         if rowDelta < 0 then
             feedkeys(math.abs(rowDelta) .. TERM_CODES.CTRL_E)
         elseif rowDelta > 0 then
