@@ -1226,6 +1226,7 @@ end
 function CursorManager:update()
     state.mainCursor = state.mainCursor or createCursor({})
     cursorRead(state.mainCursor)
+    cursorWrite(state.mainCursor)
     local oldLeftCol = state.leftcol
     state.leftcol = vim.fn.winsaveview().leftcol
     if oldLeftCol > 0 or state.leftcol > 0 then
@@ -1279,6 +1280,21 @@ function CursorManager:action(callback, applyToMainCursor)
     if not state.mainCursor:inVisualMode() then
         state.mainCursor._mode = "n"
     end
+    if state.enabled then
+        for _, cursor in ipairs(state.cursors) do
+            if cursor._mode ~= state.mainCursor._mode then
+                if state.mainCursor._mode == "n" and cursor:inVisualMode() then
+                    cursorWrite(cursor)
+                    if cursor:atVisualStart() then
+                        cursor:feedkeys(TERM_CODES.ESC)
+                    else
+                        cursor:feedkeys("o" .. TERM_CODES.ESC)
+                    end
+                end
+                cursor._mode = state.mainCursor._mode
+            end
+        end
+    end
     cursorCheckUpdate(state.mainCursor)
     cursorErase(state.mainCursor)
     cursorClearMarks(state.mainCursor)
@@ -1286,6 +1302,7 @@ function CursorManager:action(callback, applyToMainCursor)
     if state.mainCursor == origCursor then
         local newStartLine = vim.fn.line("w0")
         local newEndLine = vim.fn.line("w$")
+        local scrollOff = vim.o.scrolloff
         local rowDelta = math.max(
             newStartLine - origCursor._pos[2],
             math.min(
@@ -1293,18 +1310,13 @@ function CursorManager:action(callback, applyToMainCursor)
                 newStartLine - winStartLine - origCursor._drift[1]
             )
         )
-        if rowDelta < 0 then
-            feedkeys(math.abs(rowDelta) .. TERM_CODES.CTRL_E)
-        elseif rowDelta > 0 then
-            feedkeys(rowDelta .. TERM_CODES.CTRL_Y)
+        if rowDelta < -scrollOff then
+            feedkeys(math.abs(rowDelta - scrollOff) .. TERM_CODES.CTRL_E)
+        elseif rowDelta > scrollOff then
+            feedkeys((rowDelta - scrollOff) .. TERM_CODES.CTRL_Y)
         end
         -- i would also update leftcol here, but vim.fn.winsaveview()
         -- is returning outdated values. probably a neovim bug
-    end
-    if state.enabled then
-        for _, cursor in ipairs(state.cursors) do
-            cursor._mode = state.mainCursor._mode
-        end
     end
     state.mainCursor._state = CursorState.deleted
     for _, cursor in ipairs(state.cursors) do
