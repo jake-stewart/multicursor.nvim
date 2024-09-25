@@ -99,6 +99,7 @@ local state = {
     undoItems = {},
     redoItems = {},
     clipboard = nil,
+    hlsearch = nil,
     id = 0,
     shallowUndo = false,
     modifiedId = 0,
@@ -1139,6 +1140,10 @@ function CursorContext:clear()
         vim.o.clipboard = state.clipboard
         state.clipboard = nil
     end
+    if state.hlsearch then
+        vim.o.hlsearch = true
+    end
+    state.hlsearch = nil
     state.enabled = true
     state.cursors = {}
     if state.shallowUndo then
@@ -1244,6 +1249,12 @@ function CursorManager:action(callback, applyToMainCursor)
     if state.clipboard == nil then
         state.clipboard = vim.o.clipboard
         vim.o.clipboard = ""
+    end
+    if state.hlsearch == nil then
+        state.hlsearch = vim.o.hlsearch
+        if state.hlsearch then
+            vim.o.hlsearch = false
+        end
     end
     state.leftcol = vim.fn.winsaveview().leftcol
     state.textoffset = vim.fn.getwininfo(vim.fn.win_getid())[1].textoff
