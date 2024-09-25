@@ -285,21 +285,40 @@ local function cursorDrawVisualBlock(cursor, lines, start, hl)
     local pc = cursor._pos[3] + cursor._pos[4]
     local startCol = math.min(vc, pc)
     local endCol = math.max(vc, pc)
+    local atEndOfLine = cursor._pos[5] == 2147483647
+
+    local maxCol = 0
+    if atEndOfLine and state.virtualEditBlock then
+        local i = startLine
+        while i <= endLine do
+            local line = lines[i - start]
+            if line and #line >= maxCol then
+                maxCol = #line
+            end
+            i = i + 1
+        end
+        maxCol = maxCol + 1
+    else
+        maxCol = endCol
+    end
 
     local i = startLine
     while i <= endLine do
         local line = lines[i - start]
         if line and #line >= startCol then
             local displayWidth = vim.fn.strdisplaywidth(line)
-            local virt_text = endCol >= #line and {{
-                string.rep(" ", endCol - #line
-                    + (state.virtualEditBlock and 0 or -1)),
-                hl
-            }} or nil
+            local virt_text
+            local lineEndCol = atEndOfLine and #line or endCol
+            if maxCol >= #line and state.virtualEditBlock then
+                virt_text = {{
+                    string.rep(" ", maxCol - #line),
+                    hl
+                }}
+            end
             local id = set_extmark(0, state.nsid, i - 1, startCol - 1, {
                 strict = false,
                 undo_restore = false,
-                end_col = endCol,
+                end_col = lineEndCol,
                 virt_text_pos = "inline",
                 priority = 200,
                 virt_text_win_col = displayWidth - state.leftcol,
@@ -364,18 +383,22 @@ local function cursorSplitVisualBlock(cursor)
     local newCursors = {}
     local atVisualStart = cursor:atVisualStart()
     local visualStart, visualEnd = cursor:getVisual()
+    local atEndOfLine = cursor._pos[5] == 2147483647
     for i = visualStart[1], visualEnd[1] do
         local newCursor = cursor:clone()
         newCursors[#newCursors + 1] = newCursor
+        local visualEndCol = atEndOfLine
+            and #get_lines(0, i - 1, i, true)[1]
+            or visualEnd[2]
         if atVisualStart then
             newCursor:setVisual(
-                { i, visualEnd[2] },
+                { i, visualEndCol },
                 { i, visualStart[2] }
             )
         else
             newCursor:setVisual(
                 { i, visualStart[2] },
-                { i, visualEnd[2] }
+                { i, visualEndCol }
             )
         end
         newCursor._mode = "v"
@@ -554,8 +577,15 @@ local function cursorWrite(cursor)
         vim.fn.setpos(".", cursor._vPos)
         feedkeys("o")
         vim.fn.setpos(".", cursor._pos)
+        local buffer = {}
+        if cursor._pos[5] == 2147483647 then
+            buffer[#buffer + 1] = "$"
+        end
         if #visualInfo.enterSelectKey > 0 then
-            feedkeys(visualInfo.enterSelectKey)
+            buffer[#buffer + 1] = visualInfo.enterSelectKey
+        end
+        if #buffer > 0 then
+            feedkeys(table.concat(buffer))
         end
     elseif cursor._mode == "n" then
         if mode ~= "n" then
@@ -893,6 +923,12 @@ function Cursor:setVisualAnchor(pos, offset)
     return self
 end
 
+--- @return SimplePos, integer
+function Cursor:getVisualAnchor()
+    cursorCheckUpdate(self)
+    return {self._vPos[2], self._vPos[3]}, self._vPos[4]
+end
+
 --- @param cursor Cursor
 local function cursorCopy(cursor)
     return createCursor({
@@ -1094,17 +1130,16 @@ function CursorContext:cursorsEnabled()
     return state.enabled
 end
 
---- @param mainCursor Cursor
-local function cursorContextMergeCursors(mainCursor)
+local function cursorContextMergeCursors()
     --- @type Cursor[]
     local newCursors = {}
     for _, cursor in ipairs(state.cursors) do
         cursorCheckUpdate(cursor)
         local exists = false
         if state.enabled
-            and cursor._pos[2] == mainCursor._pos[2]
-            and cursor._pos[3] == mainCursor._pos[3]
-            and cursor._pos[4] == mainCursor._pos[4]
+            and cursor._pos[2] == state.mainCursor._pos[2]
+            and cursor._pos[3] == state.mainCursor._pos[3]
+            and cursor._pos[4] == state.mainCursor._pos[4]
         then
             exists = true
         else
@@ -1165,26 +1200,24 @@ local function cursorApplyDrift(cursor)
 end
 
 --- @package
---- @param mainCursor Cursor
 --- @param applyToMainCursor boolean
-local function cursorContextUpdate(mainCursor, applyToMainCursor)
-    state.mainCursor = mainCursor
-    cursorContextMergeCursors(mainCursor)
+local function cursorContextUpdate(applyToMainCursor)
+    cursorContextMergeCursors()
     if not state.currentSeq then
         local undoTree = vim.fn.undotree()
         state.currentSeq = undoTree.seq_cur
     else
         local undoTree = vim.fn.undotree()
         if undoTree.seq_cur and state.currentSeq ~= undoTree.seq_cur then
-            mainCursor._changePos = mainCursor._origChangePos
+            state.mainCursor._changePos = state.mainCursor._origChangePos
             if applyToMainCursor then
-                cursorApplyDrift(mainCursor)
+                cursorApplyDrift(state.mainCursor)
             end
             for _, cursor in ipairs(state.cursors) do
                 cursorApplyDrift(cursor)
             end
             local undoItem = #state.cursors > 0 and {
-                data = packCursors(mainCursor, state.cursors),
+                data = packCursors(state.mainCursor, state.cursors),
                 enabled = state.enabled
             } or nil
             state.undoItems[undoItemId(state.currentSeq)] = undoItem
@@ -1231,7 +1264,6 @@ end
 function CursorManager:update()
     state.mainCursor = state.mainCursor or createCursor({})
     cursorRead(state.mainCursor)
-    cursorWrite(state.mainCursor)
     local oldLeftCol = state.leftcol
     state.leftcol = vim.fn.winsaveview().leftcol
     if oldLeftCol > 0 or state.leftcol > 0 then
@@ -1240,7 +1272,7 @@ function CursorManager:update()
             cursorDraw(cursor)
         end
     end
-    cursorContextUpdate(state.mainCursor, false)
+    cursorContextUpdate(false)
 end
 
 --- @param callback fun(context: CursorContext)
@@ -1347,7 +1379,7 @@ function CursorManager:action(callback, applyToMainCursor)
     state.cursors = tbl.filter(state.cursors, function(cursor)
         return cursor._state ~= CursorState.deleted
     end)
-    cursorContextUpdate(state.mainCursor, applyToMainCursor)
+    cursorContextUpdate(applyToMainCursor)
     vim.fn.setreg(origRegName, state.mainCursor._register)
     return result
 end
@@ -1369,7 +1401,7 @@ function CursorManager:loadUndoItem(direction)
     state.enabled = undoItem.enabled
     state.mainCursor, state.cursors = unpackCursors(
         undoItem.data, state.mainCursor, state.cursors)
-    cursorContextMergeCursors(state.mainCursor)
+    cursorContextMergeCursors()
     if #state.cursors == 0 then
         CursorContext:clear()
     else
