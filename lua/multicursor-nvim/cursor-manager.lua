@@ -823,8 +823,8 @@ end
 function Cursor:delete()
     self._state = CursorState.deleted
     if self == state.mainCursor then
-        cursorContextSetMainCursor(
-            CursorContext:nearestCursor(self:getPos()))
+        local newMainCursor = CursorContext:nearestCursor(self:getPos())
+        cursorContextSetMainCursor(newMainCursor)
     end
 end
 
@@ -1293,16 +1293,17 @@ function CursorManager:action(callback, applyToMainCursor)
     end
     if state.enabled then
         for _, cursor in ipairs(state.cursors) do
-            if cursor._mode ~= state.mainCursor._mode then
-                if state.mainCursor._mode == "n" and cursor:inVisualMode() then
-                    cursorWrite(cursor)
-                    if cursor:atVisualStart() then
-                        cursor:feedkeys(TERM_CODES.ESC)
-                    else
-                        cursor:feedkeys("o" .. TERM_CODES.ESC)
+            if cursor._state ~= CursorState.deleted then
+                if cursor._mode ~= state.mainCursor._mode then
+                    if state.mainCursor._mode == "n" and cursor:inVisualMode() then
+                        if not cursor:atVisualStart() then
+                            cursor:feedkeys("o" .. TERM_CODES.ESC)
+                        else
+                            cursor:feedkeys(TERM_CODES.ESC)
+                        end
                     end
+                    cursor._mode = state.mainCursor._mode
                 end
-                cursor._mode = state.mainCursor._mode
             end
         end
     end
