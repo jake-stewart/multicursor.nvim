@@ -65,7 +65,8 @@ local CursorState = {
 --- @field package _pos             CursorPos
 --- @field package _register        string
 --- @field package _search          string
---- @field package _visual          [ MarkPos, MarkPos ]
+--- @field package _visualStart     MarkPos
+--- @field package _visualEnd       MarkPos
 --- @field package _visualIds       integer[] | nil
 --- @field package _vPos            MarkPos
 --- @field package _mode            string
@@ -529,11 +530,9 @@ local function cursorRead(cursor)
     cursor._modifiedId = state.modifiedId
     cursor._register = vim.fn.getreginfo("")
     cursor._search = vim.fn.getreg("/")
-    if vim.fn.mode() == "n" or not cursor._visual then
-        cursor._visual = {
-            vim.fn.getpos("'<"),
-            vim.fn.getpos("'>"),
-        }
+    if cursor._mode == "n" or not cursor._visualStart then
+        cursor._visualStart = vim.fn.getpos("'<")
+        cursor._visualEnd = vim.fn.getpos("'>")
     end
     return cursor
 end
@@ -542,12 +541,15 @@ end
 local function cursorWrite(cursor)
     vim.fn.setreg("", cursor._register)
     vim.fn.setreg("/", cursor._search)
-    vim.fn.setpos("'<", cursor._visual[1])
-    vim.fn.setpos("'>", cursor._visual[2])
     local mode = vim.fn.mode()
+    if mode ~= "n" then
+        feedkeys(TERM_CODES.ESC)
+    end
+    vim.fn.setpos("'<", cursor._visualStart)
+    vim.fn.setpos("'>", cursor._visualEnd)
     local visualInfo = VISUAL_LOOKUP[cursor._mode]
     if visualInfo then
-        feedkeys((mode == "n" and "" or TERM_CODES.ESC) .. visualInfo.enterVisualKey)
+        feedkeys(visualInfo.enterVisualKey)
         vim.fn.setpos(".", cursor._vPos)
         feedkeys("o")
         vim.fn.setpos(".", cursor._pos)
@@ -747,8 +749,8 @@ function CursorContext:mainCursor()
         end)
         if not state.mainCursor then
             state.mainCursor = cursorRead(createCursor({}))
+            state.cursors[#state.cursors + 1] = state.mainCursor
         end
-        state.cursors[#state.cursors + 1] = state.mainCursor
     end
     return state.mainCursor
 end
@@ -900,7 +902,8 @@ local function cursorCopy(cursor)
         _pos = cursor._pos,
         _register = cursor._register,
         _search = cursor._search,
-        _visual = cursor._visual,
+        _visualStart = cursor._visualStart,
+        _visualEnd = cursor._visualEnd,
         _vPos = cursor._vPos,
         _mode = cursor._mode,
         _state = CursorState.new,
@@ -1004,8 +1007,8 @@ function Cursor:getVisual()
         end
     end
     return
-        {self._visual[1][2], self._visual[1][3]},
-        {self._visual[2][2], self._visual[2][3]}
+        {self._visualStart[2], self._visualStart[3]},
+        {self._visualEnd[2], self._visualEnd[3]}
 end
 
 --- Returns this cursor's current mode.
@@ -1055,18 +1058,16 @@ function Cursor:setVisual(visualStart, visualEnd)
     local atVisualEnd = visualStart[1] > visualEnd[1]
         or visualStart[1] == visualEnd[1]
         and visualStart[2] > visualEnd[2]
-    self._visual = atVisualEnd
-        and {
-            { self._visual[2][1], visualEnd[1], visualEnd[2], 0 },
-            { self._visual[1][1], visualStart[1], visualStart[2], 0 },
-        }
-        or {
-            { self._visual[1][1], visualStart[1], visualStart[2], 0 },
-            { self._visual[2][1], visualEnd[1], visualEnd[2], 0 },
-        }
+    if atVisualEnd then
+        self._visualStart = { self._visualEnd[1], visualEnd[1], visualEnd[2], 0 }
+        self._visualEnd = { self._visualStart[1], visualStart[1], visualStart[2], 0 }
+    else
+        self._visualStart = { self._visualStart[1], visualStart[1], visualStart[2], 0 }
+        self._visualEnd = { self._visualEnd[1], visualEnd[1], visualEnd[2], 0 }
+    end
     if self:inVisualMode() then
-        local nvs = self._visual[1]
-        local nve = self._visual[2]
+        local nvs = self._visualStart
+        local nve = self._visualEnd
         if atVisualEnd then
             self._pos = { self._pos[1], nvs[2], nvs[3], nvs[4], nvs[3]  }
             self._vPos = { self._pos[1], nve[2], nve[3], nve[4], nve[3]  }
