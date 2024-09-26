@@ -192,6 +192,8 @@ function examples.alignCursors()
             if distance > 0 then
                 cursor:feedkeys(distance .. "i <esc>l", { keycodes = true })
             end
+            -- cursor._origChangePos = cursor._pos
+            -- cursor._changePos = cursor._pos
         end)
     end)
 end

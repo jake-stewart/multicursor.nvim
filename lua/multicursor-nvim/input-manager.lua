@@ -3,8 +3,6 @@ local feedkeysManager = require("multicursor-nvim.feedkeys-manager")
 local util = require("multicursor-nvim.util")
 
 local SPECIAL_KEYS = {
-    [TERM_CODES.CTRL_R] = true,
-    ["u"] = true,
     ["."] = true,
     ["zs"] = true,
     ["ze"] = true,
@@ -17,6 +15,11 @@ local SPECIAL_KEYS = {
     [TERM_CODES.CTRL_E] = true,
 }
 
+local SPECIAL_NORMAL_KEYS = {
+    [TERM_CODES.CTRL_R] = true,
+    ["u"] = true,
+}
+
 --- @class InputManager
 --- @field private _nsid number
 --- @field private _cursorManager CursorManager
@@ -25,6 +28,7 @@ local SPECIAL_KEYS = {
 --- @field private _applying boolean
 --- @field private _typed string
 --- @field private _keys string
+--- @field private _wasMode string
 --- @field private _specialKey string | nil
 --- @field private _fromSelectMode boolean
 local InputManager = {}
@@ -124,13 +128,14 @@ function InputManager:_onSafeState()
     end
     self._applying = true
 
-    if SPECIAL_KEYS[string.match(self._keys, "%d*(.*)")] then
+    local specialKey = string.match(self._keys, "%d*(.*)")
+    if (self._wasMode == "n" and SPECIAL_NORMAL_KEYS[specialKey]) or SPECIAL_KEYS[specialKey] then
         self._cursorManager:dirty()
-        if self._keys == "u" then
+        if specialKey == "u" then
             self._cursorManager:loadUndoItem(-1)
-        elseif self._keys == TERM_CODES.CTRL_R then
+        elseif specialKey == TERM_CODES.CTRL_R then
             self._cursorManager:loadUndoItem(1)
-        elseif self._keys == "." then
+        elseif specialKey == "." then
             if self._cursorManager:hasCursors() then
                 self._cursorManager:action(function(ctx)
                     if ctx:cursorsEnabled() then
@@ -182,6 +187,7 @@ function InputManager:_onKey(key, typed)
     if self._applying or self._inInsertMode then
         return
     end
+    self._wasMode = vim.fn.mode()
     self._keys = self._keys .. key
     self._typed = self._typed .. typed
 end

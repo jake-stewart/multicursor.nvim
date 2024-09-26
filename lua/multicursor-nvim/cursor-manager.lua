@@ -961,7 +961,25 @@ end
 --- @param cursors Cursor[]
 --- @param mainCursor Cursor
 --- @return number[]
-local function packCursors(mainCursor, cursors)
+local function packRedoCursors(mainCursor, cursors)
+    local data = {}
+    data[1] = mainCursor._id
+    data[2] = mainCursor._pos[2]
+    data[3] = mainCursor._pos[3]
+    local i = 4
+    for _, cursor in ipairs(cursors) do
+        data[i] = cursor._id
+        data[i + 1] = cursor._pos[2]
+        data[i + 2] = cursor._pos[3]
+        i = i + 3
+    end
+    return data
+end
+
+--- @param cursors Cursor[]
+--- @param mainCursor Cursor
+--- @return number[]
+local function packUndoCursors(mainCursor, cursors)
     local data = {}
     data[1] = mainCursor._id
     data[2] = mainCursor._changePos[2]
@@ -1222,19 +1240,24 @@ local function cursorContextUpdate(applyToMainCursor)
     else
         local undoTree = vim.fn.undotree()
         if undoTree.seq_cur and state.currentSeq ~= undoTree.seq_cur then
-            state.mainCursor._changePos = state.mainCursor._origChangePos
             if applyToMainCursor then
                 cursorApplyDrift(state.mainCursor)
+            else
+                state.mainCursor._changePos = state.mainCursor._origChangePos
             end
             for _, cursor in ipairs(state.cursors) do
                 cursorApplyDrift(cursor)
             end
             local undoItem = #state.cursors > 0 and {
-                data = packCursors(state.mainCursor, state.cursors),
+                data = packUndoCursors(state.mainCursor, state.cursors),
+                enabled = state.enabled
+            } or nil
+            local redoItem = #state.cursors > 0 and {
+                data = packRedoCursors(state.mainCursor, state.cursors),
                 enabled = state.enabled
             } or nil
             state.undoItems[undoItemId(state.currentSeq)] = undoItem
-            state.redoItems[undoItemId(undoTree.seq_cur)] = undoItem
+            state.redoItems[undoItemId(undoTree.seq_cur)] = redoItem
             state.currentSeq = undoTree.seq_cur
         end
         for _, cursor in ipairs(state.cursors) do
