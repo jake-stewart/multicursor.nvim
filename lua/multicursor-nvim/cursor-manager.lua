@@ -1178,6 +1178,7 @@ function CursorContext:clear()
     end
     if state.hlsearch then
         vim.o.hlsearch = true
+        vim.cmd.noh()
     end
     state.hlsearch = nil
     state.enabled = true
