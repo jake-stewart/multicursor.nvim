@@ -1348,16 +1348,18 @@ function CursorManager:action(callback, applyToMainCursor)
         local newEndLine = vim.fn.line("w$")
         local scrollOff = vim.o.scrolloff
         local rowDelta = math.max(
-            newStartLine - origCursor._pos[2],
+            newStartLine - origCursor._pos[2] + scrollOff,
             math.min(
-                newEndLine - origCursor._pos[2],
+                newEndLine - origCursor._pos[2] - scrollOff,
                 newStartLine - winStartLine - origCursor._drift[1]
             )
         )
-        if rowDelta < -scrollOff then
-            feedkeys(math.abs(rowDelta - scrollOff) .. TERM_CODES.CTRL_E)
-        elseif rowDelta > scrollOff then
-            feedkeys((rowDelta - scrollOff) .. TERM_CODES.CTRL_Y)
+        if rowDelta < 0 then
+            local absDelta = math.abs(rowDelta)
+            feedkeys(absDelta .. TERM_CODES.CTRL_E)
+        elseif rowDelta > 0 then
+            local absDelta = rowDelta
+            feedkeys(absDelta .. TERM_CODES.CTRL_Y)
         end
         -- i would also update leftcol here, but vim.fn.winsaveview()
         -- is returning outdated values. probably a neovim bug
