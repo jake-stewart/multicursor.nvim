@@ -1280,7 +1280,9 @@ local function cursorContextUpdate(applyToMainCursor)
                 cursorApplyDrift(state.mainCursor)
             else
                 state.mainCursor._changePos = state.mainCursor._origChangePos
-                state.mainCursor._redoChangePos = state.mainCursor._origChangePos
+                if not state.mainCursor._redoChangePos then
+                    state.mainCursor._redoChangePos = state.mainCursor._pos
+                end
             end
             for _, cursor in ipairs(state.cursors) do
                 cursorApplyDrift(cursor)
