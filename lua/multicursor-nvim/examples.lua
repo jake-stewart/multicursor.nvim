@@ -20,9 +20,18 @@ function examples.splitCursors(pattern)
         if not pattern or pattern == "" then
             return
         end
-        ctx:forEachCursor(function(cursor)
-            cursor:splitVisualLines()
-        end)
+        --- @type Cursor[]
+        local newCursors
+        if ctx:cursorsEnabled() then
+            newCursors = {}
+            ctx:forEachCursor(function(cursor)
+                for _, newCursor in ipairs(cursor:splitVisualLines()) do
+                    newCursors[#newCursors + 1] = newCursor
+                end
+            end)
+        else
+            newCursors = ctx:mainCursor():splitVisualLines()
+        end
         --- @param cursor Cursor
         local function pushCursor(cursor, startCol, endCol)
             local newCursor = cursor:clone()
@@ -34,7 +43,7 @@ function examples.splitCursors(pattern)
                 { pos[1], col + endCol }
             )
         end
-        ctx:forEachCursor(function(cursor)
+        for _, cursor in ipairs(newCursors) do
             local selection = cursor:getVisualLines()
             local matches = util.matchlist(selection, pattern, {
                 userConfig = true,
@@ -50,8 +59,11 @@ function examples.splitCursors(pattern)
                 pushCursor(cursor, nextIdx, #selection[1] - 1)
             end
             cursor:delete()
-        end)
-        ctx:setCursorsEnabled(true)
+        end
+        if not ctx:cursorsEnabled() then
+            ctx:mainCursor():clone()
+            ctx:mainCursor():setMode("n")
+        end
     end)
 end
 
@@ -88,12 +100,18 @@ function examples.matchCursors(pattern)
             end
             cursor:delete()
         end
-        ctx:setCursorsEnabled(true)
+        if not ctx:cursorsEnabled() then
+            ctx:mainCursor():clone()
+            ctx:mainCursor():setMode("n")
+        end
     end)
 end
 
 function examples.transposeCursors(direction)
     mc.action(function(ctx)
+        if not ctx:cursorsEnabled() then
+            return
+        end
         ctx:forEachCursor(function(cursor)
             cursor:splitVisualLines()
         end)
@@ -110,13 +128,14 @@ function examples.transposeCursors(direction)
             and (ctx:prevCursor(pos) or ctx:lastCursor())
             or (ctx:nextCursor(pos) or ctx:firstCursor())
         cursor:select()
-        ctx:setCursorsEnabled(true)
     end)
 end
 
 function examples.alignCursors()
     mc.action(function(ctx)
-        ctx:setCursorsEnabled(true)
+        if not ctx:cursorsEnabled() then
+            return
+        end
         local startLine = ctx:firstCursor():line()
         local endLine = ctx:lastCursor():line()
 
@@ -251,9 +270,16 @@ function examples.handleMouse()
             local offset = vim.o.virtualedit == "all"
                 and mousePos.coladd
                 or nil
-            ctx:addCursor()
+            local mainCursor = ctx:mainCursor()
+            if ctx:cursorsEnabled() then
+                mainCursor:clone()
+            end
+            mainCursor
                 :setPos(pos, offset)
                 :setVisualAnchor(pos, offset)
+            if not ctx:cursorsEnabled() then
+                mainCursor:clone()
+            end
         end
     end)
 end
@@ -327,15 +353,25 @@ function examples.appendVisual()
     mc.feedkeys(mode == TERM_CODES.CTRL_V and "a" or "A")
 end
 
+--- @param ctx CursorContext
+--- @param cursor Cursor
+local function selectCursor(ctx, cursor)
+    if ctx:cursorsEnabled() then
+        cursor:select()
+    else
+        ctx:mainCursor():setPos(cursor:getPos())
+    end
+end
+
 function examples.firstCursor()
     mc.action(function(ctx)
-        ctx:firstCursor():select()
+        selectCursor(ctx, ctx:firstCursor())
     end)
 end
 
 function examples.lastCursor()
     mc.action(function(ctx)
-        ctx:lastCursor():select()
+        selectCursor(ctx, ctx:lastCursor())
     end)
 end
 
@@ -343,7 +379,7 @@ function examples.nextCursor()
     mc.action(function(ctx)
         local cursor = ctx:nextCursor(ctx:mainCursor():getPos())
             or ctx:firstCursor()
-        cursor:select()
+        selectCursor(ctx, cursor)
     end)
 end
 
@@ -351,7 +387,7 @@ function examples.prevCursor()
     mc.action(function(ctx)
         local cursor = ctx:prevCursor(ctx:mainCursor():getPos())
             or ctx:lastCursor()
-        cursor:select()
+        selectCursor(ctx, cursor)
     end)
 end
 

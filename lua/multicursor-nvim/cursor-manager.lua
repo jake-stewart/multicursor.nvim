@@ -628,6 +628,7 @@ end
 function CursorContext:getCursors()
     local cursors = tbl.filter(state.cursors, function(cursor)
         return cursor._state ~= CursorState.deleted
+            and (state.enabled or cursor ~= state.mainCursor)
     end)
     table.sort(cursors, compareCursorsPosition)
     return cursors
@@ -671,7 +672,9 @@ function CursorContext:nextCursor(pos, offset)
     offset = offset or 0
     local nextCursor = nil
     for _, cursor in ipairs(state.cursors) do
-        if cursor._state ~= CursorState.deleted then
+        if cursor._state ~= CursorState.deleted
+            and (state.enabled or cursor ~= state.mainCursor)
+        then
             cursorCheckUpdate(cursor)
             if cursor._pos[2] > pos[1]
                 or cursor._pos[2] == pos[1]
@@ -699,7 +702,9 @@ function CursorContext:prevCursor(pos, offset)
     offset = offset or 0
     local prevCursor = nil
     for _, cursor in ipairs(state.cursors) do
-        if cursor._state ~= CursorState.deleted then
+        if cursor._state ~= CursorState.deleted
+            and (state.enabled or cursor ~= state.mainCursor)
+        then
             cursorCheckUpdate(cursor)
             if cursor._pos[2] < pos[1]
                 or cursor._pos[2] == pos[1]
@@ -727,7 +732,9 @@ function CursorContext:nearestCursor(pos, offset)
     local nearestColDist = 0
     local nearestRowDist = 0
     for _, cursor in ipairs(state.cursors) do
-        if cursor._state ~= CursorState.deleted then
+        if cursor._state ~= CursorState.deleted
+            and (state.enabled or cursor ~= state.mainCursor)
+        then
             cursorCheckUpdate(cursor)
             local rowDist = math.abs(cursor._pos[2] - pos[1])
             local colDist = math.abs(
@@ -792,7 +799,9 @@ end
 function CursorContext:firstCursor()
     local firstCursor
     for _, cursor in ipairs(state.cursors) do
-        if cursor._state ~= CursorState.deleted then
+        if cursor._state ~= CursorState.deleted
+            and (state.enabled or cursor ~= state.mainCursor)
+        then
             cursorCheckUpdate(cursor)
             if not firstCursor
                 or compareCursorsPosition(cursor, firstCursor)
@@ -801,7 +810,7 @@ function CursorContext:firstCursor()
             end
         end
     end
-    return firstCursor
+    return firstCursor or self:mainCursor()
 end
 
 --- Returns the cursor closest to the end of the document.
@@ -811,7 +820,9 @@ function CursorContext:lastCursor()
     local lastCursor
     for i = #state.cursors, 1, -1 do
         local cursor = state.cursors[i]
-        if cursor._state ~= CursorState.deleted then
+        if cursor._state ~= CursorState.deleted
+            and (state.enabled or cursor ~= state.mainCursor)
+        then
             cursorCheckUpdate(cursor)
             if not lastCursor
                 or compareCursorsPosition(lastCursor, cursor)
@@ -820,7 +831,7 @@ function CursorContext:lastCursor()
             end
         end
     end
-    return lastCursor
+    return lastCursor or self:mainCursor()
 end
 
 --- Returns this cursors current line number, 1 indexed.
