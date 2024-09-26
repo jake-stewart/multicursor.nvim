@@ -1253,6 +1253,9 @@ end
 
 --- @param cursor Cursor
 local function cursorApplyDrift(cursor)
+    if not cursor._redoChangePos then
+        cursor._redoChangePos = cursor._pos
+    end
     if not cursor._changePos then
         cursor._changePos = cursor._pos
     else
@@ -1277,6 +1280,7 @@ local function cursorContextUpdate(applyToMainCursor)
                 cursorApplyDrift(state.mainCursor)
             else
                 state.mainCursor._changePos = state.mainCursor._origChangePos
+                state.mainCursor._redoChangePos = state.mainCursor._origChangePos
             end
             for _, cursor in ipairs(state.cursors) do
                 cursorApplyDrift(cursor)
