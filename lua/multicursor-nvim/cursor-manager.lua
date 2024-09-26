@@ -60,6 +60,7 @@ local CursorState = {
 --- @field package _modifiedId      integer
 --- @field package _state           CursorState
 --- @field package _changePos       MarkPos
+--- @field package _redoChangePos   MarkPos
 --- @field package _origChangePos   MarkPos
 --- @field package _drift           [integer, integer]
 --- @field package _pos             CursorPos
@@ -71,6 +72,7 @@ local CursorState = {
 --- @field package _vPos            MarkPos
 --- @field package _mode            string
 --- @field package _posId           integer | nil
+--- @field package _changePosId     integer | nil
 --- @field package _vPosId          integer | nil
 local Cursor = {}
 Cursor.__index = Cursor
@@ -153,6 +155,20 @@ local function cursorUpdatePos(cursor)
             cursor._drift[2] = cursor._drift[2] + (cursor._pos[3] - oldPos[3])
         else
             cursor._posId = nil
+        end
+    end
+
+    if cursor._changePosId then
+        local mark = safeGetExtmark(cursor._changePosId)
+        if mark then
+            cursor._redoChangePos = {
+                0,
+                mark[1] + 1,
+                mark[2] + 1,
+                0,
+            }
+        else
+            cursor._changePosId = nil
         end
     end
 
@@ -526,6 +542,15 @@ local function cursorSetMarks(cursor)
             opts
         )
     end
+    if cursor._redoChangePos then
+        cursor._changePosId = set_extmark(
+            0,
+            state.nsid,
+            cursor._redoChangePos[2] - 1,
+            cursor._redoChangePos[3] - 1,
+            opts
+        )
+    end
     cursor._posId = set_extmark(
         0,
         state.nsid,
@@ -551,6 +576,7 @@ local function cursorRead(cursor)
     cursor._pos = vim.fn.getcurpos()
     cursor._vPos = vim.fn.getpos("v")
     cursor._changePos = vim.fn.getpos("'[")
+    cursor._redoChangePos = cursor._changePos
     cursor._modifiedId = state.modifiedId
     cursor._register = vim.fn.getreginfo("")
     cursor._search = vim.fn.getreg("/")
@@ -940,6 +966,13 @@ function Cursor:getVisualAnchor()
     return {self._vPos[2], self._vPos[3]}, self._vPos[4]
 end
 
+--- @param pos SimplePos
+function Cursor:setRedoChangePos(pos)
+    cursorCheckUpdate(self)
+    self._redoChangePos = { 0, pos[1], pos[2], 0 }
+    cursorSetMarks(self)
+end
+
 --- @param cursor Cursor
 local function cursorCopy(cursor)
     return createCursor({
@@ -964,13 +997,13 @@ end
 local function packRedoCursors(mainCursor, cursors)
     local data = {}
     data[1] = mainCursor._id
-    data[2] = mainCursor._pos[2]
-    data[3] = mainCursor._pos[3]
+    data[2] = mainCursor._redoChangePos[2]
+    data[3] = mainCursor._redoChangePos[3]
     local i = 4
     for _, cursor in ipairs(cursors) do
         data[i] = cursor._id
-        data[i + 1] = cursor._pos[2]
-        data[i + 2] = cursor._pos[3]
+        data[i + 1] = cursor._redoChangePos[2]
+        data[i + 2] = cursor._redoChangePos[3]
         i = i + 3
     end
     return data

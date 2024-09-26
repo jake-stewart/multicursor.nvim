@@ -191,9 +191,10 @@ function examples.alignCursors()
             local distance = row[colIdx]
             if distance > 0 then
                 cursor:feedkeys(distance .. "i <esc>l", { keycodes = true })
+            else
+                cursor:feedkeys("i<esc>l", { keycodes = true })
             end
-            -- cursor._origChangePos = cursor._pos
-            -- cursor._changePos = cursor._pos
+            cursor:setRedoChangePos(cursor:getPos())
         end)
     end)
 end
