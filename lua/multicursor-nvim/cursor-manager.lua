@@ -979,7 +979,8 @@ local function unpackCursors(data, mainCursor, cursors)
     for i = 1, #data, 3 do
         local cursor = cursorLookup[data[i]] or cursorCopy(mainCursor)
         local col = math.min(data[i + 2], #get_lines(0, data[i + 1] - 1, data[i + 1], true)[1])
-        cursor._pos = { 0, data[i + 1], col, 0, col }
+        local curswantVirtcol = vim.fn.virtcol({ data[i + 1], data[i + 2] })
+        cursor._pos = { 0, data[i + 1], col, 0, curswantVirtcol }
         cursor._vPos = cursor._pos
         cursor._changePos = cursor._pos
         cursor._modifiedId = state.modifiedId
