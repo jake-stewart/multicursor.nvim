@@ -54,14 +54,11 @@ end
 
 --- @param callback function
 function InputManager:performAction(callback)
-    if self._applying or self._inInsertMode or self._cmdType then
-        return nil
-    end
-    self._keys = ""
-    self._typed = ""
     self._applying = true
     local success, err = pcall(callback)
     self._applying = false
+    self._keys = ""
+    self._typed = ""
     if not success then
         util.echoerr(err)
     end
