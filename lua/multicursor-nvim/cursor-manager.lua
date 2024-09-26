@@ -1424,7 +1424,7 @@ function CursorManager:action(callback, applyToMainCursor)
         -- local scrollOff = math.min(vim.o.scrolloff,
         --     math.floor((newEndLine - newStartLine) / 2))
         local scrollOff = vim.o.scrolloff
-        if origCursor._pos[2] < newEndLine - scrollOff then
+        if origCursor._pos[2] <= newEndLine - scrollOff then
             local rowDelta = math.max(
                 newStartLine - origCursor._pos[2] + scrollOff,
                 math.min(
