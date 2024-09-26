@@ -6,6 +6,13 @@ local core = {
     performingAction = false,
 }
 
+--- Calls callback for each cursor with old mode, new mode
+--- whenever mode is changed
+--- @param callback function(cursor: Cursor, oldMode: string, newMode: string)
+function core.onModeChanged(callback)
+    return inputManager:onModeChanged(callback)
+end
+
 --- @param opts? { shallowUndo?: boolean }
 function core.setup(opts)
     opts = opts or {}

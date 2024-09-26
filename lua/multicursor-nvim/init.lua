@@ -17,6 +17,7 @@ return {
     action = core.action,
     feedkeys = core.feedkeys,
     hasCursors = core.hasCursors,
+    onModeChanged = core.onModeChanged,
     cursorsEnabled = core.cursorsEnabled,
     splitCursors = examples.splitCursors,
     alignCursors = examples.alignCursors,
