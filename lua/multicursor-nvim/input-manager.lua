@@ -160,39 +160,40 @@ function InputManager:_onSafeState()
         end
         self._typed = ""
         self._keys = ""
-    elseif #self._typed > 0 and self._cursorManager:hasCursors() then
-        self._cursorManager:dirty()
-        if self._cursorManager:hasCursors()
-            and self._cursorManager:cursorsEnabled()
-        then
-            self._cursorManager:action(function(ctx)
-                if self._modeChangeCallback and self._wasMode ~= mode then
-                    self._modeChangeCallback(ctx:mainCursor(), self._wasMode, mode)
-                end
-                if ctx:cursorsEnabled() then
-                    ctx:forEachCursor(function(cursor)
-                        if not cursor:isMainCursor() then
-                            cursor:feedkeys(self._typed, { remap = true })
-                            if self._modeChangeCallback and self._wasMode ~= mode then
-                                self._modeChangeCallback(cursor, self._wasMode, mode)
-                            end
-                        end
-                    end)
-                end
-            end, false)
-        elseif self._modeChangeCallback and self._wasMode ~= mode then
-            self._cursorManager:action(function(ctx)
-                self._modeChangeCallback(ctx:mainCursor(), self._wasMode, mode)
-            end, true)
-        else
-            self._cursorManager:update()
-        end
-    elseif self._modeChangeCallback and self._wasMode ~= mode then
-        self._cursorManager:action(function(ctx)
-            self._modeChangeCallback(ctx:mainCursor(), self._wasMode, mode)
-        end, true)
     else
-        self._cursorManager:update()
+        local handled = false
+        if #self._typed > 0 and self._cursorManager:hasCursors() then
+            self._cursorManager:dirty()
+            if self._cursorManager:hasCursors()
+                and self._cursorManager:cursorsEnabled()
+            then
+                handled = true
+                self._cursorManager:action(function(ctx)
+                    if self._modeChangeCallback and self._wasMode ~= mode then
+                        self._modeChangeCallback(ctx:mainCursor(), self._wasMode, mode)
+                    end
+                    if ctx:cursorsEnabled() then
+                        ctx:forEachCursor(function(cursor)
+                            if not cursor:isMainCursor() then
+                                cursor:feedkeys(self._typed, { remap = true })
+                                if self._modeChangeCallback and self._wasMode ~= mode then
+                                    self._modeChangeCallback(cursor, self._wasMode, mode)
+                                end
+                            end
+                        end)
+                    end
+                end, false)
+            end
+        end
+        if not handled then
+            if self._modeChangeCallback and self._wasMode ~= mode then
+                self._cursorManager:action(function(ctx)
+                    self._modeChangeCallback(ctx:mainCursor(), self._wasMode, mode)
+                end, true)
+            else
+                self._cursorManager:update()
+            end
+        end
     end
     self._keys = ""
     self._typed = ""
