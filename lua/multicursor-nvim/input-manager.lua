@@ -31,7 +31,7 @@ local SPECIAL_NORMAL_KEYS = {
 --- @field private _wasMode string
 --- @field private _specialKey string | nil
 --- @field private _fromSelectMode boolean
---- @field private _modeChangeCallback function(cursor: Cursor, from: string, to: string)
+--- @field private _modeChangeCallback? function(cursor: Cursor, from: string, to: string)
 local InputManager = {}
 
 --- @param nsid number
@@ -44,7 +44,6 @@ function InputManager:setup(nsid, cursorManager)
     self._keys = ""
     self._typed = ""
     self._fromSelectMode = false
-    self._modeChangeCallback = function() end
 
     util.au("SafeState", "*", function()
         self:_onSafeState()
@@ -167,23 +166,31 @@ function InputManager:_onSafeState()
             and self._cursorManager:cursorsEnabled()
         then
             self._cursorManager:action(function(ctx)
-                if self._wasMode ~= mode then
+                if self._modeChangeCallback and self._wasMode ~= mode then
                     self._modeChangeCallback(ctx:mainCursor(), self._wasMode, mode)
                 end
                 if ctx:cursorsEnabled() then
                     ctx:forEachCursor(function(cursor)
                         if not cursor:isMainCursor() then
                             cursor:feedkeys(self._typed, { remap = true })
-                            if self._wasMode ~= mode then
+                            if self._modeChangeCallback and self._wasMode ~= mode then
                                 self._modeChangeCallback(cursor, self._wasMode, mode)
                             end
                         end
                     end)
                 end
             end, false)
+        elseif self._modeChangeCallback and self._wasMode ~= mode then
+            self._cursorManager:action(function(ctx)
+                self._modeChangeCallback(ctx:mainCursor(), self._wasMode, mode)
+            end, true)
         else
             self._cursorManager:update()
         end
+    elseif self._modeChangeCallback and self._wasMode ~= mode then
+        self._cursorManager:action(function(ctx)
+            self._modeChangeCallback(ctx:mainCursor(), self._wasMode, mode)
+        end, true)
     else
         self._cursorManager:update()
     end
