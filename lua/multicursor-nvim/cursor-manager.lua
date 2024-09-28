@@ -58,6 +58,7 @@ local CursorState = {
 --- @class Cursor
 --- @field package _id              integer
 --- @field package _modifiedId      integer
+--- @field package _enabled         boolean
 --- @field package _state           CursorState
 --- @field package _changePos       MarkPos
 --- @field package _redoChangePos   MarkPos
@@ -84,28 +85,30 @@ Cursor.__index = Cursor
 --- @package
 --- @class SharedMultiCursorState
 --- @field mainCursor Cursor | nil
+--- @field cursorSignId? integer
 --- @field modifiedId integer
 --- @field cursors Cursor[]
 --- @field nsid integer
---- @field virtualEditBlock boolean
+--- @field virtualEditBlock? boolean
+--- @field cursorline? boolean
 --- @field undoItems table<string, MultiCursorUndoItem>
 --- @field redoItems table<string, MultiCursorUndoItem>
 --- @field currentSeq integer | nil
---- @field shallowUndo boolean
 --- @field numLines number
+--- @field numDisabledCursors number
 --- @field leftcol number
 --- @field textoffset number
---- @field enabled boolean
+--- @field opts MultiCursorOpts
+--- @field mainSignHlExists? boolean
 local state = {
     cursors = {},
     undoItems = {},
     redoItems = {},
     clipboard = nil,
     hlsearch = nil,
+    numDisabledCursors = 0,
     id = 0,
-    shallowUndo = false,
     modifiedId = 0,
-    enabled = true,
     nsid = 0,
     numLines = 0,
     leftcol = 0,
@@ -116,6 +119,7 @@ local state = {
 local function createCursor(cursor)
     cursor._id = state.id
     state.id = state.id + 1
+    cursor._enabled = true
     return setmetatable(cursor, Cursor)
 end
 
@@ -221,7 +225,7 @@ local function cursorDrawVisualChar(cursor, lines, start, hl)
         local id = set_extmark(0, state.nsid, vs[2] - 1, vs[3] - 1, {
             strict = false,
             undo_restore = false,
-            priority = 200,
+            priority = 2000,
             virt_text = ve[3] > #line
                 and {{string.rep(" ", ve[4] - vs[4] + 1), hl}}
                 or nil,
@@ -252,7 +256,7 @@ local function cursorDrawVisualChar(cursor, lines, start, hl)
                 undo_restore = false,
                 virt_text = virt_text,
                 end_col = endCol + 1,
-                priority = 200,
+                priority = 2000,
                 virt_text_pos = "overlay",
                 virt_text_win_col = displayWidth
                     + (i == vs[2] and vs[4] or 0) - state.leftcol,
@@ -281,7 +285,7 @@ local function cursorDrawVisualLine(cursor, lines, start, hl)
             virt_text = {{" ", hl}},
             end_col = #line,
             virt_text_pos = "inline",
-            priority = 200,
+            priority = 2000,
             virt_text_win_col = displayWidth - state.leftcol,
             hl_group = hl,
         })
@@ -336,7 +340,7 @@ local function cursorDrawVisualBlock(cursor, lines, start, hl)
                 undo_restore = false,
                 end_col = lineEndCol,
                 virt_text_pos = "inline",
-                priority = 200,
+                priority = 2000,
                 virt_text_win_col = displayWidth - state.leftcol,
                 virt_text = virt_text,
                 hl_group = hl,
@@ -464,12 +468,28 @@ local VISUAL_LOOKUP = {
 
 --- @param cursor Cursor
 local function cursorDraw(cursor)
-    local visualHL = state.enabled
-        and "MultiCursorVisual"
-        or "MultiCursorDisabledVisual"
-    local cursorHL = state.enabled
-        and "MultiCursorCursor"
-        or "MultiCursorDisabledCursor"
+    local visualHL
+    local cursorHL
+    local signHL
+    local signText
+    local priority
+    local signs = state.opts.signs
+    if cursor._enabled then
+        visualHL = "MultiCursorVisual"
+        cursorHL = "MultiCursorCursor"
+        signHL = "MultiCursorSign"
+        priority = 20000
+        signText = signs and signs[state.numDisabledCursors == 0 and 2 or 3]
+        -- signText = state.numDisabledCursors == 0 and " │" or "││"
+        -- signText = state.numDisabledCursors == 0 and " ┃" or "┃┃"
+        -- signText = state.numDisabledCursors == 0 and " |" or "||"
+    else
+        visualHL = "MultiCursorDisabledVisual"
+        cursorHL = "MultiCursorDisabledCursor"
+        signHL = "MultiCursorDisabledSign"
+        priority = 10000
+        signText = signs and signs[1]
+    end
     local start
     local _end
 
@@ -507,8 +527,10 @@ local function cursorDraw(cursor)
         strict = false,
         undo_restore = false,
         virt_text_pos = "overlay",
-        priority = 1000,
+        priority = priority,
         virt_text_win_col = virt_text_win_col,
+        sign_text = signText,
+        sign_hl_group = signHL,
         hl_group = cursorHL,
         end_col = col + 1,
         virt_text_hide = true,
@@ -542,7 +564,7 @@ local function cursorSetMarks(cursor)
             opts
         )
     end
-    if cursor._redoChangePos then
+    if cursor._redoChangePos and cursor._redoChangePos[2] > 0 then
         cursor._changePosId = set_extmark(
             0,
             state.nsid,
@@ -639,12 +661,13 @@ end
 --- When cursors are disabled, only the main cursor can be interacted with.
 --- @param value boolean
 function CursorContext:setCursorsEnabled(value)
-    if value ~= state.enabled then
-        state.enabled = value
-        for _, cursor in ipairs(state.cursors) do
-            if cursor._state ~= CursorState.deleted then
-                cursor._state = CursorState.dirty
-            end
+    for _, cursor in ipairs(state.cursors) do
+        if cursor ~= state.mainCursor and cursor._enabled ~= value
+            and cursor._state ~= CursorState.deleted
+        then
+            state.numDisabledCursors = state.numDisabledCursors + (value and -1 or 1)
+            cursor._enabled = value
+            cursor._state = CursorState.dirty
         end
     end
 end
@@ -653,8 +676,7 @@ end
 --- @return Cursor[]
 function CursorContext:getCursors()
     local cursors = tbl.filter(state.cursors, function(cursor)
-        return cursor._state ~= CursorState.deleted
-            and (state.enabled or cursor ~= state.mainCursor)
+        return cursor._state ~= CursorState.deleted and cursor._enabled
     end)
     table.sort(cursors, compareCursorsPosition)
     return cursors
@@ -698,8 +720,7 @@ function CursorContext:nextCursor(pos, offset)
     offset = offset or 0
     local nextCursor = nil
     for _, cursor in ipairs(state.cursors) do
-        if cursor._state ~= CursorState.deleted
-            and (state.enabled or cursor ~= state.mainCursor)
+        if cursor._state ~= CursorState.deleted and cursor._enabled
         then
             cursorCheckUpdate(cursor)
             if cursor._pos[2] > pos[1]
@@ -729,7 +750,7 @@ function CursorContext:prevCursor(pos, offset)
     local prevCursor = nil
     for _, cursor in ipairs(state.cursors) do
         if cursor._state ~= CursorState.deleted
-            and (state.enabled or cursor ~= state.mainCursor)
+            and cursor._enabled
         then
             cursorCheckUpdate(cursor)
             if cursor._pos[2] < pos[1]
@@ -747,19 +768,17 @@ function CursorContext:prevCursor(pos, offset)
     return prevCursor
 end
 
---- Returns the nearest cursor to pos, and accepts a cursor exactly at pos.
---- It is guarenteed to find a cursor.
 --- @param pos SimplePos
 --- @param offset? integer
---- @return Cursor
-function CursorContext:nearestCursor(pos, offset)
+--- @return Cursor | nil
+local function cursorContextNearestCursor(pos, offset)
     offset = offset or 0
     local nearestCursor = nil
     local nearestColDist = 0
     local nearestRowDist = 0
     for _, cursor in ipairs(state.cursors) do
         if cursor._state ~= CursorState.deleted
-            and (state.enabled or cursor ~= state.mainCursor)
+            and cursor._enabled
         then
             cursorCheckUpdate(cursor)
             local rowDist = math.abs(cursor._pos[2] - pos[1])
@@ -776,22 +795,27 @@ function CursorContext:nearestCursor(pos, offset)
             end
         end
     end
-    return nearestCursor or self:mainCursor()
+    return nearestCursor
+end
+
+--- Returns the nearest cursor to pos, and accepts a cursor exactly at pos.
+--- It is guarenteed to find a cursor.
+--- @param pos SimplePos
+--- @param offset? integer
+--- @return Cursor
+function CursorContext:nearestCursor(pos, offset)
+    return cursorContextNearestCursor(pos, offset, false) or self:mainCursor()
 end
 
 --- @param pos SimplePos
 --- @param offset? number
 --- @return Cursor | nil
 function CursorContext:getCursorAtPos(pos, offset)
-    for _, cursor in ipairs(state.cursors) do
-        if cursor._state ~= CursorState.deleted
-            and cursor._pos[2] == pos[1]
+    return self:findCursor(function(cursor)
+        return cursor._pos[2] == pos[1]
             and cursor._pos[3] == pos[2]
             and (not offset or cursor._pos[4] == offset)
-        then
-            return cursor
-        end
-    end
+    end)
 end
 
 --- Returns the cursor under the main cursor
@@ -809,12 +833,13 @@ end
 function CursorContext:mainCursor()
     if not state.mainCursor then
         state.mainCursor = tbl.find(state.cursors, function(cursor)
-            return cursor._state ~= CursorState.deleted
+            return cursor._state ~= CursorState.deleted and cursor._enabled
         end)
         if not state.mainCursor then
             state.mainCursor = cursorRead(createCursor({}))
             state.cursors[#state.cursors + 1] = state.mainCursor
         end
+        state.mainCursor:enable()
     end
     return state.mainCursor
 end
@@ -826,7 +851,7 @@ function CursorContext:firstCursor()
     local firstCursor
     for _, cursor in ipairs(state.cursors) do
         if cursor._state ~= CursorState.deleted
-            and (state.enabled or cursor ~= state.mainCursor)
+            and cursor._enabled
         then
             cursorCheckUpdate(cursor)
             if not firstCursor
@@ -847,7 +872,7 @@ function CursorContext:lastCursor()
     for i = #state.cursors, 1, -1 do
         local cursor = state.cursors[i]
         if cursor._state ~= CursorState.deleted
-            and (state.enabled or cursor ~= state.mainCursor)
+            and cursor._enabled
         then
             cursorCheckUpdate(cursor)
             if not lastCursor
@@ -888,10 +913,43 @@ end
 --- If this is the last remaining cursor, a new cursor is created
 --- at its position.
 function Cursor:delete()
-    self._state = CursorState.deleted
-    if self == state.mainCursor then
-        local newMainCursor = CursorContext:nearestCursor(self:getPos())
-        cursorContextSetMainCursor(newMainCursor)
+    if self._state ~= CursorState.deleted then
+        cursorCheckUpdate(self)
+        if self ~= state.mainCursor and not self._enabled then
+            state.numDisabledCursors = state.numDisabledCursors - 1
+            if state.numDisabledCursors == 0 then
+                for _, cursor in ipairs(state.cursors) do
+                    if cursor._enabled and cursor._state ~= CursorState.deleted then
+                        cursor._state = CursorState.dirty
+                    end
+                end
+            end
+        end
+        self._state = CursorState.deleted
+        if self == state.mainCursor then
+            state.mainCursor = nil
+            local pos, offset = self:getPos()
+            local newMainCursor = cursorContextNearestCursor(pos, offset)
+                or CursorContext:mainCursor()
+            newMainCursor:enable()
+            cursorContextSetMainCursor(newMainCursor)
+        end
+    end
+end
+
+--- @return Cursor | nil
+function Cursor:overlappedCursor()
+    if self._enabled then
+        return nil
+    end
+    for _, cursor in ipairs(state.cursors) do
+        if not cursor._enabled
+            and cursor._pos[2] == self._pos[2]
+            and cursor._pos[3] == self._pos[3]
+            and cursor._pos[4] == self._pos[4]
+        then
+            return cursor
+        end
     end
 end
 
@@ -999,12 +1057,14 @@ local function packRedoCursors(mainCursor, cursors)
     data[1] = mainCursor._id
     data[2] = mainCursor._redoChangePos[2]
     data[3] = mainCursor._redoChangePos[3]
-    local i = 4
+    data[4] = 1
+    local i = 5
     for _, cursor in ipairs(cursors) do
         data[i] = cursor._id
         data[i + 1] = cursor._redoChangePos[2]
         data[i + 2] = cursor._redoChangePos[3]
-        i = i + 3
+        data[i + 3] = cursor._enabled and 1 or 0
+        i = i + 4
     end
     return data
 end
@@ -1017,12 +1077,14 @@ local function packUndoCursors(mainCursor, cursors)
     data[1] = mainCursor._id
     data[2] = mainCursor._changePos[2]
     data[3] = mainCursor._changePos[3]
-    local i = 4
+    data[4] = 1
+    local i = 5
     for _, cursor in ipairs(cursors) do
         data[i] = cursor._id
         data[i + 1] = cursor._changePos[2]
         data[i + 2] = cursor._changePos[3]
-        i = i + 3
+        data[i + 3] = cursor._enabled and 1 or 0
+        i = i + 4
     end
     return data
 end
@@ -1030,15 +1092,16 @@ end
 --- @param data number[]
 --- @param mainCursor Cursor
 --- @param cursors Cursor[]
---- @return Cursor, Cursor[]
+--- @return Cursor, Cursor[], number
 local function unpackCursors(data, mainCursor, cursors)
-    local cursorLookup = { [mainCursor._id] = mainCursor }
+    local cursorLookup = {}
     for _, cursor in ipairs(cursors) do
         cursorLookup[cursor._id] = cursor
     end
     local newCursors = {}
     local newMainCursor
-    for i = 1, #data, 3 do
+    local numDisabledCursors = 0
+    for i = 1, #data, 4 do
         local cursor = cursorLookup[data[i]] or cursorCopy(mainCursor)
         local col = math.min(data[i + 2], #get_lines(0, data[i + 1] - 1, data[i + 1], true)[1])
         local curswantVirtcol = vim.fn.virtcol({ data[i + 1], data[i + 2] })
@@ -1046,13 +1109,17 @@ local function unpackCursors(data, mainCursor, cursors)
         cursor._vPos = cursor._pos
         cursor._changePos = cursor._pos
         cursor._modifiedId = state.modifiedId
+        cursor._enabled = data[i + 3] == 1
+        if not cursor._enabled then
+            numDisabledCursors = numDisabledCursors + 1
+        end
         if i == 1 then
             newMainCursor = cursor
         else
             newCursors[#newCursors + 1] = cursor
         end
     end
-    return newMainCursor, newCursors
+    return newMainCursor, newCursors, numDisabledCursors
 end
 
 --- Returns a new cursor with the same position, registers,
@@ -1123,8 +1190,28 @@ end
 --- @param mode string: "n" | "v" | "V" | <c-v> | "s" | "S" | <c-s>
 --- @return self
 function Cursor:setMode(mode)
-    self._state = CursorState.dirty
+    if self._state ~= CursorState.deleted then
+        self._state = CursorState.dirty
+    end
     self._mode = mode
+    return self
+end
+
+function Cursor:disable()
+    if self._state ~= CursorState.deleted and self._enabled then
+        state.numDisabledCursors = state.numDisabledCursors + 1
+        self._enabled = false
+        self._state = CursorState.dirty
+    end
+    return self
+end
+
+function Cursor:enable()
+    if self._state ~= CursorState.deleted and not self._enabled then
+        state.numDisabledCursors = state.numDisabledCursors - 1
+        self._enabled = true
+        self._state = CursorState.dirty
+    end
     return self
 end
 
@@ -1190,7 +1277,14 @@ end
 --- When cursors are disabled, only the main cursor can be interacted with.
 --- @return boolean
 function CursorContext:cursorsEnabled()
-    return state.enabled
+    for _, cursor in ipairs(state.cursors) do
+        if cursor._state ~= CursorState.deleted then
+            if not cursor._enabled then
+                return false
+            end
+        end
+    end
+    return true
 end
 
 local function cursorContextMergeCursors()
@@ -1199,7 +1293,7 @@ local function cursorContextMergeCursors()
     for _, cursor in ipairs(state.cursors) do
         cursorCheckUpdate(cursor)
         local exists = false
-        if state.enabled
+        if cursor._enabled
             and cursor._pos[2] == state.mainCursor._pos[2]
             and cursor._pos[3] == state.mainCursor._pos[3]
             and cursor._pos[4] == state.mainCursor._pos[4]
@@ -1207,7 +1301,8 @@ local function cursorContextMergeCursors()
             exists = true
         else
             for _, c in ipairs(newCursors) do
-                if cursor._pos[2] == c._pos[2]
+                if cursor._enabled == c._enabled
+                    and cursor._pos[2] == c._pos[2]
                     and cursor._pos[3] == c._pos[3]
                     and cursor._pos[4] == c._pos[4]
                 then
@@ -1234,6 +1329,8 @@ end
 
 function CursorContext:clear()
     clear_namespace(0, state.nsid, 0, -1)
+    state.cursorSignId = nil
+    state.numDisabledCursors = 0
     if state.clipboard then
         vim.o.clipboard = state.clipboard
         state.clipboard = nil
@@ -1245,7 +1342,8 @@ function CursorContext:clear()
     state.hlsearch = nil
     state.enabled = true
     state.cursors = {}
-    if state.shallowUndo then
+    state.mainCursor = nil
+    if state.opts.shallowUndo then
         state.undoItems = {}
         state.redoItems = {}
     end
@@ -1264,6 +1362,30 @@ local function cursorApplyDrift(cursor)
         cursor._changePos[3] = cursor._changePos[3] - cursor._drift[2]
     end
     return cursor
+end
+
+local function redrawCursorMark()
+    if state.cursorSignId then
+        del_extmark(0, state.nsid, state.cursorSignId)
+    end
+    local signs = state.opts.signs
+    state.cursorSignId = set_extmark(0, state.nsid, vim.fn.line(".") - 1, 0, {
+        undo_restore = false,
+        priority = 20000,
+        sign_text = signs and signs[state.numDisabledCursors == 0 and 2 or 3],
+        sign_hl_group = "MultiCursorMainSign",
+    })
+end
+
+local function cursorContextRedraw()
+    clear_namespace(0, state.nsid, 0, -1)
+    if #state.cursors > 0 then
+        for _, cursor in ipairs(state.cursors) do
+            cursorSetMarks(cursor)
+            cursorDraw(cursor)
+        end
+        redrawCursorMark()
+    end
 end
 
 --- @package
@@ -1287,14 +1409,12 @@ local function cursorContextUpdate(applyToMainCursor)
             for _, cursor in ipairs(state.cursors) do
                 cursorApplyDrift(cursor)
             end
-            local undoItem = #state.cursors > 0 and {
-                data = packUndoCursors(state.mainCursor, state.cursors),
-                enabled = state.enabled
-            } or nil
-            local redoItem = #state.cursors > 0 and {
-                data = packRedoCursors(state.mainCursor, state.cursors),
-                enabled = state.enabled
-            } or nil
+            local undoItem = #state.cursors > 0
+                and packUndoCursors(state.mainCursor, state.cursors)
+                or nil
+            local redoItem = #state.cursors > 0
+                and packRedoCursors(state.mainCursor, state.cursors)
+                or nil
             state.undoItems[undoItemId(state.currentSeq)] = undoItem
             state.redoItems[undoItemId(undoTree.seq_cur)] = redoItem
             state.currentSeq = undoTree.seq_cur
@@ -1308,25 +1428,25 @@ local function cursorContextUpdate(applyToMainCursor)
     end
     if #state.cursors == 0 then
         CursorContext:clear()
+    else
+        redrawCursorMark()
     end
 end
 
-local function cursorContextRedraw()
-    clear_namespace(0, state.nsid, 0, -1)
-    for _, cursor in ipairs(state.cursors) do
-        cursorSetMarks(cursor)
-        cursorDraw(cursor)
-    end
-end
+--- @type MultiCursorOpts
+local DEFAULT_OPTS = {
+    shallowUndo = false,
+    signs = { " ┆"," │", " ┃" },
+}
 
 --- @class CursorManager
 local CursorManager = {}
 
 --- @param nsid integer
---- @param shallowUndo boolean
-function CursorManager:setup(nsid, shallowUndo)
+--- @param opts MultiCursorOpts
+function CursorManager:setup(nsid, opts)
     state.nsid = nsid
-    state.shallowUndo = shallowUndo
+    state.opts = vim.tbl_deep_extend("force", DEFAULT_OPTS, opts or {})
     vim.api.nvim_create_autocmd("BufEnter", {
         pattern = "*",
         callback = function()
@@ -1350,9 +1470,34 @@ function CursorManager:update()
     cursorContextUpdate(false)
 end
 
+local function createMainCursorSignHighlight()
+    if state.mainSignHlExists == nil then
+        state.mainSignHlExists = vim.fn.hlexists("MultiCursorMainSign") == 1
+    end
+    if state.mainSignHlExists == true then
+        return
+    end
+    local newHl = vim.api.nvim_get_hl(0, {
+        name = "MultiCursorSign",
+        link = false
+    })
+    if vim.o.cursorline then
+        local hl = vim.api.nvim_get_hl(0, {
+            name = "CursorLine",
+            link = false
+        })
+        newHl = vim.tbl_deep_extend("keep", newHl, hl)
+    end
+    vim.api.nvim_set_hl(0, "MultiCursorMainSign", newHl)
+end
+
 --- @param callback fun(context: CursorContext)
 --- @param applyToMainCursor boolean
 function CursorManager:action(callback, applyToMainCursor)
+    if state.cursorline == nil or vim.o.cursorline ~= state.cursorline then
+        state.cursorline = vim.o.cursorline
+        createMainCursorSignHighlight()
+    end
     if state.clipboard == nil then
         state.clipboard = vim.o.clipboard
         vim.o.clipboard = ""
@@ -1383,6 +1528,7 @@ function CursorManager:action(callback, applyToMainCursor)
     else
         origCursor._origChangePos = origCursor._changePos
         origCursor._changePos = nil
+        origCursor._enabled = true
         origCursor._state = CursorState.none
         origCursor._drift = { 0, 0 }
     end
@@ -1398,19 +1544,17 @@ function CursorManager:action(callback, applyToMainCursor)
     if not state.mainCursor:inVisualMode() then
         state.mainCursor._mode = "n"
     end
-    if state.enabled then
-        for _, cursor in ipairs(state.cursors) do
-            if cursor._state ~= CursorState.deleted then
-                if cursor._mode ~= state.mainCursor._mode then
-                    if state.mainCursor._mode == "n" and cursor:inVisualMode() then
-                        if not cursor:atVisualStart() then
-                            cursor:feedkeys("o" .. TERM_CODES.ESC)
-                        else
-                            cursor:feedkeys(TERM_CODES.ESC)
-                        end
+    for _, cursor in ipairs(state.cursors) do
+        if cursor._enabled and cursor._state ~= CursorState.deleted then
+            if cursor._mode ~= state.mainCursor._mode then
+                if state.mainCursor._mode == "n" and cursor:inVisualMode() then
+                    if not cursor:atVisualStart() then
+                        cursor:feedkeys("o" .. TERM_CODES.ESC)
+                    else
+                        cursor:feedkeys(TERM_CODES.ESC)
                     end
-                    cursor._mode = state.mainCursor._mode
                 end
+                cursor._mode = state.mainCursor._mode
             end
         end
     end
@@ -1421,10 +1565,11 @@ function CursorManager:action(callback, applyToMainCursor)
     if state.mainCursor == origCursor then
         local newStartLine = vim.fn.line("w0")
         local newEndLine = vim.fn.line("w$")
-        -- local scrollOff = math.min(vim.o.scrolloff,
-        --     math.floor((newEndLine - newStartLine) / 2))
         local scrollOff = vim.o.scrolloff
-        if origCursor._pos[2] <= newEndLine - scrollOff then
+        if scrollOff >= math.floor((newEndLine - newStartLine) / 2) then
+            -- dont go scrolling since cursor is guarenteed
+            -- to be in the middle of the screen due to scrolloff
+        elseif origCursor._pos[2] <= newEndLine - scrollOff then
             local rowDelta = math.max(
                 newStartLine - origCursor._pos[2] + scrollOff,
                 math.min(
@@ -1461,7 +1606,9 @@ function CursorManager:action(callback, applyToMainCursor)
         return cursor._state ~= CursorState.deleted
     end)
     cursorContextUpdate(applyToMainCursor)
-    vim.fn.setreg(origRegName, state.mainCursor._register)
+    if state.mainCursor then
+        vim.fn.setreg(origRegName, state.mainCursor._register)
+    end
     return result
 end
 
@@ -1479,16 +1626,15 @@ function CursorManager:loadUndoItem(direction)
         CursorContext:clear()
         return
     end
-    state.enabled = undoItem.enabled
-    state.mainCursor, state.cursors = unpackCursors(
-        undoItem.data, state.mainCursor, state.cursors)
+    state.mainCursor, state.cursors, state.numDisabledCursors = unpackCursors(
+        undoItem, CursorContext:mainCursor(), state.cursors)
     cursorContextMergeCursors()
+    cursorWrite(state.mainCursor)
     if #state.cursors == 0 then
         CursorContext:clear()
     else
         cursorContextRedraw()
     end
-    cursorWrite(state.mainCursor)
 end
 
 function CursorManager:dirty()

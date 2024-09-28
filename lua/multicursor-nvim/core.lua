@@ -13,13 +13,17 @@ function core.onModeChanged(callback)
     return inputManager:onModeChanged(callback)
 end
 
---- @param opts? { shallowUndo?: boolean }
+--- @class MultiCursorOpts
+--- @field signs? string[] | nil,
+--- @field shallowUndo? boolean
+
+--- @param opts? MultiCursorOpts
 function core.setup(opts)
     opts = opts or {}
 
     local nsid = vim.api.nvim_create_namespace("multicursor-nvim")
 
-    cursorManager:setup(nsid, opts.shallowUndo)
+    cursorManager:setup(nsid, opts)
     feedkeysManager:setup()
     inputManager:setup(nsid, cursorManager)
 
@@ -32,6 +36,11 @@ function core.setup(opts)
 end
 
 --- @param callback fun(ctx: CursorContext)
+function core.mutex(callback)
+    inputManager:performAction(callback)
+end
+
+--- @param callback fun(ctx: CursorContext)
 function core.action(callback)
     if core.performingAction then
         error("An action is already being performed")
@@ -39,6 +48,7 @@ function core.action(callback)
     core.performingAction = true
     inputManager:performAction(function()
         cursorManager:action(callback, true)
+        inputManager:clear()
     end)
     core.performingAction = false
 end

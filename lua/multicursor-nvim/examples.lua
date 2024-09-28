@@ -21,17 +21,12 @@ function examples.splitCursors(pattern)
             return
         end
         --- @type Cursor[]
-        local newCursors
-        if ctx:cursorsEnabled() then
-            newCursors = {}
-            ctx:forEachCursor(function(cursor)
-                for _, newCursor in ipairs(cursor:splitVisualLines()) do
-                    newCursors[#newCursors + 1] = newCursor
-                end
-            end)
-        else
-            newCursors = ctx:mainCursor():splitVisualLines()
-        end
+        local newCursors = {}
+        ctx:forEachCursor(function(cursor)
+            for _, newCursor in ipairs(cursor:splitVisualLines()) do
+                newCursors[#newCursors + 1] = newCursor
+            end
+        end)
         --- @param cursor Cursor
         local function pushCursor(cursor, startCol, endCol)
             local newCursor = cursor:clone()
@@ -60,10 +55,6 @@ function examples.splitCursors(pattern)
             end
             cursor:delete()
         end
-        if not ctx:cursorsEnabled() then
-            ctx:mainCursor():clone()
-            ctx:mainCursor():setMode("n")
-        end
     end)
 end
 
@@ -74,14 +65,10 @@ function examples.matchCursors(pattern)
             return
         end
         local newCursors = {}
-        if ctx:cursorsEnabled() then
-            ctx:forEachCursor(function(cursor)
-                newCursors = tbl.concat(
-                    newCursors, cursor:splitVisualLines())
-            end)
-        else
-            newCursors = ctx:mainCursor():splitVisualLines()
-        end
+        ctx:forEachCursor(function(cursor)
+            newCursors = tbl.concat(
+                newCursors, cursor:splitVisualLines())
+        end)
         for _, cursor in ipairs(newCursors) do
             local selection = cursor:getVisualLines()
             local matches = util.matchlist(selection, pattern, {
@@ -100,18 +87,11 @@ function examples.matchCursors(pattern)
             end
             cursor:delete()
         end
-        if not ctx:cursorsEnabled() then
-            ctx:mainCursor():clone()
-            ctx:mainCursor():setMode("n")
-        end
     end)
 end
 
 function examples.transposeCursors(direction)
     mc.action(function(ctx)
-        if not ctx:cursorsEnabled() then
-            return
-        end
         ctx:forEachCursor(function(cursor)
             cursor:splitVisualLines()
         end)
@@ -133,9 +113,6 @@ end
 
 function examples.alignCursors()
     mc.action(function(ctx)
-        if not ctx:cursorsEnabled() then
-            return
-        end
         local startLine = ctx:firstCursor():line()
         local endLine = ctx:lastCursor():line()
 
@@ -205,11 +182,11 @@ local function addCursor(motion, opts)
         if opts.remap == nil then
             opts.remap = true
         end
-        local mainCursor = ctx:mainCursor()
-        if opts.addCursor then
-            mainCursor:clone()
-        end
         if motion then
+            local mainCursor = ctx:mainCursor()
+            if opts.addCursor then
+                mainCursor:clone()
+            end
             local vs, ve = mainCursor:getVisual()
             local oldMode = mainCursor:mode()
             local atVisStart = mainCursor:atVisualStart()
@@ -237,9 +214,15 @@ local function addCursor(motion, opts)
                     { endRow, endCol }
                 )
             end
-            ctx:setCursorsEnabled(true)
         else
-            mainCursor:setMode("n")
+            ctx:forEachCursor(function(cursor)
+                if cursor:isMainCursor() then
+                    cursor:clone():disable()
+                    cursor:setMode("n")
+                else
+                    cursor:disable()
+                end
+            end)
         end
     end)
 end
@@ -274,15 +257,10 @@ function examples.handleMouse()
                 and mousePos.coladd
                 or nil
             local mainCursor = ctx:mainCursor()
-            if ctx:cursorsEnabled() then
                 mainCursor:clone()
-            end
             mainCursor
                 :setPos(pos, offset)
                 :setVisualAnchor(pos, offset)
-            if not ctx:cursorsEnabled() then
-                mainCursor:clone()
-            end
         end
     end)
 end
@@ -295,17 +273,29 @@ end
 
 function examples.disableCursors()
     mc.action(function(ctx)
-        ctx:setCursorsEnabled(false)
         local mainCursor = ctx:mainCursor()
         mainCursor:clone()
+        ctx:setCursorsEnabled(false)
         mainCursor:setMode("n")
     end)
 end
 
 function examples.enableCursors()
     mc.action(function(ctx)
+        local cursors = ctx:getCursors()
         ctx:setCursorsEnabled(true)
-        ctx:mainCursor():delete()
+        for _, cursor in ipairs(cursors) do
+            cursor:delete()
+        end
+    end)
+end
+
+function examples.duplicateCursors()
+    mc.action(function(ctx)
+        ctx:forEachCursor(function(cursor)
+            cursor:clone():disable()
+            cursor:setMode("n")
+        end)
     end)
 end
 
@@ -356,25 +346,16 @@ function examples.appendVisual()
     mc.feedkeys(mode == TERM_CODES.CTRL_V and "a" or "A")
 end
 
---- @param ctx CursorContext
---- @param cursor Cursor
-local function selectCursor(ctx, cursor)
-    if ctx:cursorsEnabled() then
-        cursor:select()
-    else
-        ctx:mainCursor():setPos(cursor:getPos())
-    end
-end
 
 function examples.firstCursor()
     mc.action(function(ctx)
-        selectCursor(ctx, ctx:firstCursor())
+        ctx:firstCursor():select()
     end)
 end
 
 function examples.lastCursor()
     mc.action(function(ctx)
-        selectCursor(ctx, ctx:lastCursor())
+        ctx:lastCursor():select()
     end)
 end
 
@@ -382,7 +363,7 @@ function examples.nextCursor()
     mc.action(function(ctx)
         local cursor = ctx:nextCursor(ctx:mainCursor():getPos())
             or ctx:firstCursor()
-        selectCursor(ctx, cursor)
+        cursor:select()
     end)
 end
 
@@ -390,13 +371,24 @@ function examples.prevCursor()
     mc.action(function(ctx)
         local cursor = ctx:prevCursor(ctx:mainCursor():getPos())
             or ctx:lastCursor()
-        selectCursor(ctx, cursor)
+        cursor:select()
     end)
 end
 
 function examples.deleteCursor()
     mc.action(function(ctx)
         ctx:mainCursor():delete()
+    end)
+end
+
+function examples.deleteOverlappedCursor()
+    mc.action(function(ctx)
+        ctx:forEachCursor(function(cursor)
+            local overlapped = cursor:overlappedCursor()
+            if overlapped then
+                overlapped:delete()
+            end
+        end)
     end)
 end
 

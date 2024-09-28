@@ -9,12 +9,15 @@ end
 
 setDefaultHighlight("MultiCursorCursor", "Cursor")
 setDefaultHighlight("MultiCursorVisual", "Visual")
+setDefaultHighlight("MultiCursorSign", "SignColumn")
 setDefaultHighlight("MultiCursorDisabledCursor", "Visual")
 setDefaultHighlight("MultiCursorDisabledVisual", "Visual")
+setDefaultHighlight("MultiCursorDisabledSign", "SignColumn")
 
 return {
     setup = core.setup,
     action = core.action,
+    mutex = core.mutex,
     feedkeys = core.feedkeys,
     hasCursors = core.hasCursors,
     onModeChanged = core.onModeChanged,
@@ -29,6 +32,7 @@ return {
     clearCursors = examples.clearCursors,
     disableCursors = examples.disableCursors,
     enableCursors = examples.enableCursors,
+    duplicateCursors = examples.duplicateCursors,
     visualToCursors = examples.visualToCursors,
     insertVisual = examples.insertVisual,
     appendVisual = examples.appendVisual,
