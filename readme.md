@@ -58,6 +58,11 @@ https://github.com/user-attachments/assets/a8c136dc-4786-447b-95c0-8e2a48f5776f
             end
         end)
 
+        vim.keymap.set({"n", "v"}, "<c-q>", function()
+            -- clone every cursor and disable the originals
+            mc.duplicateCursors()
+        end)
+
         vim.keymap.set("n", "<esc>", function()
             if not mc.cursorsEnabled() then
                 mc.enableCursors()
@@ -88,8 +93,10 @@ https://github.com/user-attachments/assets/a8c136dc-4786-447b-95c0-8e2a48f5776f
         -- Customize how cursors look.
         vim.api.nvim_set_hl(0, "MultiCursorCursor", { link = "Cursor" })
         vim.api.nvim_set_hl(0, "MultiCursorVisual", { link = "Visual" })
+        vim.api.nvim_set_hl(0, "MultiCursorSign", { link = "SignColumn"})
         vim.api.nvim_set_hl(0, "MultiCursorDisabledCursor", { link = "Visual" })
         vim.api.nvim_set_hl(0, "MultiCursorDisabledVisual", { link = "Visual" })
+        vim.api.nvim_set_hl(0, "MultiCursorDisabledSign", { link = "SignColumn"})
     end,
 }
 ```
@@ -348,10 +355,6 @@ function CursorContext:firstCursor()
 --- Guarenteed to find a cursor.
 --- @return Cursor
 function CursorContext:lastCursor()
-
---- Returns the cursor under the main cursor
---- @return Cursor | nil
-function CursorContext:overlappedCursor()
 
 --- @return boolean
 function CursorContext:hasCursors()
