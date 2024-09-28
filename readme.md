@@ -26,7 +26,14 @@ https://github.com/user-attachments/assets/a8c136dc-4786-447b-95c0-8e2a48f5776f
     config = function()
         local mc = require("multicursor-nvim")
 
-        mc.setup()
+        mc.setup({
+            -- set to true if you want multicursor undo history
+            -- to clear when clearing cursors
+            shallowUndo = false,
+
+            -- set to empty table to disable signs
+            signs = { " ┆"," │", " ┃" },
+        })
 
         -- Add cursors above/below the main cursor.
         vim.keymap.set({"n", "v"}, "<up>", function() mc.addCursor("k") end)
