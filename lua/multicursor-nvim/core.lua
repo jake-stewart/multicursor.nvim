@@ -36,19 +36,19 @@ function core.setup(opts)
 end
 
 --- @param callback fun(ctx: CursorContext)
-function core.mutex(callback)
-    inputManager:performAction(callback)
-end
-
---- @param callback fun(ctx: CursorContext)
 function core.action(callback)
     if core.performingAction then
         error("An action is already being performed")
     end
     core.performingAction = true
     inputManager:performAction(function()
-        cursorManager:action(callback, true)
-        inputManager:clear()
+        local mode = vim.fn.mode()
+        if mode == "i" or mode == "R" then
+            callback() --- @diagnostic disable-line
+        else
+            cursorManager:action(callback, true)
+            inputManager:clear()
+        end
     end)
     core.performingAction = false
 end

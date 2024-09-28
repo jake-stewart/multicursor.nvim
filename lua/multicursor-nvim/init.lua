@@ -17,7 +17,7 @@ setDefaultHighlight("MultiCursorDisabledSign", "SignColumn")
 return {
     setup = core.setup,
     action = core.action,
-    mutex = core.mutex,
+    runOnce = core.runOnce,
     feedkeys = core.feedkeys,
     hasCursors = core.hasCursors,
     onModeChanged = core.onModeChanged,
