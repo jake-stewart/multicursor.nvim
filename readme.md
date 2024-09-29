@@ -183,6 +183,17 @@ And that's it. You can view `lua/multicursor-nvim/examples.lua` to
 see all the default features implemented using the Cursor API.
 Or, you can read the prototypes below.
 
+### Types
+```lua
+--- @alias CursorQuery {disabledCursors?: boolean, enabledCursors?: boolean}
+
+--- 1-indexed line, 1-indexed col, offset
+--- @alias Pos [integer, integer, integer]
+
+--- 1-indexed line, 1-indexed col
+--- @alias SimplePos [integer, integer]
+```
+
 ### Cursor
 ```lua
 --- Returns this cursors current line number, 1 indexed.
@@ -204,11 +215,15 @@ function Cursor:getLine()
 --- at its position.
 function Cursor:delete()
 
---- Sets this cursor as the main cursor (the real one).
+--- Returns the disabled cursor underneath this one, if it exists
+--- @return Cursor | nil
+function Cursor:overlappedCursor()
+
+--- Sets this cursor as the main cursor.
 --- @return self
 function Cursor:select()
 
---- Returns whether this cursor is the main cursor (the real one).
+--- Returns whether this cursor is the main cursor.
 --- @return boolean
 function Cursor:isMainCursor()
 
@@ -225,12 +240,22 @@ function Cursor:atVisualStart()
 --- @return Cursor[]
 function Cursor:splitVisualLines()
 
---- @return [integer, integer], integer
+--- @return Pos
 function Cursor:getPos()
 
---- @param pos [integer, integer], integer
+--- @param pos SimplePos | Pos
 --- @return self
 function Cursor:setPos(pos)
+
+--- @param pos SimplePos | Pos
+--- @return self
+function Cursor:setVisualAnchor(pos)
+
+--- @return Pos
+function Cursor:getVisualAnchor()
+
+--- @param pos SimplePos | Pos
+function Cursor:setRedoChangePos(pos)
 
 --- Returns a new cursor with the same position, registers,
 --- visual selection, and mode as this cursor.
@@ -247,7 +272,7 @@ function Cursor:getFullVisualLines()
 
 --- Returns start and end positions of visual selection start position
 --- is before or equal to end position.
---- @return [integer, integer], [integer, integer]
+--- @return Pos, Pos
 function Cursor:getVisual()
 
 --- Returns this cursor's current mode.
@@ -261,6 +286,10 @@ function Cursor:mode()
 --- @return self
 function Cursor:setMode(mode)
 
+function Cursor:disable()
+
+function Cursor:enable()
+
 --- Makes the cursor perform a command/commands.
 --- For example, cursor:feedkeys('dw') will delete a word.
 --- By default, keys are not remapped and keycodes are not parsed.
@@ -269,16 +298,10 @@ function Cursor:setMode(mode)
 function Cursor:feedkeys(keys, opts)
 
 --- Sets the visual selection and sets the cursor position to `visualEnd`.
---- @param visualStart [integer, integer]
---- @param visualEnd [integer, integer]
+--- @param visualStart SimplePos | Pos
+--- @param visualEnd SimplePos | Pos
 --- @return self
 function Cursor:setVisual(visualStart, visualEnd)
-
---- Sets the opposite end position of the visual selection.
---- @param pos [integer, integer]
---- @param offset? integer
---- @return self
-function Cursor:setVisualAnchor(pos, offset)
 
 --- Returns true if in visual or select mode.
 --- @return boolean
@@ -287,83 +310,94 @@ function Cursor:inVisualMode()
 
 ### CursorContext
 ```lua
+--- Enables or disables all cursors
+--- @param value boolean
+function CursorContext:setCursorsEnabled(value)
+
 --- Returns a list of cursors, sorted by their position.
+--- @param opts? CursorQuery
 --- @return Cursor[]
-function CursorContext:getCursors()
+function CursorContext:getCursors(opts)
 
 --- Clones and returns the main cursor
---- This is the same as doing ctx:mainCursor():clone()
 --- @return Cursor
 function CursorContext:addCursor()
 
 --- Util which executes callback for each cursor, sorted by their position.
---- @param callback fun(cursor: Cursor, i: integer, t: Cursor[]): boolean | nil
-function CursorContext:forEachCursor(callback)
+--- @param callback fun(cursor: Cursor, i: integer, t: Cursor[])
+--- @param opts? CursorQuery
+function CursorContext:forEachCursor(callback, opts)
 
 --- Util method which maps each cursor to a value.
 --- @generic T
 --- @param callback fun(cursor: Cursor, i: integer, t: Cursor[]): T
+--- @param opts? CursorQuery
 --- @return T[]
-function CursorContext:mapCursors(callback)
+function CursorContext:mapCursors(callback, opts)
+
+--- Util method which returns the last cursor matching the predicate.
+--- @param predicate fun(cursor: Cursor, i: integer, t: Cursor[]): any
+--- @param opts? CursorQuery
+--- @return Cursor | nil
+function CursorContext:findLastCursor(predicate, opts)
 
 --- Util method which returns the first cursor matching the predicate.
 --- @param predicate fun(cursor: Cursor, i: integer, t: Cursor[]): any
+--- @param opts? CursorQuery
 --- @return Cursor | nil
-function CursorContext:findCursor(predicate)
-
---- @param pos [integer, integer]
---- @param offset? integer
---- @return Cursor | nil
-function CursorContext:getCursorAtPos(pos, offset)
-
---- When cursors are disabled, only the main cursor can be interacted with.
---- @return boolean
-function CursorContext:cursorsEnabled()
-
---- When cursors are disabled, only the main cursor can be interacted with.
---- @param value boolean
-function CursorContext:setCursorsEnabled(value)
+function CursorContext:findCursor(predicate, opts)
 
 --- Returns the closest cursor which appears AFTER pos.
 --- A cursor exactly at pos will not be returned.
 --- It does not wrap, so if none are found, then nil is returned.
 --- If you wish to wrap, use `ctx:nextCursor(...) or ctx:firstCursor(...)`.
---- @param pos [integer, integer]
---- @param offset? integer
+--- @param pos SimplePos | Pos
+--- @param opts? CursorQuery
 --- @return Cursor | nil
-function CursorContext:nextCursor(pos, offset)
+function CursorContext:nextCursor(pos, opts)
 
 --- Returns the closest cursor which appears BEFORE pos.
 --- A cursor exactly at pos will not be returned.
 --- It does not wrap, so if none are found, then nil is returned.
 --- If you wish to wrap, use `ctx:prevCursor(...) or ctx:lastCursor(...)`.
---- @param pos [integer, integer]
---- @param offset? integer
+--- @param pos SimplePos | Pos
+--- @param opts? CursorQuery
 --- @return Cursor | nil
-function CursorContext:prevCursor(pos, offset)
+function CursorContext:prevCursor(pos, opts)
 
 --- Returns the nearest cursor to pos, and accepts a cursor exactly at pos.
---- It is guarenteed to find a cursor.
---- @param pos [integer, integer]
---- @param offset? integer
---- @return Cursor
-function CursorContext:nearestCursor(pos, offset)
+--- @param pos SimplePos | Pos
+--- @param opts? CursorQuery
+--- @return Cursor | nil
+function CursorContext:nearestCursor(pos, opts)
 
---- Returns the main cursor (the real one).
+--- @param pos SimplePos | Pos
+--- @param opts? CursorQuery
+--- @return Cursor | nil
+function CursorContext:getCursorAtPos(pos, opts)
+
+--- Returns the cursor under the main cursor
+--- @return Cursor | nil
+function CursorContext:overlappedCursor()
+
+--- Returns the main cursor.
 --- @return Cursor
 function CursorContext:mainCursor()
 
 --- Returns the cursor closest to the start of the document.
---- Guarenteed to find a cursor.
---- @return Cursor
-function CursorContext:firstCursor()
+--- @param opts? CursorQuery
+--- @return Cursor | nil
+function CursorContext:firstCursor(opts)
 
 --- Returns the cursor closest to the end of the document.
---- Guarenteed to find a cursor.
---- @return Cursor
-function CursorContext:lastCursor()
+--- @param opts? CursorQuery
+--- @return Cursor | nil
+function CursorContext:lastCursor(opts)
 
+--- Returns whether all cursors are enabled
 --- @return boolean
+function CursorContext:cursorsEnabled()
+
 function CursorContext:hasCursors()
 
 function CursorContext:clear()

@@ -44,11 +44,13 @@ end
 --- See :h getpos()
 --- @alias MarkPos [integer, integer, integer, integer]
 
---- 1-indexed line, 1-indexed col, optional virtualedit offset
---- @alias Pos Pos
+--- 1-indexed line, 1-indexed col, virtualedit offset
+--- @alias Pos [integer, integer, integer]
 
 --- 1-indexed line, 1-indexed col
 --- @alias SimplePos [integer, integer]
+
+--- @alias CursorQuery {disabledCursors?: boolean, enabledCursors?: boolean}
 
 --- @enum CursorState
 local CursorState = {
@@ -663,7 +665,7 @@ local function cursorContextSetMainCursor(cursor)
     state.mainCursor = cursor
 end
 
---- When cursors are disabled, only the main cursor can be interacted with.
+--- Enables or disables all cursors
 --- @param value boolean
 function CursorContext:setCursorsEnabled(value)
     for _, cursor in ipairs(state.cursors) do
@@ -677,8 +679,6 @@ function CursorContext:setCursorsEnabled(value)
         end
     end
 end
-
---- @alias CursorQuery {disabledCursors?: boolean, enabledCursors?: boolean}
 
 --- @generic T
 --- @param value T | nil
@@ -713,7 +713,7 @@ function CursorContext:addCursor()
 end
 
 --- Util which executes callback for each cursor, sorted by their position.
---- @param callback fun(cursor: Cursor, i: integer, t: Cursor[]): boolean | nil
+--- @param callback fun(cursor: Cursor, i: integer, t: Cursor[])
 --- @param opts? CursorQuery
 function CursorContext:forEachCursor(callback, opts)
     tbl.forEach(self:getCursors(opts), callback)
@@ -832,7 +832,7 @@ function CursorContext:overlappedCursor()
     return self:mainCursor():overlappedCursor()
 end
 
---- Returns the main cursor (the real one).
+--- Returns the main cursor.
 --- @return Cursor
 function CursorContext:mainCursor()
     if not state.mainCursor then
@@ -917,6 +917,7 @@ function Cursor:delete()
     end
 end
 
+--- Returns the disabled cursor underneath this one, if it exists
 --- @return Cursor | nil
 function Cursor:overlappedCursor()
     if not self._enabled then
@@ -930,14 +931,14 @@ function Cursor:overlappedCursor()
     end, { enabledCursors = false, disabledCursors = true })
 end
 
---- Sets this cursor as the main cursor (the real one).
+--- Sets this cursor as the main cursor.
 --- @return self
 function Cursor:select()
     cursorContextSetMainCursor(self)
     return self
 end
 
---- Returns whether this cursor is the main cursor (the real one).
+--- Returns whether this cursor is the main cursor.
 --- @return boolean
 function Cursor:isMainCursor()
     return self == state.mainCursor
