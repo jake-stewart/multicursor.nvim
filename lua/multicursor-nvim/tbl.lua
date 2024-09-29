@@ -92,6 +92,19 @@ function tbl.find(t, callback)
     end
 end
 
+--- @generic T
+--- @param t T[]
+--- @param callback fun(v: T, i: integer, t: T[]): any
+--- @return T | nil
+function tbl.findLast(t, callback)
+    for i = #t, 1, -1 do
+        local v = t[i]
+        if callback(v, i, t) then
+            return v
+        end
+    end
+end
+
 function tbl.findIndex(t, callback)
     for i, v in ipairs(t) do
         if callback(v, i, t) then

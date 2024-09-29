@@ -38,14 +38,17 @@ local function compareCursorsPosition(a, b)
     return a._pos[2] < b._pos[2]
 end
 
---- 1-indexed line and column.
---- @alias SimplePos [integer, integer]
-
 --- See :h getcurpos()
 --- @alias CursorPos [integer, integer, integer, integer, integer]
 
 --- See :h getpos()
 --- @alias MarkPos [integer, integer, integer, integer]
+
+--- 1-indexed line, 1-indexed col, optional virtualedit offset
+--- @alias Pos Pos
+
+--- 1-indexed line, 1-indexed col
+--- @alias SimplePos [integer, integer]
 
 --- @enum CursorState
 local CursorState = {
@@ -672,11 +675,29 @@ function CursorContext:setCursorsEnabled(value)
     end
 end
 
+--- @alias CursorQuery {disabledCursors?: boolean, enabledCursors?: boolean}
+
+--- @generic T
+--- @param value T | nil
+--- @param defaultIfNil T
+--- @return T
+local function default(value, defaultIfNil)
+    if value == nil then
+        return defaultIfNil
+    else
+        return value
+    end
+end
+
 --- Returns a list of cursors, sorted by their position.
+--- @param opts? CursorQuery
 --- @return Cursor[]
-function CursorContext:getCursors()
+function CursorContext:getCursors(opts)
+    local enabledCursors = default(opts and opts.enabledCursors, true)
+    local disabledCursors = default(opts and opts.enabledCursors, false)
     local cursors = tbl.filter(state.cursors, function(cursor)
-        return cursor._state ~= CursorState.deleted and cursor._enabled
+        return cursor._state ~= CursorState.deleted
+            and (cursor._enabled == enabledCursors or (not cursor._enabled) == disabledCursors)
     end)
     table.sort(cursors, compareCursorsPosition)
     return cursors
@@ -690,142 +711,122 @@ end
 
 --- Util which executes callback for each cursor, sorted by their position.
 --- @param callback fun(cursor: Cursor, i: integer, t: Cursor[]): boolean | nil
-function CursorContext:forEachCursor(callback)
-    tbl.forEach(self:getCursors(), callback)
+--- @param opts? CursorQuery
+function CursorContext:forEachCursor(callback, opts)
+    tbl.forEach(self:getCursors(opts), callback)
 end
 
 --- Util method which maps each cursor to a value.
 --- @generic T
 --- @param callback fun(cursor: Cursor, i: integer, t: Cursor[]): T
+--- @param opts? CursorQuery
 --- @return T[]
-function CursorContext:mapCursors(callback)
-    return tbl.map(self:getCursors(), callback)
+function CursorContext:mapCursors(callback, opts)
+    return tbl.map(self:getCursors(opts), callback)
+end
+
+--- Util method which returns the last cursor matching the predicate.
+--- @param predicate fun(cursor: Cursor, i: integer, t: Cursor[]): any
+--- @param opts? CursorQuery
+--- @return Cursor | nil
+function CursorContext:findLastCursor(predicate, opts)
+    return tbl.findLast(self:getCursors(opts), predicate)
 end
 
 --- Util method which returns the first cursor matching the predicate.
 --- @param predicate fun(cursor: Cursor, i: integer, t: Cursor[]): any
+--- @param opts? CursorQuery
 --- @return Cursor | nil
-function CursorContext:findCursor(predicate)
-    return tbl.find(self:getCursors(), predicate)
+function CursorContext:findCursor(predicate, opts)
+    return tbl.find(self:getCursors(opts), predicate)
 end
 
 --- Returns the closest cursor which appears AFTER pos.
 --- A cursor exactly at pos will not be returned.
 --- It does not wrap, so if none are found, then nil is returned.
 --- If you wish to wrap, use `ctx:nextCursor(...) or ctx:firstCursor(...)`.
---- @param pos SimplePos
---- @param offset? integer
+--- @param pos SimplePos | Pos
+--- @param opts? CursorQuery
 --- @return Cursor | nil
-function CursorContext:nextCursor(pos, offset)
-    offset = offset or 0
-    local nextCursor = nil
-    for _, cursor in ipairs(state.cursors) do
-        if cursor._state ~= CursorState.deleted and cursor._enabled
+function CursorContext:nextCursor(pos, opts)
+    local offset = pos[3] or 0
+    return self:findCursor(function(cursor)
+        cursorCheckUpdate(cursor)
+        if cursor._pos[2] > pos[1]
+            or cursor._pos[2] == pos[1]
+            and (cursor._pos[3] + cursor._pos[4]) > (pos[2] + offset)
         then
-            cursorCheckUpdate(cursor)
-            if cursor._pos[2] > pos[1]
-                or cursor._pos[2] == pos[1]
-                and (cursor._pos[3] + cursor._pos[4]) > (pos[2] + offset)
-            then
-                if not nextCursor
-                    or compareCursorsPosition(cursor, nextCursor)
-                then
-                    nextCursor = cursor
-                end
-            end
+            return cursor
         end
-    end
-    return nextCursor
+    end, opts)
 end
 
 --- Returns the closest cursor which appears BEFORE pos.
 --- A cursor exactly at pos will not be returned.
 --- It does not wrap, so if none are found, then nil is returned.
 --- If you wish to wrap, use `ctx:prevCursor(...) or ctx:lastCursor(...)`.
---- @param pos SimplePos
---- @param offset? integer
+--- @param pos SimplePos | Pos
+--- @param opts? CursorQuery
 --- @return Cursor | nil
-function CursorContext:prevCursor(pos, offset)
-    offset = offset or 0
-    local prevCursor = nil
-    for _, cursor in ipairs(state.cursors) do
-        if cursor._state ~= CursorState.deleted
-            and cursor._enabled
+function CursorContext:prevCursor(pos, opts)
+    local offset = pos[3] or 0
+    return self:findLastCursor(function(cursor)
+        cursorCheckUpdate(cursor)
+        if cursor._pos[2] < pos[1]
+            or cursor._pos[2] == pos[1]
+            and (cursor._pos[3] + cursor._pos[4]) < (pos[2] + offset)
         then
-            cursorCheckUpdate(cursor)
-            if cursor._pos[2] < pos[1]
-                or cursor._pos[2] == pos[1]
-                and (cursor._pos[3] + cursor._pos[4]) < (pos[2] + offset)
-            then
-                if not prevCursor
-                    or compareCursorsPosition(prevCursor, cursor)
-                then
-                    prevCursor = cursor
-                end
-            end
+            return cursor
         end
-    end
-    return prevCursor
-end
-
---- @param pos SimplePos
---- @param offset? integer
---- @return Cursor | nil
-local function cursorContextNearestCursor(pos, offset)
-    offset = offset or 0
-    local nearestCursor = nil
-    local nearestColDist = 0
-    local nearestRowDist = 0
-    for _, cursor in ipairs(state.cursors) do
-        if cursor._state ~= CursorState.deleted
-            and cursor._enabled
-        then
-            cursorCheckUpdate(cursor)
-            local rowDist = math.abs(cursor._pos[2] - pos[1])
-            local colDist = math.abs(
-                (cursor._pos[3] + cursor._pos[4]) - (pos[2] + offset))
-            if not nearestCursor
-                or rowDist < nearestRowDist
-                or rowDist == nearestRowDist
-                and colDist < nearestColDist
-            then
-                nearestCursor = cursor
-                nearestColDist = colDist
-                nearestRowDist = rowDist
-            end
-        end
-    end
-    return nearestCursor
+    end, opts)
 end
 
 --- Returns the nearest cursor to pos, and accepts a cursor exactly at pos.
---- It is guarenteed to find a cursor.
---- @param pos SimplePos
---- @param offset? integer
---- @return Cursor
-function CursorContext:nearestCursor(pos, offset)
-    return cursorContextNearestCursor(pos, offset, false) or self:mainCursor()
+--- @param pos SimplePos | Pos
+--- @param opts? CursorQuery
+--- @return Cursor | nil
+function CursorContext:nearestCursor(pos, opts)
+    local offset = pos[3] or 0
+    local nearestCursor = nil
+    local nearestColDist = 0
+    local nearestRowDist = 0
+    CursorContext:forEachCursor(function(cursor)
+        cursorCheckUpdate(cursor)
+        local rowDist = math.abs(cursor._pos[2] - pos[1])
+        local colDist = math.abs(
+            (cursor._pos[3] + cursor._pos[4]) - (pos[2] + offset))
+        if not nearestCursor
+            or rowDist < nearestRowDist
+            or rowDist == nearestRowDist
+            and colDist < nearestColDist
+        then
+            nearestCursor = cursor
+            nearestColDist = colDist
+            nearestRowDist = rowDist
+        end
+    end, opts)
+    return nearestCursor
 end
 
---- @param pos SimplePos
---- @param offset? number
+--- @param pos SimplePos | Pos
+--- @param opts? CursorQuery
 --- @return Cursor | nil
-function CursorContext:getCursorAtPos(pos, offset)
+function CursorContext:getCursorAtPos(pos, opts)
     return self:findCursor(function(cursor)
         return cursor._pos[2] == pos[1]
             and cursor._pos[3] == pos[2]
-            and (not offset or cursor._pos[4] == offset)
-    end)
+            and (not pos[3] or cursor._pos[4] == pos[3])
+    end, opts)
 end
 
 --- Returns the cursor under the main cursor
 --- @return Cursor | nil
 function CursorContext:overlappedCursor()
-    local mainCursor = self:mainCursor()
-    local overlappedCursor = self:getCursorAtPos(mainCursor:getPos())
-    if overlappedCursor ~= mainCursor then
-        return overlappedCursor
-    end
+    util.warnOnce(
+        "ctx:overlappedCursor",
+        "ctx:overlappedCursor() is deprecated. Use ctx:mainCursor():overlappedCursor() instead"
+    )
+    return self:mainCursor():overlappedCursor()
 end
 
 --- Returns the main cursor (the real one).
@@ -845,44 +846,17 @@ function CursorContext:mainCursor()
 end
 
 --- Returns the cursor closest to the start of the document.
---- Guarenteed to find a cursor.
---- @return Cursor
-function CursorContext:firstCursor()
-    local firstCursor
-    for _, cursor in ipairs(state.cursors) do
-        if cursor._state ~= CursorState.deleted
-            and cursor._enabled
-        then
-            cursorCheckUpdate(cursor)
-            if not firstCursor
-                or compareCursorsPosition(cursor, firstCursor)
-            then
-                firstCursor = cursor
-            end
-        end
-    end
-    return firstCursor or self:mainCursor()
+--- @param opts? CursorQuery
+--- @return Cursor | nil
+function CursorContext:firstCursor(opts)
+    return self:findCursor(function() return true end, opts)
 end
 
 --- Returns the cursor closest to the end of the document.
---- Guarenteed to find a cursor.
---- @return Cursor
-function CursorContext:lastCursor()
-    local lastCursor
-    for i = #state.cursors, 1, -1 do
-        local cursor = state.cursors[i]
-        if cursor._state ~= CursorState.deleted
-            and cursor._enabled
-        then
-            cursorCheckUpdate(cursor)
-            if not lastCursor
-                or compareCursorsPosition(lastCursor, cursor)
-            then
-                lastCursor = cursor
-            end
-        end
-    end
-    return lastCursor or self:mainCursor()
+--- @param opts? CursorQuery
+--- @return Cursor | nil
+function CursorContext:lastCursor(opts)
+    return self:findLastCursor(function() return true end, opts)
 end
 
 --- Returns this cursors current line number, 1 indexed.
@@ -928,8 +902,7 @@ function Cursor:delete()
         self._state = CursorState.deleted
         if self == state.mainCursor then
             state.mainCursor = nil
-            local pos, offset = self:getPos()
-            local newMainCursor = cursorContextNearestCursor(pos, offset)
+            local newMainCursor = CursorContext:nearestCursor(self:getPos())
                 or CursorContext:mainCursor()
             newMainCursor:enable()
             cursorContextSetMainCursor(newMainCursor)
@@ -939,18 +912,15 @@ end
 
 --- @return Cursor | nil
 function Cursor:overlappedCursor()
-    if self._enabled then
+    if not self._enabled then
         return nil
     end
-    for _, cursor in ipairs(state.cursors) do
-        if not cursor._enabled
+    return CursorContext:findCursor(function(cursor)
+        return not cursor._enabled
             and cursor._pos[2] == self._pos[2]
             and cursor._pos[3] == self._pos[3]
             and cursor._pos[4] == self._pos[4]
-        then
-            return cursor
-        end
-    end
+    end, { enabledCursors = false, disabledCursors = true })
 end
 
 --- Sets this cursor as the main cursor (the real one).
@@ -992,39 +962,37 @@ function Cursor:splitVisualLines()
     return {}
 end
 
---- @return SimplePos, integer
+--- @return Pos
 function Cursor:getPos()
     cursorCheckUpdate(self)
-    return {self._pos[2], self._pos[3]}, self._pos[4]
+    return { self._pos[2], self._pos[3], self._pos[4] }
 end
 
---- @param pos SimplePos
---- @param offset? number
+--- @param pos SimplePos | Pos
 --- @return self
-function Cursor:setPos(pos, offset)
+function Cursor:setPos(pos)
     cursorCheckUpdate(self)
-    self._pos = { self._pos[0], pos[1], pos[2], offset or 0, pos[2] }
+    self._pos = { self._pos[0], pos[1], pos[2], pos[3] or 0, pos[2] }
     cursorSetMarks(self)
     return self
 end
 
---- @param pos SimplePos
---- @param offset? integer
+--- @param pos SimplePos | Pos
 --- @return self
-function Cursor:setVisualAnchor(pos, offset)
+function Cursor:setVisualAnchor(pos)
     cursorCheckUpdate(self)
-    self._vPos = { 0, pos[1], pos[2], offset or 0, pos[2] }
+    self._vPos = { 0, pos[1], pos[2], pos[3] or 0, pos[2] }
     cursorSetMarks(self)
     return self
 end
 
---- @return SimplePos, integer
+--- @return Pos
 function Cursor:getVisualAnchor()
     cursorCheckUpdate(self)
-    return {self._vPos[2], self._vPos[3]}, self._vPos[4]
+    return { self._vPos[2], self._vPos[3], self._vPos[4] }
 end
 
---- @param pos SimplePos
+--- @param pos SimplePos | Pos
 function Cursor:setRedoChangePos(pos)
     cursorCheckUpdate(self)
     self._redoChangePos = { 0, pos[1], pos[2], 0 }
@@ -1159,23 +1127,23 @@ end
 
 --- Returns start and end positions of visual selection start position
 --- is before or equal to end position.
---- @return SimplePos, SimplePos
+--- @return Pos, Pos
 function Cursor:getVisual()
     cursorCheckUpdate(self)
     if self:inVisualMode() then
         if self:atVisualStart() then
             return
-                {self._pos[2], self._pos[3]},
-                {self._vPos[2], self._vPos[3]}
+                {self._pos[2], self._pos[3], self._pos[4] },
+                {self._vPos[2], self._vPos[3], self._vPos[4] }
         else
             return
-                {self._vPos[2], self._vPos[3]},
-                {self._pos[2], self._pos[3]}
+                {self._vPos[2], self._vPos[3], self._vPos[4] },
+                {self._pos[2], self._pos[3], self._pos[4] }
         end
     end
     return
-        {self._visualStart[2], self._visualStart[3]},
-        {self._visualEnd[2], self._visualEnd[3]}
+        {self._visualStart[2], self._visualStart[3], 0},
+        {self._visualEnd[2], self._visualEnd[3], 0}
 end
 
 --- Returns this cursor's current mode.
@@ -1237,8 +1205,8 @@ function Cursor:feedkeys(keys, opts)
 end
 
 --- Sets the visual selection and sets the cursor position to `visualEnd`.
---- @param visualStart SimplePos
---- @param visualEnd SimplePos
+--- @param visualStart SimplePos | Pos
+--- @param visualEnd SimplePos | Pos
 --- @return self
 function Cursor:setVisual(visualStart, visualEnd)
     cursorCheckUpdate(self)
@@ -1436,7 +1404,7 @@ end
 --- @type MultiCursorOpts
 local DEFAULT_OPTS = {
     shallowUndo = false,
-    signs = { " ┆"," │", " ┃" },
+    signs = { " ┆", " │", " ┃" },
 }
 
 --- @class CursorManager

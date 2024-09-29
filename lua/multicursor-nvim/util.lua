@@ -3,7 +3,22 @@ local util = {}
 function util.echoerr(message)
     message = type(message) == "string"
         and message or vim.inspect(message)
-    vim.api.nvim_echo({{message, "Error"}}, false, {})
+    vim.api.nvim_echo({{message, "Error"}}, true, {})
+end
+
+function util.echowarn(message)
+    message = type(message) == "string"
+        and message or vim.inspect(message)
+    vim.api.nvim_echo({{message, "WarningMsg"}}, true, {})
+end
+
+local alreadyWarned = {}
+function util.warnOnce(key, message)
+    if alreadyWarned[key] then
+        return
+    end
+    alreadyWarned[key] = true
+    util.echowarn(message)
 end
 
 --- Wraps `:h matchstrlist()` and allow injecting user options
