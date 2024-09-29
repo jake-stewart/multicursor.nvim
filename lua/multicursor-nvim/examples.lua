@@ -460,7 +460,6 @@ local function matchAddCursor(direction, add)
                     regex = "\\C\\V" .. escapeRegex(cursorChar)
                 end
             end
-            cursor:setSearch(regex)
             cursor:perform(function()
                 vim.fn.search(regex, (direction == -1 and "b" or ""))
             end)
