@@ -198,6 +198,7 @@ see all the default features implemented using the Cursor API.
 Or, you can read the prototypes below.
 
 ### Types
+
 ```lua
 --- @alias CursorQuery {disabledCursors?: boolean, enabledCursors?: boolean}
 
@@ -209,6 +210,7 @@ Or, you can read the prototypes below.
 ```
 
 ### Cursor
+
 ```lua
 --- Returns this cursors current line number, 1 indexed.
 --- @return integer
@@ -335,6 +337,7 @@ function Cursor:inVisualMode()
 ```
 
 ### CursorContext
+
 ```lua
 --- Enables or disables all cursors
 --- @param value boolean
