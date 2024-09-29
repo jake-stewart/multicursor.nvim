@@ -10,6 +10,12 @@ local replace_termcodes = vim.api.nvim_replace_termcodes
 local get_extmark = vim.api.nvim_buf_get_extmark_by_id
 local get_lines = vim.api.nvim_buf_get_lines
 
+local OPTIONS_OVERRIDE = {
+    timeout = false,
+    clipboard = "",
+    hlsearch = false,
+}
+
 --- @param cur integer
 local function undoItemId(cur)
     return vim.fn.bufnr() .. ":" .. cur
@@ -93,6 +99,7 @@ Cursor.__index = Cursor
 --- @field cursorSignId? integer
 --- @field modifiedId integer
 --- @field cursors Cursor[]
+--- @field options? table
 --- @field nsid integer
 --- @field virtualEditBlock? boolean
 --- @field cursorline? boolean
@@ -110,8 +117,6 @@ local state = {
     cursors = {},
     undoItems = {},
     redoItems = {},
-    clipboard = nil,
-    hlsearch = nil,
     numDisabledCursors = 0,
     numEnabledCursors = 0,
     id = 0,
@@ -1345,15 +1350,13 @@ function CursorContext:clear()
     state.cursorSignId = nil
     state.numDisabledCursors = 0
     state.numEnabledCursors = 0
-    if state.clipboard then
-        vim.o.clipboard = state.clipboard
-        state.clipboard = nil
+    if state.options then
+        for key, value in pairs(state.options) do
+            vim.o[key] = value
+        end
+        state.options = nil
     end
-    if state.hlsearch then
-        vim.o.hlsearch = true
-        vim.cmd.noh()
-    end
-    state.hlsearch = nil
+    vim.cmd.noh()
     state.enabled = true
     state.cursors = {}
     state.mainCursor = nil
@@ -1512,14 +1515,11 @@ function CursorManager:action(callback, applyToMainCursor)
         state.cursorline = vim.o.cursorline
         createMainCursorSignHighlight()
     end
-    if state.clipboard == nil then
-        state.clipboard = vim.o.clipboard
-        vim.o.clipboard = ""
-    end
-    if state.hlsearch == nil then
-        state.hlsearch = vim.o.hlsearch
-        if state.hlsearch then
-            vim.o.hlsearch = false
+    if not state.options then
+        state.options = {}
+        for key, value in pairs(OPTIONS_OVERRIDE) do
+            state.options[key] = vim.o[key]
+            vim.o[key] = value
         end
     end
     state.leftcol = vim.fn.winsaveview().leftcol
