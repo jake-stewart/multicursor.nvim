@@ -31,6 +31,8 @@ return {
     transposeCursors = examples.transposeCursors,
     addCursor = examples.addCursor,
     skipCursor = examples.skipCursor,
+    matchAddCursor = examples.matchAddCursor,
+    matchSkipCursor = examples.matchSkipCursor,
     handleMouse = examples.handleMouse,
     clearCursors = examples.clearCursors,
     disableCursors = examples.disableCursors,

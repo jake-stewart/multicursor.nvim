@@ -66,8 +66,13 @@ function examples.matchCursors(pattern)
         end
         local newCursors = {}
         ctx:forEachCursor(function(cursor)
-            newCursors = tbl.concat(
-                newCursors, cursor:splitVisualLines())
+            if cursor:inVisualMode() then
+                newCursors = tbl.concat(
+                    newCursors, cursor:splitVisualLines())
+            else
+                newCursors[#newCursors + 1] = cursor
+                cursor:setMode("v")
+            end
         end)
         for _, cursor in ipairs(newCursors) do
             local selection = cursor:getVisualLines()
@@ -107,7 +112,7 @@ function examples.transposeCursors(direction)
         local cursor = direction == -1
             and (ctx:prevCursor(pos) or ctx:lastCursor())
             or (ctx:nextCursor(pos) or ctx:firstCursor())
-        cursor:select()
+        cursor:select() --- @diagnostic disable-line
     end)
 end
 
@@ -176,73 +181,85 @@ function examples.alignCursors()
     end)
 end
 
-local function addCursor(motion, opts)
-    mc.action(function(ctx)
-        opts = opts or {}
-        if opts.remap == nil then
-            opts.remap = true
+--- @param ctx CursorContext
+--- @param motion? string | fun(cursor: Cursor)
+local function addCursor(ctx, motion, opts)
+    opts = opts or {}
+    if opts.remap == nil then
+        opts.remap = true
+    end
+    if motion then
+        local mainCursor = ctx:mainCursor()
+        if opts.addCursor then
+            mainCursor:clone()
         end
-        if motion then
-            local mainCursor = ctx:mainCursor()
-            if opts.addCursor then
-                mainCursor:clone()
-            end
-            local vs, ve = mainCursor:getVisual()
-            local oldMode = mainCursor:mode()
-            local atVisStart = mainCursor:atVisualStart()
+        local vs, ve = mainCursor:getVisual()
+        local oldMode = mainCursor:mode()
+        local atVisStart = mainCursor:atVisualStart()
+        if type(motion) == "string" then
             mainCursor:feedkeys(motion, opts)
-            local newPos = mainCursor:getPos()
-            local rowDiff = newPos[1] - ve[1]
-            local colDiff = mainCursor:mode() == "n"
-                and newPos[2] - vs[2]
-                or atVisStart
-                    and vs[2] - newPos[2]
-                    or newPos[2] - ve[2]
-            mainCursor:setMode(oldMode)
-            local startRow = vs[1] + rowDiff
-            local startCol = vs[2] + colDiff
-            local endRow = ve[1] + rowDiff
-            local endCol = ve[2] + colDiff
-            if atVisStart then
-                mainCursor:setVisual(
-                    { endRow, endCol },
-                    { startRow, startCol }
-                )
-            else
-                mainCursor:setVisual(
-                    { startRow, startCol },
-                    { endRow, endCol }
-                )
-            end
         else
-            ctx:forEachCursor(function(cursor)
-                if cursor:isMainCursor() then
-                    cursor:clone():disable()
-                    cursor:setMode("n")
-                else
-                    cursor:disable()
-                end
-            end)
+            motion(mainCursor)
         end
-    end)
+        local newPos = mainCursor:getPos()
+        local rowDiff = newPos[1] - vs[1]
+        local colDiff = mainCursor:mode() == "n"
+            and newPos[2] - vs[2]
+            or atVisStart
+                and vs[2] - newPos[2]
+                or newPos[2] - ve[2]
+        mainCursor:setMode(oldMode)
+        local startRow = vs[1] + rowDiff
+        local startCol = vs[2] + colDiff
+        local endRow = ve[1] + rowDiff
+        local endCol = ve[2] + colDiff
+        if oldMode == "V" or oldMode == "S" then
+            startCol = vs[2]
+            endCol = ve[2]
+        end
+        if atVisStart then
+            mainCursor:setVisual(
+                { endRow, endCol },
+                { startRow, startCol }
+            )
+        else
+            mainCursor:setVisual(
+                { startRow, startCol },
+                { endRow, endCol }
+            )
+        end
+    else
+        ctx:forEachCursor(function(cursor)
+            if cursor:isMainCursor() then
+                cursor:clone():disable()
+                cursor:setMode("n")
+            else
+                cursor:disable()
+            end
+        end)
+    end
 end
 
 --- @param motion? string | fun(cursor: Cursor)
 --- @param opts? { remap?: boolean }
 function examples.addCursor(motion, opts)
-    addCursor(motion, {
-        addCursor = true,
-        remap = opts and opts.remap,
-    })
+    mc.action(function(ctx)
+        addCursor(ctx, motion, {
+            addCursor = true,
+            remap = opts and opts.remap,
+        })
+    end)
 end
 
 --- @param motion string | fun(cursor: Cursor)
 --- @param opts? { remap?: boolean }
 function examples.skipCursor(motion, opts)
-    addCursor(motion, {
-        addCursor = false,
-        remap = opts and opts.remap,
-    })
+    mc.action(function(ctx)
+        addCursor(ctx, motion, {
+            addCursor = false,
+            remap = opts and opts.remap,
+        })
+    end)
 end
 
 function examples.handleMouse()
@@ -364,7 +381,7 @@ function examples.nextCursor()
     mc.action(function(ctx)
         local cursor = ctx:nextCursor(ctx:mainCursor():getPos())
             or ctx:firstCursor()
-        cursor:select()
+        cursor:select() --- @diagnostic disable-line
     end)
 end
 
@@ -372,7 +389,7 @@ function examples.prevCursor()
     mc.action(function(ctx)
         local cursor = ctx:prevCursor(ctx:mainCursor():getPos())
             or ctx:lastCursor()
-        cursor:select()
+        cursor:select() --- @diagnostic disable-line
     end)
 end
 
@@ -391,6 +408,77 @@ function examples.deleteOverlappedCursor()
             end
         end)
     end)
+end
+
+local function escapeRegex(regex)
+    regex = vim.fn.substitute(regex, "\\", "\\\\\\\\", "g")
+    regex = vim.fn.substitute(regex, "/", "\\\\/", "g")
+    regex = vim.fn.substitute(regex, "\n", "\\\\n", "g")
+    return regex
+end
+
+local function isKeyword(s)
+    return vim.fn.match(s, '\\v^\\k+$') >= 0
+end
+
+--- @param direction? -1 | 1
+--- @param add boolean
+local function matchAddCursor(direction, add)
+    mc.action(function(ctx)
+        local mainCursor = ctx:mainCursor()
+        local cursorChar
+        local cursorWord
+        local searchWord
+        if not mainCursor:inVisualMode() then
+            local c = mainCursor:col()
+            cursorChar = string.sub(mainCursor:getLine(), c, c)
+            cursorWord = mainCursor:getCursorWord()
+            if cursorChar ~= ""
+                and isKeyword(cursorChar)
+                and string.find(cursorWord, cursorChar, 1, true)
+            then
+                searchWord = true
+                mainCursor:feedkeys('"_yiw')
+            end
+        end
+        addCursor(ctx, function(cursor)
+            local regex
+            local inVisualMode = cursor:inVisualMode()
+            if inVisualMode then
+                regex = "\\C\\V" .. escapeRegex(table.concat(cursor:getVisualLines(), "\n"))
+                if cursor:mode() == "V" or cursor:mode() == "S" then
+                    cursor:feedkeys(cursor:atVisualStart() and "0" or "o0")
+                elseif not cursor:atVisualStart() then
+                    cursor:feedkeys("o")
+                end
+            else
+                if cursorChar == "" then
+                    regex = "\\v^$"
+                elseif searchWord then
+                    regex = "\\v<\\V" .. escapeRegex(cursorWord) .. "\\v>"
+                else
+                    regex = "\\C\\V" .. escapeRegex(cursorChar)
+                end
+            end
+            cursor:setSearch(regex)
+            cursor:perform(function()
+                vim.fn.search(regex, (direction == -1 and "b" or ""))
+            end)
+            if inVisualMode then
+                cursor:feedkeys(TERM_CODES.ESC)
+            end
+        end, { addCursor = add })
+    end)
+end
+
+--- @param direction? -1 | 1
+function examples.matchAddCursor(direction)
+    matchAddCursor(direction, true)
+end
+
+--- @param direction? -1 | 1
+function examples.matchSkipCursor(direction)
+    matchAddCursor(direction, false)
 end
 
 return examples

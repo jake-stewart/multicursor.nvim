@@ -39,6 +39,12 @@ https://github.com/user-attachments/assets/a8c136dc-4786-447b-95c0-8e2a48f5776f
         vim.keymap.set({"n", "v"}, "<up>", function() mc.addCursor("k") end)
         vim.keymap.set({"n", "v"}, "<down>", function() mc.addCursor("j") end)
 
+        -- add or skip adding a new cursor by matching the current word/selection
+        vim.keymap.set({"n", "x"}, "<leader>n", function() mc.matchAddCursor(1) end)
+        vim.keymap.set({"n", "x"}, "<leader>s", function() mc.matchSkipCursor(1) end)
+        vim.keymap.set({"n", "x"}, "<leader>N", function() mc.matchAddCursor(-1) end)
+        vim.keymap.set({"n", "x"}, "<leader>S", function() mc.matchSkipCursor(-1) end)
+
         -- Add a cursor and jump to the next word under cursor.
         vim.keymap.set({"n", "v"}, "<c-n>", function() mc.addCursor("*") end)
 

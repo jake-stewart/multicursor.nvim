@@ -1007,6 +1007,17 @@ function Cursor:setRedoChangePos(pos)
     cursorSetMarks(self)
 end
 
+--- @param search string
+function Cursor:setSearch(search)
+    self._search = search
+end
+
+function Cursor:getCursorWord()
+    cursorCheckUpdate(self)
+    cursorWrite(self)
+    return vim.fn.expand("<cword>")
+end
+
 --- @param cursor Cursor
 local function cursorCopy(cursor)
     return createCursor({
@@ -1121,6 +1132,14 @@ end
 --- @return string[]
 function Cursor:getVisualLines()
     cursorCheckUpdate(self)
+    if self._mode == "V" or self._mode == "S" then
+        return get_lines(
+            0,
+            math.min(self._pos[2], self._vPos[2]) - 1,
+            math.max(self._pos[2], self._vPos[2]),
+            true
+        )
+    end
     local vPos = self._vPos
     if vPos[3] == 0 then
         vPos = { table.unpack(vPos) }
@@ -1201,18 +1220,15 @@ function Cursor:enable()
     return self
 end
 
---- Makes the cursor perform a command/commands.
---- For example, cursor:feedkeys('dw') will delete a word.
---- By default, keys are not remapped and keycodes are not parsed.
---- @param keys string
---- @param opts? { remap?: boolean, keycodes?: boolean }
-function Cursor:feedkeys(keys, opts)
+--- Calls callback with cursor
+--- @param callback fun(cursor: Cursor)
+function Cursor:perform(callback)
     cursorCheckUpdate(self)
     state.modifiedId = state.modifiedId + 1
     self._modifiedId = state.modifiedId
     self._state = CursorState.dirty
     cursorWrite(self)
-    local success, err = pcall(feedkeys, keys, opts)
+    local success, err = pcall(callback, self)
     state.numLines = vim.fn.line("$")
     if success then
         cursorRead(self)
@@ -1220,6 +1236,17 @@ function Cursor:feedkeys(keys, opts)
     else
         util.echoerr(err)
     end
+end
+
+--- Makes the cursor perform a command/commands.
+--- For example, cursor:feedkeys('dw') will delete a word.
+--- By default, keys are not remapped and keycodes are not parsed.
+--- @param keys string
+--- @param opts? { remap?: boolean, keycodes?: boolean }
+function Cursor:feedkeys(keys, opts)
+    self:perform(function()
+        feedkeys(keys, opts)
+    end)
 end
 
 --- Sets the visual selection and sets the cursor position to `visualEnd`.
