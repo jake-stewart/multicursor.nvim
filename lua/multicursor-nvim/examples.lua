@@ -503,7 +503,7 @@ local function lineAddCursor(direction, add)
                 break
             end
             local maxCol = vim.fn.virtcol({ line, "$" })
-            if maxCol > virtCol then
+            if virtCol == 1 or maxCol > virtCol then
                 found = true
                 break
             end
