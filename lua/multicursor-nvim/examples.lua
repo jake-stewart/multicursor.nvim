@@ -497,10 +497,13 @@ local function lineAddCursor(direction, add)
         local virtCol = vim.fn.virtcol(".")
         local lastLine = vim.fn.line("$")
         local found = false
-        while line > 1 and line < lastLine do
+        while true do
             line = line + direction
+            if line < 1 or line > lastLine then
+                break
+            end
             local maxCol = vim.fn.virtcol({ line, "$" })
-            if maxCol >= virtCol then
+            if maxCol > virtCol then
                 found = true
                 break
             end
