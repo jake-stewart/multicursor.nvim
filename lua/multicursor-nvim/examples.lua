@@ -481,4 +481,51 @@ function examples.matchSkipCursor(direction)
     matchAddCursor(direction, false)
 end
 
+--- @param direction? -1 | 1
+--- @param add boolean
+local function lineAddCursor(direction, add)
+    mc.action(function(ctx)
+        local mainCursor = ctx:mainCursor()
+        local line, _, offset = table.unpack(mainCursor:getPos())
+        if offset > 0 then
+            addCursor(ctx, direction == -1 and "k" or "j", {
+                addCursor = add,
+                remap = false,
+            })
+            return
+        end
+        local virtCol = vim.fn.virtcol(".")
+        local lastLine = vim.fn.line("$")
+        local found = false
+        while line > 1 and line < lastLine do
+            line = line + direction
+            local maxCol = vim.fn.virtcol({ line, "$" })
+            if maxCol >= virtCol then
+                found = true
+                break
+            end
+        end
+        if not found then
+            return
+        end
+        addCursor(ctx, function(cursor)
+            cursor:setPos({
+                line,
+                vim.fn.virtcol2col(0, line, virtCol),
+                offset,
+            })
+        end, { addCursor = add })
+    end)
+end
+
+--- @param direction? -1 | 1
+function examples.lineAddCursor(direction)
+    lineAddCursor(direction, true)
+end
+
+--- @param direction? -1 | 1
+function examples.lineSkipCursor(direction)
+    lineAddCursor(direction, false)
+end
+
 return examples
