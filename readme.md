@@ -143,6 +143,10 @@ If you want to do something more complex, see the Cursor API section.
 | ------------     | -----------------  | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | addCursor        | string             | void    | Add a cursor and move only the main cursor using motion.                                                                                                                                         |
 | skipCursor       | string             | void    | Move only the main cursor using motion.                                                                                                                                                          |
+| lineAddCursor    | -1 \| 1            | void    | Add a cursor above or below the the main cursor, skipping empty lines.                                                                                                                           |
+| lineSkipCursor   | -1 \| 1            | void    | Move only the main cursor up or down a line, skipping empty lines.                                                                                                                               |
+| matchAddCursor   | -1 \| 1            | void    | Add a new cursor by matching the current word/selection.                                                                                                                                         |
+| matchSkipCursor  | -1 \| 1            | void    | Move only the main cursor by matching the current word/selection.                                                                                                                                |
 | nextCursor       |                    | void    | Select the cursor after the main cursor.                                                                                                                                                         |
 | prevCursor       |                    | void    | Select the cursor before the main cursor.                                                                                                                                                        |
 | firstCursor      |                    | void    | Select the first cursor.                                                                                                                                                                         |
@@ -306,6 +310,18 @@ function Cursor:enable()
 --- @param keys string
 --- @param opts? { remap?: boolean, keycodes?: boolean }
 function Cursor:feedkeys(keys, opts)
+
+--- Call callback with cursor
+--- @param callback fun(cursor: Cursor)
+function Cursor:perform(callback)
+
+--- Return the <cword> for this cursor
+--- @return string
+function Cursor:getCursorWord(callback)
+
+--- Set the search register of this cursor
+--- @param search string
+function Cursor:setSearch(search)
 
 --- Sets the visual selection and sets the cursor position to `visualEnd`.
 --- @param visualStart SimplePos | Pos
