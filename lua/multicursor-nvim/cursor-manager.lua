@@ -485,13 +485,12 @@ local function cursorDraw(cursor)
     local signHL
     local signText
     local priority
-    local signs = state.opts.signs
     if cursor._enabled then
         visualHL = "MultiCursorVisual"
         cursorHL = "MultiCursorCursor"
         signHL = "MultiCursorSign"
         priority = 20000
-        signText = signs and signs[state.numDisabledCursors == 0 and 2 or 3]
+        signText = state.signs[state.numDisabledCursors == 0 and 2 or 3]
         -- signText = state.numDisabledCursors == 0 and " │" or "││"
         -- signText = state.numDisabledCursors == 0 and " ┃" or "┃┃"
         -- signText = state.numDisabledCursors == 0 and " |" or "||"
@@ -500,7 +499,7 @@ local function cursorDraw(cursor)
         cursorHL = "MultiCursorDisabledCursor"
         signHL = "MultiCursorDisabledSign"
         priority = 10000
-        signText = signs and signs[1]
+        signText = state.signs[1]
     end
     local start
     local _end
@@ -1385,11 +1384,10 @@ local function redrawCursorMark()
     if state.cursorSignId then
         del_extmark(0, state.nsid, state.cursorSignId)
     end
-    local signs = state.opts.signs
     state.cursorSignId = set_extmark(0, state.nsid, vim.fn.line(".") - 1, 0, {
         undo_restore = false,
         priority = 20000,
-        sign_text = signs and signs[state.numDisabledCursors == 0 and 2 or 3],
+        sign_text = state.signs[state.numDisabledCursors == 0 and 2 or 3],
         sign_hl_group = "MultiCursorMainSign",
     })
 end
@@ -1450,12 +1448,6 @@ local function cursorContextUpdate(applyToMainCursor)
     end
 end
 
---- @type MultiCursorOpts
-local DEFAULT_OPTS = {
-    shallowUndo = false,
-    signs = { " ┆", " │", " ┃" },
-}
-
 --- @class CursorManager
 local CursorManager = {}
 
@@ -1463,7 +1455,7 @@ local CursorManager = {}
 --- @param opts MultiCursorOpts
 function CursorManager:setup(nsid, opts)
     state.nsid = nsid
-    state.opts = vim.tbl_deep_extend("force", DEFAULT_OPTS, opts or {})
+    state.opts = opts or {}
     vim.api.nvim_create_autocmd("BufEnter", {
         pattern = "*",
         callback = function()
@@ -1511,6 +1503,20 @@ end
 --- @param callback fun(context: CursorContext)
 --- @param applyToMainCursor boolean
 function CursorManager:action(callback, applyToMainCursor)
+    if state.opts.signs then
+        state.signs = state.opts.signs
+    else
+        if string.match(vim.o.signcolumn, "yes")
+            or string.match(vim.o.signcolumn, "auto")
+            or vim.o.signcolumn == "number"
+            and not vim.o.number
+            and not vim.o.relativenumber
+        then
+            state.signs = { "┆ ", "│ ", "┃ " }
+        else
+            state.signs = { " ┆", " │", " ┃" }
+        end
+    end
     if state.cursorline == nil or vim.o.cursorline ~= state.cursorline then
         state.cursorline = vim.o.cursorline
         createMainCursorSignHighlight()
