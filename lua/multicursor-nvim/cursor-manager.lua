@@ -99,6 +99,7 @@ Cursor.__index = Cursor
 --- @field currentSeq integer | nil
 --- @field numLines number
 --- @field numDisabledCursors number
+--- @field numEnabledCursors number
 --- @field leftcol number
 --- @field textoffset number
 --- @field opts MultiCursorOpts
@@ -110,6 +111,7 @@ local state = {
     clipboard = nil,
     hlsearch = nil,
     numDisabledCursors = 0,
+    numEnabledCursors = 0,
     id = 0,
     modifiedId = 0,
     nsid = 0,
@@ -669,6 +671,7 @@ function CursorContext:setCursorsEnabled(value)
             and cursor._state ~= CursorState.deleted
         then
             state.numDisabledCursors = state.numDisabledCursors + (value and -1 or 1)
+            state.numEnabledCursors = state.numEnabledCursors + (value and 1 or -1)
             cursor._enabled = value
             cursor._state = CursorState.dirty
         end
@@ -889,12 +892,16 @@ end
 function Cursor:delete()
     if self._state ~= CursorState.deleted then
         cursorCheckUpdate(self)
-        if self ~= state.mainCursor and not self._enabled then
-            state.numDisabledCursors = state.numDisabledCursors - 1
-            if state.numDisabledCursors == 0 then
-                for _, cursor in ipairs(state.cursors) do
-                    if cursor._enabled and cursor._state ~= CursorState.deleted then
-                        cursor._state = CursorState.dirty
+        if self ~= state.mainCursor then
+            if self._enabled then
+                state.numEnabledCursors = state.numEnabledCursors - 1
+            else
+                state.numDisabledCursors = state.numDisabledCursors - 1
+                if state.numDisabledCursors == 0 then
+                    for _, cursor in ipairs(state.cursors) do
+                        if cursor._enabled and cursor._state ~= CursorState.deleted then
+                            cursor._state = CursorState.dirty
+                        end
                     end
                 end
             end
@@ -1060,7 +1067,7 @@ end
 --- @param data number[]
 --- @param mainCursor Cursor
 --- @param cursors Cursor[]
---- @return Cursor, Cursor[], number
+--- @return Cursor, Cursor[], integer, integer
 local function unpackCursors(data, mainCursor, cursors)
     local cursorLookup = {}
     for _, cursor in ipairs(cursors) do
@@ -1069,6 +1076,7 @@ local function unpackCursors(data, mainCursor, cursors)
     local newCursors = {}
     local newMainCursor
     local numDisabledCursors = 0
+    local numEnabledCursors = 0
     for i = 1, #data, 4 do
         local cursor = cursorLookup[data[i]] or cursorCopy(mainCursor)
         local col = math.min(data[i + 2], #get_lines(0, data[i + 1] - 1, data[i + 1], true)[1])
@@ -1078,7 +1086,9 @@ local function unpackCursors(data, mainCursor, cursors)
         cursor._changePos = cursor._pos
         cursor._modifiedId = state.modifiedId
         cursor._enabled = data[i + 3] == 1
-        if not cursor._enabled then
+        if cursor._enabled then
+            numEnabledCursors = numEnabledCursors + 1
+        else
             numDisabledCursors = numDisabledCursors + 1
         end
         if i == 1 then
@@ -1087,7 +1097,7 @@ local function unpackCursors(data, mainCursor, cursors)
             newCursors[#newCursors + 1] = cursor
         end
     end
-    return newMainCursor, newCursors, numDisabledCursors
+    return newMainCursor, newCursors, numEnabledCursors, numDisabledCursors
 end
 
 --- Returns a new cursor with the same position, registers,
@@ -1096,6 +1106,11 @@ end
 function Cursor:clone()
     cursorCheckUpdate(self)
     local cursor = cursorCopy(self)
+    if cursor._enabled then
+        state.numEnabledCursors = state.numEnabledCursors + 1
+    else
+        state.numDisabledCursors = state.numDisabledCursors + 1
+    end
     cursorSetMarks(cursor)
     state.cursors[#state.cursors + 1] = cursor
     return cursor
@@ -1168,6 +1183,7 @@ end
 function Cursor:disable()
     if self._state ~= CursorState.deleted and self._enabled then
         state.numDisabledCursors = state.numDisabledCursors + 1
+        state.numEnabledCursors = state.numEnabledCursors - 1
         self._enabled = false
         self._state = CursorState.dirty
     end
@@ -1176,6 +1192,7 @@ end
 
 function Cursor:enable()
     if self._state ~= CursorState.deleted and not self._enabled then
+        state.numEnabledCursors = state.numEnabledCursors + 1
         state.numDisabledCursors = state.numDisabledCursors - 1
         self._enabled = true
         self._state = CursorState.dirty
@@ -1245,19 +1262,14 @@ end
 --- When cursors are disabled, only the main cursor can be interacted with.
 --- @return boolean
 function CursorContext:cursorsEnabled()
-    for _, cursor in ipairs(state.cursors) do
-        if cursor._state ~= CursorState.deleted then
-            if not cursor._enabled then
-                return false
-            end
-        end
-    end
-    return true
+    return state.numDisabledCursors == 0
 end
 
 local function cursorContextMergeCursors()
     --- @type Cursor[]
     local newCursors = {}
+    state.numDisabledCursors = 0
+    state.numEnabledCursors = 0
     for _, cursor in ipairs(state.cursors) do
         cursorCheckUpdate(cursor)
         local exists = false
@@ -1283,6 +1295,11 @@ local function cursorContextMergeCursors()
             cursorErase(cursor)
             cursorClearMarks(cursor)
         else
+            if cursor._enabled then
+                state.numEnabledCursors = state.numEnabledCursors + 1
+            else
+                state.numDisabledCursors = state.numDisabledCursors + 1
+            end
             newCursors[#newCursors + 1] = cursor
         end
     end
@@ -1299,6 +1316,7 @@ function CursorContext:clear()
     clear_namespace(0, state.nsid, 0, -1)
     state.cursorSignId = nil
     state.numDisabledCursors = 0
+    state.numEnabledCursors = 0
     if state.clipboard then
         vim.o.clipboard = state.clipboard
         state.clipboard = nil
@@ -1577,6 +1595,9 @@ function CursorManager:action(callback, applyToMainCursor)
     if state.mainCursor then
         vim.fn.setreg(origRegName, state.mainCursor._register)
     end
+    -- force statusline and ruler update
+    vim.o.statusline = vim.o.statusline
+    vim.o.rulerformat = vim.o.rulerformat
     return result
 end
 
@@ -1594,7 +1615,7 @@ function CursorManager:loadUndoItem(direction)
         CursorContext:clear()
         return
     end
-    state.mainCursor, state.cursors, state.numDisabledCursors = unpackCursors(
+    state.mainCursor, state.cursors, state.numEnabledCursors, state.numDisabledCursors = unpackCursors(
         undoItem, CursorContext:mainCursor(), state.cursors)
     cursorContextMergeCursors()
     cursorWrite(state.mainCursor)
@@ -1620,6 +1641,21 @@ end
 
 function CursorManager:clear()
     CursorContext:clear()
+end
+
+--- @return integer
+function CursorManager:numCursors()
+    return state.numEnabledCursors + state.numDisabledCursors + 1
+end
+
+--- @return integer
+function CursorManager:numEnabledCursors()
+    return state.numEnabledCursors + 1
+end
+
+--- @return integer
+function CursorManager:numDisabledCursors()
+    return state.numDisabledCursors
 end
 
 return CursorManager

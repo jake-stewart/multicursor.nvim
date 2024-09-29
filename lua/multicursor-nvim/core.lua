@@ -76,4 +76,16 @@ function core.cursorsEnabled()
     return cursorManager:cursorsEnabled()
 end
 
+function core.numCursors()
+    return cursorManager:numCursors()
+end
+
+function core.numEnabledCursors()
+    return cursorManager:numEnabledCursors()
+end
+
+function core.numDisabledCursors()
+    return cursorManager:numDisabledCursors()
+end
+
 return core
