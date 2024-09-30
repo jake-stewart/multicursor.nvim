@@ -82,23 +82,6 @@ function InputManager:clear()
 end
 
 --- @private
-function InputManager:_onInsertMode(enabled)
-    self._inInsertMode = enabled
-    if not enabled then
-        local insertReg = vim.fn.getreg(".")
-        if self._fromSelectMode then
-            self._typed = self._typed
-                .. string.sub(insertReg, 2, #insertReg)
-                .. TERM_CODES.ESC
-        else
-            self._typed = self._typed
-                .. insertReg
-                .. TERM_CODES.ESC
-        end
-    end
-end
-
---- @private
 function InputManager:_emitModeChanged(cursor, fromMode, toMode)
     for _, callback in ipairs(self._modeChangeCallbacks) do
         callback(cursor, fromMode, toMode)
@@ -112,16 +95,20 @@ function InputManager:_onSafeState()
     end
     local mode = vim.fn.mode()
     local insertMode = mode == "i" or mode == "R"
-    if insertMode ~= self._inInsertMode then
-        self:_onInsertMode(insertMode)
+    local insertModeChanged = insertMode ~= self._inInsertMode
+    if insertModeChanged then
+        self._inInsertMode = insertMode
     end
-    if not insertMode then
+    local wasFromSelectMode = self._fromSelectMode
+    if insertMode then
+        return
+    else
         local selectMode = mode == "s"
             or mode == "S"
             or mode == TERM_CODES.CTRL_S
         self._fromSelectMode = selectMode
     end
-    if self._applying or insertMode then
+    if self._applying then
         return
     end
     local cmdType = vim.fn.getcmdtype()
@@ -147,6 +134,34 @@ function InputManager:_onSafeState()
         self._cmdType = nil
     end
     self._applying = true
+
+    if insertModeChanged then
+        local reg = vim.fn.getreg(".")
+        if self._cursorManager:hasCursors() then
+            self._cursorManager:action(function(ctx)
+                ctx:forEachCursor(function(cursor)
+                    if not cursor:isMainCursor() then
+                        cursor:perform(function()
+                            if not wasFromSelectMode then
+                                feedkeysManager.feedkeys(self._typed, "", false)
+                            end
+                            feedkeysManager.feedkeys(reg, "nx", false)
+                        end)
+                        if self._modeChangeCallbacks and self._wasMode ~= mode then
+                            self:_emitModeChanged(cursor, self._wasMode, mode)
+                        end
+                    end
+                end)
+            end, false)
+        else
+            self._cursorManager:update()
+        end
+        self._wasMode = mode
+        self._applying = false
+        self._typed = ""
+        self._keys = ""
+        return
+    end
 
     local specialKey = string.match(self._keys, "%d*(.*)")
     if (self._wasMode == "n" and SPECIAL_NORMAL_KEYS[specialKey]) or SPECIAL_KEYS[specialKey] then
