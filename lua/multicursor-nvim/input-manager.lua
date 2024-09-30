@@ -136,10 +136,10 @@ function InputManager:_onSafeState()
     self._applying = true
 
     if insertModeChanged then
+        self._cursorManager:dirty()
         if self._cursorManager:hasCursors() then
             local reg = vim.fn.getreg(".")
             self._cursorManager:action(function(ctx)
-                self._cursorManager:dirty()
                 if self._modeChangeCallbacks and self._wasMode ~= mode then
                     self:_emitModeChanged(ctx:mainCursor(), self._wasMode, mode)
                 end
