@@ -132,6 +132,7 @@ local function createCursor(cursor)
     cursor._id = state.id
     state.id = state.id + 1
     cursor._enabled = true
+    cursor._drift = { 0, 0 }
     return setmetatable(cursor, Cursor)
 end
 
@@ -1095,7 +1096,12 @@ local function unpackCursors(data, mainCursor, cursors)
     local numEnabledCursors = 0
     for i = 1, #data, 4 do
         local cursor = cursorLookup[data[i]] or cursorCopy(mainCursor)
-        local col = math.min(data[i + 2], #get_lines(0, data[i + 1] - 1, data[i + 1], true)[1])
+        local col = math.max(1,
+            math.min(
+                data[i + 2],
+                #get_lines(0, data[i + 1] - 1, data[i + 1], true)[1]
+            )
+        )
         local curswantVirtcol = vim.fn.virtcol({ data[i + 1], data[i + 2] })
         cursor._pos = { 0, data[i + 1], col, 0, curswantVirtcol }
         cursor._vPos = cursor._pos
