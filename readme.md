@@ -68,17 +68,10 @@ https://github.com/user-attachments/assets/a8c136dc-4786-447b-95c0-8e2a48f5776f
         -- Add and remove cursors with control + left click.
         set("n", "<c-leftmouse>", mc.handleMouse)
 
-        set({"n", "v"}, "<c-q>", function()
-            if mc.cursorsEnabled() then
-                -- Stop other cursors from moving.
-                -- This allows you to reposition the main cursor.
-                mc.disableCursors()
-            else
-                mc.addCursor()
-            end
-        end)
+        -- Easy way to add and remove cursors using the main cursor.
+        set({"n", "v"}, "<c-q>", mc.toggleCursor)
 
-        -- clone every cursor and disable the originals
+        -- Clone every cursor and disable the originals.
         set({"n", "v"}, "<leader><c-q>", mc.duplicateCursors)
 
         set("n", "<esc>", function()
