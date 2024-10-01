@@ -1,6 +1,7 @@
 local TERM_CODES = require("multicursor-nvim.term-codes")
 local feedkeysManager = require("multicursor-nvim.feedkeys-manager")
 local util = require("multicursor-nvim.util")
+local tbl = require("multicursor-nvim.tbl")
 
 local SPECIAL_KEYS = {
     ["."] = true,
@@ -30,6 +31,8 @@ local SPECIAL_NORMAL_KEYS = {
 --- @field private _keys string
 --- @field private _wasMode string
 --- @field private _fromSelectMode boolean
+--- @field private _snippetText string
+--- @field private _snippet table
 --- @field private _modeChangeCallbacks? function[]
 local InputManager = {}
 
@@ -54,6 +57,13 @@ function InputManager:setup(nsid, cursorManager)
         end,
         self._nsid
     )
+
+    self._snippet = vim.snippet
+    vim.snippet = tbl.shallow_copy(self._snippet)
+    function vim.snippet.expand(snippetText, ...)
+        self._snippet.expand(snippetText, ...)
+        self._snippetText = snippetText
+    end
 end
 
 --- @param callback function(cursor: Cursor, from: string, to: string)
@@ -101,6 +111,9 @@ function InputManager:_onSafeState()
     end
     local wasFromSelectMode = self._fromSelectMode
     if insertMode then
+        if self._snippetText then
+            feedkeysManager.feedkeys(TERM_CODES.ESC, "nt", false)
+        end
         return
     else
         local selectMode = mode == "s"
@@ -134,6 +147,31 @@ function InputManager:_onSafeState()
         self._cmdType = nil
     end
     self._applying = true
+
+    if self._snippetText then
+        local snippetText = self._snippetText
+        self._snippetText = nil
+        self._cursorManager:dirty()
+        if self._cursorManager:hasCursors() then
+            local reg = vim.fn.getreg(".")
+            self._cursorManager:action(function(ctx)
+                ctx:forEachCursor(function(cursor)
+                    if not cursor:isMainCursor() then
+                        cursor:perform(function()
+                            if not wasFromSelectMode then
+                                feedkeysManager.feedkeys(self._typed, "", false)
+                            end
+                            feedkeysManager.feedkeys(reg, "nx", false)
+                            self._snippet.expand(snippetText)
+                        end)
+                    end
+                end)
+            end, false)
+            self._snippet.stop()
+            self._applying = false
+            return
+        end
+    end
 
     if insertModeChanged then
         self._cursorManager:dirty()
