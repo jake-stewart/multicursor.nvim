@@ -1012,6 +1012,13 @@ function Cursor:setRedoChangePos(pos)
     cursorSetMarks(self)
 end
 
+--- @param pos SimplePos | Pos
+function Cursor:setUndoChangePos(pos)
+    cursorCheckUpdate(self)
+    self._changePos = { 0, pos[1], pos[2], 0 }
+    cursorSetMarks(self)
+end
+
 --- @param search string
 function Cursor:setSearch(search)
     self._search = search

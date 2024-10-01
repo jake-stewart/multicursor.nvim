@@ -180,11 +180,17 @@ function InputManager:_onSafeState()
             end)
 
             self._cursorManager:action(function(ctx)
-                ctx:mainCursor():setRedoChangePos(ctx:mainCursor():getPos())
+                local mainCursor = ctx:mainCursor()
+                local mainCursorPos = mainCursor:getPos()
+                mainCursor:setRedoChangePos(mainCursorPos)
+                mainCursor:setUndoChangePos(mainCursorPos)
                 ctx:forEachCursor(function(cursor)
                     if not cursor:isMainCursor() then
                         cursor:perform(function()
-                            if not wasFromSelectMode then
+                            if wasFromSelectMode then
+                                feedkeysManager.feedkeys(
+                                    TERM_CODES.CTRL_G .. "c", "n", false)
+                            else
                                 if #self._typed then
                                     feedkeysManager.feedkeys(self._typed, "", false)
                                 end
@@ -195,7 +201,9 @@ function InputManager:_onSafeState()
                             feedkeysManager.feedkeys("\7", "", false)
                             feedkeysManager.feedkeys(TERM_CODES.ESC, "nx", false)
                         end)
-                        cursor:setRedoChangePos(cursor:getPos())
+                        local pos = cursor:getPos()
+                        cursor:setUndoChangePos(pos)
+                        cursor:setRedoChangePos(pos)
                     end
                 end)
             end, false, false)
