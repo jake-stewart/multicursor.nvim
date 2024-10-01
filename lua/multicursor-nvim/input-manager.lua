@@ -175,6 +175,7 @@ function InputManager:_onSafeState()
             end)
 
             self._cursorManager:action(function(ctx)
+                ctx:mainCursor():setRedoChangePos(ctx:mainCursor():getPos())
                 ctx:forEachCursor(function(cursor)
                     if not cursor:isMainCursor() then
                         cursor:perform(function()
@@ -184,6 +185,7 @@ function InputManager:_onSafeState()
                             feedkeysManager.feedkeys(reg, "n", false)
                             feedkeysManager.feedkeys("?", "x", false)
                         end)
+                        cursor:setRedoChangePos(cursor:getPos())
                     end
                 end)
             end, false)
