@@ -164,7 +164,7 @@ local function cursorUpdatePos(cursor)
                 mark[2] + 1,
                 cursor._pos[4],
                 mark[2] + 1 == cursor._pos[3]
-                    and math.max(cursor._pos[5], curswantVirtcol)
+                    and math.max(cursor._pos[5] or 0, curswantVirtcol)
                     or curswantVirtcol
             }
             cursor._drift[1] = cursor._drift[1] + (cursor._pos[2] - oldPos[2])
@@ -984,7 +984,7 @@ end
 --- @return self
 function Cursor:setPos(pos)
     cursorCheckUpdate(self)
-    self._pos = { self._pos[0], pos[1], pos[2], pos[3] or 0, pos[2] }
+    self._pos = { self._pos[0], pos[1], pos[2], pos[3] or 0 }
     cursorSetMarks(self)
     return self
 end
@@ -993,7 +993,7 @@ end
 --- @return self
 function Cursor:setVisualAnchor(pos)
     cursorCheckUpdate(self)
-    self._vPos = { 0, pos[1], pos[2], pos[3] or 0, pos[2] }
+    self._vPos = { 0, pos[1], pos[2], pos[3] or 0 }
     cursorSetMarks(self)
     return self
 end
