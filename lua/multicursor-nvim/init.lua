@@ -39,6 +39,7 @@ return {
     clearCursors = examples.clearCursors,
     disableCursors = examples.disableCursors,
     enableCursors = examples.enableCursors,
+    toggleCursor = examples.toggleCursor,
     duplicateCursors = examples.duplicateCursors,
     visualToCursors = examples.visualToCursors,
     insertVisual = examples.insertVisual,

@@ -308,6 +308,19 @@ function examples.enableCursors()
     end)
 end
 
+function examples.toggleCursor()
+    mc.action(function(ctx)
+        ctx:setCursorsEnabled(false)
+        local mainCursor = ctx:mainCursor()
+        local cursor = mainCursor:overlappedCursor()
+        if cursor then
+            cursor:delete()
+        else
+            mainCursor:clone():disable()
+        end
+    end)
+end
+
 function examples.duplicateCursors()
     mc.action(function(ctx)
         ctx:forEachCursor(function(cursor)
