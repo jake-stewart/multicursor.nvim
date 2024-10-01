@@ -62,7 +62,9 @@ function InputManager:setup(nsid, cursorManager)
     vim.snippet = tbl.shallow_copy(self._snippet)
     function vim.snippet.expand(snippetText, ...)
         self._snippet.expand(snippetText, ...)
-        self._snippetText = snippetText
+        if self._cursorManager:hasCursors() then
+            self._snippetText = snippetText
+        end
     end
 end
 
@@ -154,6 +156,24 @@ function InputManager:_onSafeState()
         self._cursorManager:dirty()
         if self._cursorManager:hasCursors() then
             local reg = vim.fn.getreg(".")
+
+            local function removeEndIfStartMatches(a, b)
+                local lenA = #a
+                local lenB = #b
+                local ret = a
+                for i = 1, math.min(lenA, lenB) do
+                    if b:sub(1, i) == a:sub(lenA - i + 1) then
+                        ret = a:sub(1, lenA - i)
+                    end
+                end
+                return ret
+            end
+            reg = removeEndIfStartMatches(reg, snippetText)
+
+            vim.keymap.set("i", "?", function()
+                self._snippet.expand(snippetText)
+            end)
+
             self._cursorManager:action(function(ctx)
                 ctx:forEachCursor(function(cursor)
                     if not cursor:isMainCursor() then
@@ -161,14 +181,17 @@ function InputManager:_onSafeState()
                             if not wasFromSelectMode then
                                 feedkeysManager.feedkeys(self._typed, "", false)
                             end
-                            feedkeysManager.feedkeys(reg, "nx", false)
-                            self._snippet.expand(snippetText)
+                            feedkeysManager.feedkeys(reg, "n", false)
+                            feedkeysManager.feedkeys("?", "x", false)
                         end)
                     end
                 end)
             end, false)
             self._snippet.stop()
+            self._keys = ""
+            self._typed = ""
             self._applying = false
+            feedkeysManager.feedkeys("a", "tn", false)
             return
         end
     end
