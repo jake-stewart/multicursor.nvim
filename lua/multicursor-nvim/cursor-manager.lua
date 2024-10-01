@@ -1502,7 +1502,8 @@ end
 
 --- @param callback fun(context: CursorContext)
 --- @param applyToMainCursor boolean
-function CursorManager:action(callback, applyToMainCursor)
+--- @param fixWindow? boolean
+function CursorManager:action(callback, applyToMainCursor, fixWindow)
     if state.opts.signs then
         state.signs = state.opts.signs
     else
@@ -1582,7 +1583,7 @@ function CursorManager:action(callback, applyToMainCursor)
     cursorErase(state.mainCursor)
     cursorClearMarks(state.mainCursor)
     cursorWrite(state.mainCursor)
-    if state.mainCursor == origCursor then
+    if state.mainCursor == origCursor and fixWindow ~= false then
         local newStartLine = vim.fn.line("w0")
         local newEndLine = vim.fn.line("w$")
         local scrollOff = vim.o.scrolloff

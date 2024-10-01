@@ -170,7 +170,12 @@ function InputManager:_onSafeState()
             end
             reg = removeEndIfStartMatches(reg, snippetText)
 
-            vim.keymap.set("i", "?", function()
+            -- can't seem leave insert mode after using feedkeys mode "x!"
+            -- which is required since we must stay in insert mode so that
+            -- snippet.expand() has the correct position/state.
+            -- as a hacky workaround, we will map it to ascii bell (which
+            -- nobody should be using), and call it from insert mode.
+            vim.keymap.set("i", "\7", function()
                 self._snippet.expand(snippetText)
             end)
 
@@ -180,20 +185,28 @@ function InputManager:_onSafeState()
                     if not cursor:isMainCursor() then
                         cursor:perform(function()
                             if not wasFromSelectMode then
-                                feedkeysManager.feedkeys(self._typed, "", false)
+                                if #self._typed then
+                                    feedkeysManager.feedkeys(self._typed, "", false)
+                                end
                             end
-                            feedkeysManager.feedkeys(reg, "n", false)
-                            feedkeysManager.feedkeys("?", "x", false)
+                            if #reg > 0 then
+                                feedkeysManager.feedkeys(reg, "n", false)
+                            end
+                            feedkeysManager.feedkeys("\7", "", false)
+                            feedkeysManager.feedkeys(TERM_CODES.ESC, "nx", false)
                         end)
                         cursor:setRedoChangePos(cursor:getPos())
                     end
                 end)
-            end, false)
+            end, false, false)
+            vim.keymap.del("i", "\7")
             self._snippet.stop()
             self._keys = ""
             self._typed = ""
             self._applying = false
-            feedkeysManager.feedkeys("a", "tn", false)
+            if not self._fromSelectMode then
+                feedkeysManager.feedkeys("a", "tn", false)
+            end
             return
         end
     end
