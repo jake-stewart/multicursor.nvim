@@ -61,9 +61,11 @@ function InputManager:setup(nsid, cursorManager)
     self._snippet = vim.snippet
     vim.snippet = tbl.shallow_copy(self._snippet)
     function vim.snippet.expand(snippetText, ...)
-        self._snippet.expand(snippetText, ...)
         if self._cursorManager:hasCursors() then
             self._snippetText = snippetText
+            feedkeysManager.feedkeys(TERM_CODES.ESC, "nt", false)
+        else
+            self._snippet.expand(snippetText, ...)
         end
     end
 end
@@ -179,14 +181,20 @@ function InputManager:_onSafeState()
                 self._snippet.expand(snippetText)
             end)
 
+            local endMode
             self._cursorManager:action(function(ctx)
                 local mainCursor = ctx:mainCursor()
+                mainCursor:perform(function()
+                    feedkeysManager.feedkeys("gi", "n", false)
+                    feedkeysManager.feedkeys("\7", "", false)
+                    feedkeysManager.feedkeys(TERM_CODES.ESC, "nx", false)
+                end)
                 local mainCursorPos = mainCursor:getPos()
+                mainCursor:setUndoChangePos(mainCursorPos)
                 mainCursor:setRedoChangePos(mainCursorPos)
-                -- mainCursor:setUndoChangePos(mainCursorPos)
                 ctx:forEachCursor(function(cursor)
-                    if not cursor:isMainCursor() then
-                        cursor:perform(function()
+                    cursor:perform(function()
+                        if not cursor:isMainCursor() then
                             if wasFromSelectMode then
                                 feedkeysManager.feedkeys(
                                     TERM_CODES.CTRL_G .. "c", "n", false)
@@ -200,19 +208,20 @@ function InputManager:_onSafeState()
                             end
                             feedkeysManager.feedkeys("\7", "", false)
                             feedkeysManager.feedkeys(TERM_CODES.ESC, "nx", false)
-                        end)
-                        local pos = cursor:getPos()
-                        -- cursor:setUndoChangePos(pos)
-                        cursor:setRedoChangePos(pos)
-                    end
+                        end
+                    end)
+                    local newPos = cursor:getPos()
+                    cursor:setUndoChangePos(newPos)
+                    cursor:setRedoChangePos(newPos)
                 end)
-            end, false, false)
+                endMode = ctx:mainCursor():mode()
+            end, true, false)
             vim.keymap.del("i", "\7")
             self._snippet.stop()
             self._keys = ""
             self._typed = ""
             self._applying = false
-            if not self._fromSelectMode then
+            if endMode ~= "s" and endMode ~= "S" and endMode ~= TERM_CODES.CTRL_S then
                 feedkeysManager.feedkeys("a", "tn", false)
             end
             return
