@@ -31,7 +31,9 @@ local SPECIAL_NORMAL_KEYS = {
 --- @field private _keys string
 --- @field private _wasMode string
 --- @field private _fromSelectMode boolean
---- @field private _snippetText string
+--- @field private _snippetText? string
+--- @field private _snippetLine? string
+--- @field private _snippetCol? integer
 --- @field private _snippet table
 --- @field private _modeChangeCallbacks? function[]
 local InputManager = {}
@@ -63,6 +65,8 @@ function InputManager:setup(nsid, cursorManager)
     function vim.snippet.expand(snippetText, ...)
         if self._cursorManager:hasCursors() then
             self._snippetText = snippetText
+            self._snippetLine = vim.fn.getline(".")
+            self._snippetCol = vim.fn.col(".")
             feedkeysManager.feedkeys(TERM_CODES.ESC, "nt", false)
         else
             self._snippet.expand(snippetText, ...)
@@ -112,6 +116,12 @@ function InputManager:_onSafeState()
     local insertModeChanged = insertMode ~= self._inInsertMode
     if insertModeChanged then
         self._inInsertMode = insertMode
+        if insertMode then
+            self._insertModePos = vim.fn.getpos(".")
+            if self._fromSelectMode then
+                self._insertModePos[3] = math.max(1, self._insertModePos[3] - 1)
+            end
+        end
     end
     local wasFromSelectMode = self._fromSelectMode
     if insertMode then
@@ -183,18 +193,15 @@ function InputManager:_onSafeState()
 
             local endMode
             self._cursorManager:action(function(ctx)
-                local mainCursor = ctx:mainCursor()
-                mainCursor:perform(function()
-                    feedkeysManager.feedkeys("gi", "n", false)
-                    feedkeysManager.feedkeys("\7", "", false)
-                    feedkeysManager.feedkeys(TERM_CODES.ESC, "nx", false)
-                end)
-                local mainCursorPos = mainCursor:getPos()
-                mainCursor:setUndoChangePos(mainCursorPos)
-                mainCursor:setRedoChangePos(mainCursorPos)
                 ctx:forEachCursor(function(cursor)
                     cursor:perform(function()
-                        if not cursor:isMainCursor() then
+                        if cursor:isMainCursor() then
+                            vim.fn.setline(".", self._snippetLine)
+                            local pos = cursor:getPos()
+                            pos[2] = math.max(self._snippetCol - 1, 1)
+                            vim.fn.setpos(".", { 0, pos[1], pos[2], 0 })
+                            feedkeysManager.feedkeys("a", "n", false)
+                        else
                             if wasFromSelectMode then
                                 feedkeysManager.feedkeys(
                                     TERM_CODES.CTRL_G .. "c", "n", false)
@@ -206,14 +213,16 @@ function InputManager:_onSafeState()
                             if #reg > 0 then
                                 feedkeysManager.feedkeys(reg, "n", false)
                             end
-                            feedkeysManager.feedkeys("\7", "", false)
-                            feedkeysManager.feedkeys(TERM_CODES.ESC, "nx", false)
                         end
+                        feedkeysManager.feedkeys("\7", "", false)
+                        feedkeysManager.feedkeys(TERM_CODES.ESC, "nx", false)
                     end)
-                    local newPos = cursor:getPos()
-                    cursor:setUndoChangePos(newPos)
-                    cursor:setRedoChangePos(newPos)
+                    cursor:setRedoChangePos(cursor:getPos())
                 end)
+                if self._insertModePos then
+                    ctx:mainCursor():setUndoChangePos({self._insertModePos[2], self._insertModePos[3]})
+                    self._insertModePos = nil
+                end
                 endMode = ctx:mainCursor():mode()
             end, true, false)
             vim.keymap.del("i", "\7")
