@@ -1115,6 +1115,7 @@ local function unpackCursors(data, mainCursor, cursors)
         )
         local curswantVirtcol = vim.fn.virtcol({ data[i + 1], data[i + 2] })
         cursor._pos = { 0, data[i + 1], col, 0, curswantVirtcol }
+        cursor._mode = "n"
         cursor._vPos = cursor._pos
         cursor._changePos = cursor._pos
         cursor._modifiedId = state.modifiedId
@@ -1415,6 +1416,7 @@ end
 
 local function cursorContextRedraw()
     clear_namespace(0, state.nsid, 0, -1)
+    state.cursorSignId = nil
     if #state.cursors > 0 then
         for _, cursor in ipairs(state.cursors) do
             cursorSetMarks(cursor)
