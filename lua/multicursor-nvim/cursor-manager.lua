@@ -1422,34 +1422,35 @@ end
 --- @package
 --- @param applyToMainCursor boolean
 local function cursorContextUpdate(applyToMainCursor)
-    state.changedtick = vim.b.changedtick
     cursorContextMergeCursors()
     if not state.currentSeq then
         local undoTree = vim.fn.undotree()
         state.currentSeq = undoTree.seq_cur
     else
-        local undoTree = vim.fn.undotree()
-        if undoTree.seq_cur and state.currentSeq ~= undoTree.seq_cur then
-            if applyToMainCursor then
-                cursorApplyDrift(state.mainCursor)
-            else
-                state.mainCursor._changePos = state.mainCursor._origChangePos
-                if not state.mainCursor._redoChangePos then
-                    state.mainCursor._redoChangePos = state.mainCursor._pos
+        if vim.b.changedtick ~= state.changedtick then
+            local undoTree = vim.fn.undotree()
+            if undoTree.seq_cur and state.currentSeq ~= undoTree.seq_cur then
+                if applyToMainCursor then
+                    cursorApplyDrift(state.mainCursor)
+                else
+                    state.mainCursor._changePos = state.mainCursor._origChangePos
+                    if not state.mainCursor._redoChangePos then
+                        state.mainCursor._redoChangePos = state.mainCursor._pos
+                    end
                 end
+                for _, cursor in ipairs(state.cursors) do
+                    cursorApplyDrift(cursor)
+                end
+                local undoItem = #state.cursors > 0
+                    and packUndoCursors(state.mainCursor, state.cursors)
+                    or nil
+                local redoItem = #state.cursors > 0
+                    and packRedoCursors(state.mainCursor, state.cursors)
+                    or nil
+                state.undoItems[undoItemId(state.currentSeq)] = undoItem
+                state.redoItems[undoItemId(undoTree.seq_cur)] = redoItem
+                state.currentSeq = undoTree.seq_cur
             end
-            for _, cursor in ipairs(state.cursors) do
-                cursorApplyDrift(cursor)
-            end
-            local undoItem = #state.cursors > 0
-                and packUndoCursors(state.mainCursor, state.cursors)
-                or nil
-            local redoItem = #state.cursors > 0
-                and packRedoCursors(state.mainCursor, state.cursors)
-                or nil
-            state.undoItems[undoItemId(state.currentSeq)] = undoItem
-            state.redoItems[undoItemId(undoTree.seq_cur)] = redoItem
-            state.currentSeq = undoTree.seq_cur
         end
         for _, cursor in ipairs(state.cursors) do
             cursor._changePos = cursor._changePos
@@ -1458,6 +1459,7 @@ local function cursorContextUpdate(applyToMainCursor)
         state.mainCursor._changePos = state.mainCursor._changePos
             or state.mainCursor._origChangePos
     end
+    state.changedtick = vim.b.changedtick
     if #state.cursors == 0 then
         CursorContext:clear()
     else
