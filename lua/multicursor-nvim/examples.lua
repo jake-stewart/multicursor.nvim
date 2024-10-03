@@ -469,7 +469,7 @@ local function matchAddCursor(direction, add)
                 if cursorChar == "" then
                     regex = "\\v^$"
                 elseif searchWord then
-                    regex = "\\v<\\V" .. escapeRegex(cursorWord) .. "\\v>"
+                    regex = "\\v<\\C\\V" .. escapeRegex(cursorWord) .. "\\v>"
                 else
                     regex = "\\C\\V" .. escapeRegex(cursorChar)
                 end
@@ -492,6 +492,45 @@ end
 --- @param direction? -1 | 1
 function examples.matchSkipCursor(direction)
     matchAddCursor(direction, false)
+end
+
+function examples.matchAllAddCursors()
+    mc.action(function(ctx)
+        local mainCursor = ctx:mainCursor()
+        local regex
+        local inVisualMode = mainCursor:inVisualMode()
+        local atVisualStart = mainCursor:atVisualStart()
+        if inVisualMode then
+            regex = "\\C\\V" .. escapeRegex(table.concat(mainCursor:getVisualLines(), "\n"))
+            if mainCursor:mode() == "V" or mainCursor:mode() == "S" then
+                mainCursor:feedkeys(atVisualStart and "0" or "o0")
+            elseif not atVisualStart then
+                mainCursor:feedkeys("o")
+            end
+        else
+            local word = mainCursor:getCursorWord()
+            regex = "\\v<\\C\\V" .. escapeRegex(word) .. "\\v>"
+        end
+
+        local lines = vim.api.nvim_buf_get_lines(0, 0, -1, true)
+        local matches = util.matchlist(lines, regex, { userConfig = false })
+
+        if #matches > 0 then
+            for _, match in ipairs(matches) do
+                local cursor = mainCursor:clone()
+                local start = { match.idx + 1, match.byteidx + 1 }
+                local _end = { match.idx + 1, match.byteidx + #match.text }
+                if atVisualStart then
+                    cursor:setPos(start)
+                    cursor:setVisualAnchor(_end)
+                else
+                    cursor:setPos(_end)
+                    cursor:setVisualAnchor(start)
+                end
+            end
+            mainCursor:delete()
+        end
+    end)
 end
 
 --- @param direction? -1 | 1

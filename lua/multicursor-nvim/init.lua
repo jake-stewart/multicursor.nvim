@@ -33,6 +33,7 @@ return {
     skipCursor = examples.skipCursor,
     matchAddCursor = examples.matchAddCursor,
     matchSkipCursor = examples.matchSkipCursor,
+    matchAllAddCursors = examples.matchAllAddCursors,
     lineAddCursor = examples.lineAddCursor,
     lineSkipCursor = examples.lineSkipCursor,
     handleMouse = examples.handleMouse,
