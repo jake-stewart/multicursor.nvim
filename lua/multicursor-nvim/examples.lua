@@ -317,6 +317,7 @@ function examples.toggleCursor()
             cursor:delete()
         else
             mainCursor:clone():disable()
+            mainCursor:setMode("n")
         end
     end)
 end
