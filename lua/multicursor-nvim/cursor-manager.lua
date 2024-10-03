@@ -1375,8 +1375,8 @@ function CursorContext:clear()
             vim.o[key] = value
         end
         state.options = nil
+        vim.schedule(vim.cmd.noh)
     end
-    vim.cmd.noh()
     state.enabled = true
     state.cursors = {}
     state.mainCursor = nil
