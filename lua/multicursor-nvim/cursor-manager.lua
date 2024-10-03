@@ -239,7 +239,7 @@ local function cursorDrawVisualChar(cursor, lines, start, hl)
         local displayWidth = line and vim.fn.strdisplaywidth(line) or 0
         local id = set_extmark(0, state.nsid, vs[2] - 1, vs[3] - 1, {
             strict = false,
-            undo_restore = true,
+            undo_restore = false,
             priority = 2000,
             virt_text = ve[3] > #line
                 and {{string.rep(" ", ve[4] - vs[4] + 1), hl}}
@@ -268,7 +268,7 @@ local function cursorDrawVisualChar(cursor, lines, start, hl)
             }} or nil
             local id = set_extmark(0, state.nsid, row, col, {
                 strict = false,
-                undo_restore = true,
+                undo_restore = false,
                 virt_text = virt_text,
                 end_col = endCol + 1,
                 priority = 2000,
@@ -296,7 +296,7 @@ local function cursorDrawVisualLine(cursor, lines, start, hl)
         local displayWidth = line and vim.fn.strdisplaywidth(line) or 0
         local id = set_extmark(0, state.nsid, row, 0, {
             strict = false,
-            undo_restore = true,
+            undo_restore = false,
             virt_text = {{" ", hl}},
             end_col = #line,
             virt_text_pos = "inline",
@@ -352,7 +352,7 @@ local function cursorDrawVisualBlock(cursor, lines, start, hl)
             end
             local id = set_extmark(0, state.nsid, i - 1, startCol - 1, {
                 strict = false,
-                undo_restore = true,
+                undo_restore = false,
                 end_col = lineEndCol,
                 virt_text_pos = "inline",
                 priority = 2000,
@@ -539,7 +539,7 @@ local function cursorDraw(cursor)
 
     local id = set_extmark(0, state.nsid, row, col, {
         strict = false,
-        undo_restore = true,
+        undo_restore = false,
         virt_text_pos = "overlay",
         priority = priority,
         virt_text_win_col = virt_text_win_col,
@@ -568,7 +568,7 @@ end
 --- @param cursor Cursor
 local function cursorSetMarks(cursor)
     cursorClearMarks(cursor)
-    local opts = { strict = false, undo_restore = true }
+    local opts = { strict = false, undo_restore = false }
     if cursor:inVisualMode() then
         cursor._vPosId = set_extmark(
             0,
@@ -592,7 +592,7 @@ local function cursorSetMarks(cursor)
         state.nsid,
         cursor._pos[2] - 1,
         cursor._pos[3] - 1,
-        opts
+        { strict = false, undo_restore = true }
     )
 end
 
@@ -1406,7 +1406,7 @@ local function redrawCursorMark()
         del_extmark(0, state.nsid, state.cursorSignId)
     end
     state.cursorSignId = set_extmark(0, state.nsid, vim.fn.line(".") - 1, 0, {
-        undo_restore = true,
+        undo_restore = false,
         priority = 20000,
         sign_text = state.signs[state.numDisabledCursors == 0 and 2 or 3],
         sign_hl_group = "MultiCursorMainSign",
