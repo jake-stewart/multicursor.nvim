@@ -6,16 +6,18 @@ https://github.com/user-attachments/assets/a8c136dc-4786-447b-95c0-8e2a48f5776f
 
 ## Features
 
-- Visual and select modes with char/line/block selections.
-- Normal, insert, replace modes.
+- Visual and select modes with char/line/block selections
+- Normal, insert, replace modes
 - Undo/redo
 - Virtualedit
-- Cursor specific registers for searching and yanking.
-- Match & split cursor selections with regex.
-- Transpose cursor selections.
-- Align cursor columns.
-- Easily extended with the Cursor API.
-- Works with most plugins and remaps.
+- Autocompletion
+- Snippet expansion (use `vim.snippet.expand`)
+- Cursor specific registers for searching and yanking
+- Match & split cursor selections with regex
+- Transpose cursor selections
+- Align cursor columns
+- Easily extended with the Cursor API
+- Works with most plugins and remaps
 
 ## Example Config (lazy.nvim)
 
