@@ -246,19 +246,17 @@ function InputManager:_onSafeState()
                     self:_emitModeChanged(ctx:mainCursor(), self._wasMode, mode)
                 end
                 ctx:forEachCursor(function(cursor)
-                    if not cursor:isMainCursor() then
-                        cursor:perform(function()
-                            if not wasFromSelectMode then
-                                feedkeysManager.feedkeys(self._typed, "", false)
-                            end
-                            feedkeysManager.feedkeys(reg, "nx", false)
-                        end)
-                        if self._modeChangeCallbacks and self._wasMode ~= mode then
-                            self:_emitModeChanged(cursor, self._wasMode, mode)
+                    cursor:perform(function()
+                        if not wasFromSelectMode then
+                            feedkeysManager.feedkeys(self._typed, "", false)
                         end
+                        feedkeysManager.feedkeys(reg, "nx", false)
+                    end)
+                    if self._modeChangeCallbacks and self._wasMode ~= mode then
+                        self:_emitModeChanged(cursor, self._wasMode, mode)
                     end
                 end)
-            end, { excludeMainCursor = true })
+            end, { excludeMainCursor = true, allowUndo = true })
         else
             self._cursorManager:update()
         end

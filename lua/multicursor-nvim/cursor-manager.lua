@@ -74,6 +74,7 @@ local CursorState = {
 --- @field package _changePos       MarkPos
 --- @field package _redoChangePos   MarkPos
 --- @field package _origChangePos   MarkPos
+--- @field package _origPos         CursorPos
 --- @field package _drift           [integer, integer]
 --- @field package _pos             CursorPos
 --- @field package _register        string
@@ -1316,6 +1317,7 @@ end
 local function cursorContextMergeCursors()
     --- @type Cursor[]
     local newCursors = {}
+    local didMerge = false
     state.numDisabledCursors = 0
     state.numEnabledCursors = 0
     for _, cursor in ipairs(state.cursors) do
@@ -1340,6 +1342,7 @@ local function cursorContextMergeCursors()
             end
         end
         if exists then
+            didMerge = true
             cursorErase(cursor)
             cursorClearMarks(cursor)
         else
@@ -1351,7 +1354,9 @@ local function cursorContextMergeCursors()
             newCursors[#newCursors + 1] = cursor
         end
     end
+    local origCursors = state.cursors
     state.cursors = newCursors
+    return origCursors, didMerge
 end
 
 function CursorContext:hasCursors()
@@ -1422,7 +1427,7 @@ end
 --- @package
 --- @param applyToMainCursor boolean
 local function cursorContextUpdate(applyToMainCursor)
-    cursorContextMergeCursors()
+    local origCursors, didMerge = cursorContextMergeCursors()
     if not state.currentSeq then
         local undoTree = vim.fn.undotree()
         state.currentSeq = undoTree.seq_cur
@@ -1430,19 +1435,26 @@ local function cursorContextUpdate(applyToMainCursor)
         if vim.b.changedtick ~= state.changedtick then
             local undoTree = vim.fn.undotree()
             if undoTree.seq_cur and state.currentSeq ~= undoTree.seq_cur then
-                if applyToMainCursor then
-                    cursorApplyDrift(state.mainCursor)
+                if didMerge then
+                    state.mainCursor._changePos = state.mainCursor._origPos
+                    for _, cursor in ipairs(origCursors) do
+                        cursor._changePos = cursor._origPos
+                    end
                 else
-                    state.mainCursor._changePos = state.mainCursor._origChangePos
-                    if not state.mainCursor._redoChangePos then
-                        state.mainCursor._redoChangePos = state.mainCursor._pos
+                    if applyToMainCursor then
+                        cursorApplyDrift(state.mainCursor)
+                    else
+                        state.mainCursor._changePos = state.mainCursor._origChangePos
+                        if not state.mainCursor._redoChangePos then
+                            state.mainCursor._redoChangePos = state.mainCursor._pos
+                        end
+                    end
+                    for _, cursor in ipairs(origCursors) do
+                        cursorApplyDrift(cursor)
                     end
                 end
-                for _, cursor in ipairs(state.cursors) do
-                    cursorApplyDrift(cursor)
-                end
-                local undoItem = #state.cursors > 0
-                    and packUndoCursors(state.mainCursor, state.cursors)
+                local undoItem = #origCursors > 0
+                    and packUndoCursors(state.mainCursor, origCursors)
                     or nil
                 local redoItem = #state.cursors > 0
                     and packRedoCursors(state.mainCursor, state.cursors)
@@ -1573,7 +1585,7 @@ function CursorManager:action(callback, opts)
         then
             vim.cmd({ cmd = "undo", bang = true })
             opts.excludeMainCursor = false
-            cursorUpdatePos(state.mainCursor)
+            cursorWrite(state.mainCursor)
         end
     end
 
@@ -1586,6 +1598,7 @@ function CursorManager:action(callback, opts)
     if not opts.excludeMainCursor then
         state.cursors[#state.cursors + 1] = origCursor
     else
+        origCursor._origPos = origCursor._pos
         origCursor._origChangePos = origCursor._changePos
         origCursor._changePos = nil
         origCursor._enabled = true
@@ -1593,6 +1606,7 @@ function CursorManager:action(callback, opts)
         origCursor._drift = { 0, 0 }
     end
     for _, cursor in ipairs(state.cursors) do
+        cursor._origPos = cursor._pos
         cursor._origChangePos = cursor._changePos
         cursor._changePos = nil
         cursor._state = CursorState.none
