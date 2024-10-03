@@ -1360,7 +1360,7 @@ local function cursorContextMergeCursors()
 end
 
 function CursorContext:hasCursors()
-    return #state.cursors > 0
+    return #state.cursors > 1
         or #state.cursors == 1
         and state.cursors[1] ~= state.mainCursor
 end
@@ -1531,6 +1531,17 @@ local function createMainCursorSignHighlight()
     vim.api.nvim_set_hl(0, "MultiCursorMainSign", newHl)
 end
 
+local function setOptions()
+    if not state.options then
+        state.options = {}
+        for key, value in pairs(OPTIONS_OVERRIDE) do
+            state.options[key] = vim.o[key]
+            vim.o[key] = value
+        end
+        vim.cmd.noh()
+    end
+end
+
 --- @class ActionOptions
 --- @field excludeMainCursor? boolean
 --- @field fixWindow? boolean
@@ -1557,13 +1568,7 @@ function CursorManager:action(callback, opts)
         state.cursorline = vim.o.cursorline
         createMainCursorSignHighlight()
     end
-    if not state.options then
-        state.options = {}
-        for key, value in pairs(OPTIONS_OVERRIDE) do
-            state.options[key] = vim.o[key]
-            vim.o[key] = value
-        end
-    end
+    setOptions()
     state.leftcol = vim.fn.winsaveview().leftcol
     state.textoffset = vim.fn.getwininfo(vim.fn.win_getid())[1].textoff
     state.virtualEditBlock = false
@@ -1710,6 +1715,7 @@ function CursorManager:loadUndoItem(direction)
     if #state.cursors == 0 then
         CursorContext:clear()
     else
+        setOptions()
         cursorContextRedraw()
     end
 end
