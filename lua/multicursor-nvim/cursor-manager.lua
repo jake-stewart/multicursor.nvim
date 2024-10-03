@@ -106,6 +106,7 @@ Cursor.__index = Cursor
 --- @field undoItems table<string, MultiCursorUndoItem>
 --- @field redoItems table<string, MultiCursorUndoItem>
 --- @field currentSeq integer | nil
+--- @field changedtick integer | nil
 --- @field numLines number
 --- @field numDisabledCursors number
 --- @field numEnabledCursors number
@@ -237,7 +238,7 @@ local function cursorDrawVisualChar(cursor, lines, start, hl)
         local displayWidth = line and vim.fn.strdisplaywidth(line) or 0
         local id = set_extmark(0, state.nsid, vs[2] - 1, vs[3] - 1, {
             strict = false,
-            undo_restore = false,
+            undo_restore = true,
             priority = 2000,
             virt_text = ve[3] > #line
                 and {{string.rep(" ", ve[4] - vs[4] + 1), hl}}
@@ -266,7 +267,7 @@ local function cursorDrawVisualChar(cursor, lines, start, hl)
             }} or nil
             local id = set_extmark(0, state.nsid, row, col, {
                 strict = false,
-                undo_restore = false,
+                undo_restore = true,
                 virt_text = virt_text,
                 end_col = endCol + 1,
                 priority = 2000,
@@ -294,7 +295,7 @@ local function cursorDrawVisualLine(cursor, lines, start, hl)
         local displayWidth = line and vim.fn.strdisplaywidth(line) or 0
         local id = set_extmark(0, state.nsid, row, 0, {
             strict = false,
-            undo_restore = false,
+            undo_restore = true,
             virt_text = {{" ", hl}},
             end_col = #line,
             virt_text_pos = "inline",
@@ -350,7 +351,7 @@ local function cursorDrawVisualBlock(cursor, lines, start, hl)
             end
             local id = set_extmark(0, state.nsid, i - 1, startCol - 1, {
                 strict = false,
-                undo_restore = false,
+                undo_restore = true,
                 end_col = lineEndCol,
                 virt_text_pos = "inline",
                 priority = 2000,
@@ -537,7 +538,7 @@ local function cursorDraw(cursor)
 
     local id = set_extmark(0, state.nsid, row, col, {
         strict = false,
-        undo_restore = false,
+        undo_restore = true,
         virt_text_pos = "overlay",
         priority = priority,
         virt_text_win_col = virt_text_win_col,
@@ -566,7 +567,7 @@ end
 --- @param cursor Cursor
 local function cursorSetMarks(cursor)
     cursorClearMarks(cursor)
-    local opts = { strict = false, undo_restore = false }
+    local opts = { strict = false, undo_restore = true }
     if cursor:inVisualMode() then
         cursor._vPosId = set_extmark(
             0,
@@ -1400,7 +1401,7 @@ local function redrawCursorMark()
         del_extmark(0, state.nsid, state.cursorSignId)
     end
     state.cursorSignId = set_extmark(0, state.nsid, vim.fn.line(".") - 1, 0, {
-        undo_restore = false,
+        undo_restore = true,
         priority = 20000,
         sign_text = state.signs[state.numDisabledCursors == 0 and 2 or 3],
         sign_hl_group = "MultiCursorMainSign",
@@ -1421,6 +1422,7 @@ end
 --- @package
 --- @param applyToMainCursor boolean
 local function cursorContextUpdate(applyToMainCursor)
+    state.changedtick = vim.b.changedtick
     cursorContextMergeCursors()
     if not state.currentSeq then
         local undoTree = vim.fn.undotree()
@@ -1515,10 +1517,14 @@ local function createMainCursorSignHighlight()
     vim.api.nvim_set_hl(0, "MultiCursorMainSign", newHl)
 end
 
+--- @class ActionOptions
+--- @field excludeMainCursor? boolean
+--- @field fixWindow? boolean
+--- @field allowUndo? boolean
+
 --- @param callback fun(context: CursorContext)
---- @param applyToMainCursor boolean
---- @param fixWindow? boolean
-function CursorManager:action(callback, applyToMainCursor, fixWindow)
+--- @param opts ActionOptions
+function CursorManager:action(callback, opts)
     if state.opts.signs then
         state.signs = state.opts.signs
     else
@@ -1553,13 +1559,29 @@ function CursorManager:action(callback, applyToMainCursor, fixWindow)
             break
         end
     end
+
+    if opts.allowUndo
+        and state.currentSeq
+        and state.changedtick
+        and state.changedtick ~= vim.b.changedtick
+    then
+        local undoTree = vim.fn.undotree()
+        if undoTree.seq_cur == undoTree.seq_last
+            and undoTree.seq_cur ~= state.currentSeq
+        then
+            vim.cmd({ cmd = "undo", bang = true })
+            opts.excludeMainCursor = false
+            cursorUpdatePos(state.mainCursor)
+        end
+    end
+
     local origRegName = vim.v.register
     local origCursor = state.mainCursor or createCursor({})
     state.mainCursor = origCursor
     cursorRead(state.mainCursor)
     local winStartLine = vim.fn.line("w0")
     cursorSetMarks(state.mainCursor)
-    if applyToMainCursor then
+    if not opts.excludeMainCursor then
         state.cursors[#state.cursors + 1] = origCursor
     else
         origCursor._origChangePos = origCursor._changePos
@@ -1598,7 +1620,7 @@ function CursorManager:action(callback, applyToMainCursor, fixWindow)
     cursorErase(state.mainCursor)
     cursorClearMarks(state.mainCursor)
     cursorWrite(state.mainCursor)
-    if state.mainCursor == origCursor and fixWindow ~= false then
+    if state.mainCursor == origCursor and opts.fixWindow ~= false then
         local newStartLine = vim.fn.line("w0")
         local newEndLine = vim.fn.line("w$")
         local scrollOff = vim.o.scrolloff
@@ -1641,7 +1663,7 @@ function CursorManager:action(callback, applyToMainCursor, fixWindow)
     state.cursors = tbl.filter(state.cursors, function(cursor)
         return cursor._state ~= CursorState.deleted
     end)
-    cursorContextUpdate(applyToMainCursor)
+    cursorContextUpdate(not opts.excludeMainCursor)
     if state.mainCursor then
         vim.fn.setreg(origRegName, state.mainCursor._register)
     end

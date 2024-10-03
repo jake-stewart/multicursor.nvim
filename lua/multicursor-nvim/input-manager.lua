@@ -152,7 +152,7 @@ function InputManager:_onSafeState()
                     ctx:forEachCursor(function(cursor)
                         cursor:feedkeys("")
                     end)
-                end, false)
+                end, { excludeMainCursor = true })
             else
                 self._cursorManager:update()
             end
@@ -224,7 +224,7 @@ function InputManager:_onSafeState()
                     self._insertModePos = nil
                 end
                 endMode = ctx:mainCursor():mode()
-            end, true, false)
+            end, { excludeMainCursor = false, fixWindow = false })
             vim.keymap.del("i", "\7")
             self._snippet.stop()
             self._keys = ""
@@ -258,7 +258,7 @@ function InputManager:_onSafeState()
                         end
                     end
                 end)
-            end, false)
+            end, { excludeMainCursor = true })
         else
             self._cursorManager:update()
         end
@@ -280,11 +280,9 @@ function InputManager:_onSafeState()
             if self._cursorManager:hasCursors() then
                 self._cursorManager:action(function(ctx)
                     ctx:forEachCursor(function(cursor)
-                        if not cursor:isMainCursor() then
-                            cursor:feedkeys(self._keys)
-                        end
+                        cursor:feedkeys(self._keys)
                     end)
-                end, false)
+                end, { excludeMainCursor = true, allowUndo = true })
             else
                 self._cursorManager:update()
             end
@@ -304,21 +302,19 @@ function InputManager:_onSafeState()
                         self:_emitModeChanged(ctx:mainCursor(), self._wasMode, mode)
                     end
                     ctx:forEachCursor(function(cursor)
-                        if not cursor:isMainCursor() then
-                            cursor:feedkeys(self._typed, { remap = true })
-                            if self._modeChangeCallbacks and self._wasMode ~= mode then
-                                self:_emitModeChanged(cursor, self._wasMode, mode)
-                            end
+                        cursor:feedkeys(self._typed, { remap = true })
+                        if self._modeChangeCallbacks and self._wasMode ~= mode then
+                            self:_emitModeChanged(cursor, self._wasMode, mode)
                         end
                     end)
-                end, false)
+                end, { excludeMainCursor = true, allowUndo = true })
             end
         end
         if not handled then
             if self._modeChangeCallbacks and self._wasMode ~= mode then
                 self._cursorManager:action(function(ctx)
                     self:_emitModeChanged(ctx:mainCursor(), self._wasMode, mode)
-                end, true)
+                end, { excludeMainCursor = false })
             else
                 self._cursorManager:update()
             end

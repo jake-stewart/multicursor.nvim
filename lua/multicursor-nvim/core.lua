@@ -46,7 +46,7 @@ function core.action(callback)
         if mode == "i" or mode == "R" then
             callback() --- @diagnostic disable-line
         else
-            cursorManager:action(callback, true)
+            cursorManager:action(callback, { excludeMainCursor = false })
             inputManager:clear()
         end
     end)
