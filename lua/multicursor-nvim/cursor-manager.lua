@@ -1015,7 +1015,7 @@ function Cursor:setUndoChangePos(pos)
     self._drift = { 0, 0 }
     self._changePos = { 0, pos[1], pos[2], 0 }
     self._origChangePos = self._changePos
-    cursorSetMarks(self)
+    -- cursorSetMarks(self)
 end
 
 --- @param search string
