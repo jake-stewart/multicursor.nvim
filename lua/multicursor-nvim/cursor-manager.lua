@@ -1573,9 +1573,9 @@ local function cursorContextUpdate(applyToMainCursor)
         clearCursorContext(unmergedCursors, true, true)
     else
         redrawSigns()
-        state.oldCursor = cursorCopy(state.mainCursor)
-        state.oldCursors = {table.unpack(state.cursors)}
-        state.oldSeqCur = state.currentSeq
+        -- state.oldCursor = cursorCopy(state.mainCursor)
+        -- state.oldCursors = {table.unpack(state.cursors)}
+        -- state.oldSeqCur = state.currentSeq
     end
 end
 
@@ -1618,7 +1618,9 @@ function CursorManager:setup(nsid, opts)
     vim.api.nvim_create_autocmd("TextYankPost", {
         pattern = "*",
         callback = function()
-            state.yanked = true
+            if #state.cursors > 0 then
+                state.yanked = true
+            end
         end
     })
 end
@@ -1863,7 +1865,7 @@ function CursorManager:action(callback, opts)
     end)
     cursorContextUpdate(not opts.excludeMainCursor)
     if state.mainCursor then
-        vim.fn.setreg(state.origRegister, state.mainCursor._register)
+        -- vim.fn.setreg(state.origRegister, state.mainCursor._register)
     end
     -- force statusline and ruler update
     vim.o.statusline = vim.o.statusline
