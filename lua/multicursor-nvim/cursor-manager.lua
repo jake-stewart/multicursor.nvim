@@ -176,6 +176,7 @@ local function cursorUpdatePos(cursor)
             cursor._drift[1] = cursor._drift[1] + (cursor._pos[2] - oldPos[2])
             cursor._drift[2] = cursor._drift[2] + (cursor._pos[3] - oldPos[3])
         else
+            cursor._state = CursorState.deleted
             cursor._posId = nil
         end
     end
