@@ -316,8 +316,9 @@ function examples.toggleCursor()
         if cursor then
             cursor:delete()
         else
-            mainCursor:clone():disable()
-            mainCursor:setMode("n")
+            local newCursor = mainCursor:clone()
+            mainCursor:disable()
+            newCursor:setMode("n"):select()
         end
     end)
 end

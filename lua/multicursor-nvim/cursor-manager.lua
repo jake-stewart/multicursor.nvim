@@ -97,7 +97,7 @@ Cursor.__index = Cursor
 --- @package
 --- @class SharedMultiCursorState
 --- @field mainCursor Cursor | nil
---- @field cursorSignId? integer
+--- @field visualIds? integer[]
 --- @field modifiedId integer
 --- @field cursors Cursor[]
 --- @field options? table
@@ -121,7 +121,7 @@ local state = {
     redoItems = {},
     numDisabledCursors = 0,
     numEnabledCursors = 0,
-    id = 0,
+    id = 1,
     modifiedId = 0,
     nsid = 0,
     numLines = 0,
@@ -1052,6 +1052,10 @@ local function cursorCopy(cursor)
     })
 end
 
+-- cursors are packed together for undo history like so
+-- id1, line1, col1, id2, line2, col2
+-- the id is of each cursor is negative if the cursor is disabled
+
 --- @param cursors Cursor[]
 --- @param mainCursor Cursor
 --- @return number[]
@@ -1060,14 +1064,12 @@ local function packRedoCursors(mainCursor, cursors)
     data[1] = mainCursor._id
     data[2] = mainCursor._redoChangePos[2]
     data[3] = mainCursor._redoChangePos[3]
-    data[4] = 1
-    local i = 5
+    local i = 4
     for _, cursor in ipairs(cursors) do
-        data[i] = cursor._id
+        data[i] = cursor._enabled and cursor._id or -cursor._id
         data[i + 1] = cursor._redoChangePos[2]
         data[i + 2] = cursor._redoChangePos[3]
-        data[i + 3] = cursor._enabled and 1 or 0
-        i = i + 4
+        i = i + 3
     end
     return data
 end
@@ -1080,14 +1082,18 @@ local function packUndoCursors(mainCursor, cursors)
     data[1] = mainCursor._id
     data[2] = mainCursor._changePos[2]
     data[3] = mainCursor._changePos[3]
-    data[4] = 1
-    local i = 5
+    local i = 4
     for _, cursor in ipairs(cursors) do
-        data[i] = cursor._id
-        data[i + 1] = cursor._changePos[2]
-        data[i + 2] = cursor._changePos[3]
-        data[i + 3] = cursor._enabled and 1 or 0
-        i = i + 4
+        if cursor._enabled then
+            data[i] = cursor._id
+            data[i + 1] = cursor._changePos[2]
+            data[i + 2] = cursor._changePos[3]
+        else
+            data[i] = -cursor._id
+            data[i + 1] = cursor._origPos[2]
+            data[i + 2] = cursor._origPos[3]
+        end
+        i = i + 3
     end
     return data
 end
@@ -1105,8 +1111,8 @@ local function unpackCursors(data, mainCursor, cursors)
     local newMainCursor
     local numDisabledCursors = 0
     local numEnabledCursors = 0
-    for i = 1, #data, 4 do
-        local cursor = cursorLookup[data[i]] or cursorCopy(mainCursor)
+    for i = 1, #data, 3 do
+        local cursor = cursorLookup[math.abs(data[i])] or cursorCopy(mainCursor)
         local col = math.max(1,
             math.min(
                 data[i + 2],
@@ -1119,7 +1125,7 @@ local function unpackCursors(data, mainCursor, cursors)
         cursor._vPos = cursor._pos
         cursor._changePos = cursor._pos
         cursor._modifiedId = state.modifiedId
-        cursor._enabled = data[i + 3] == 1
+        cursor._enabled = data[i] > 0
         if cursor._enabled then
             numEnabledCursors = numEnabledCursors + 1
         else
@@ -1368,7 +1374,7 @@ end
 
 function CursorContext:clear()
     clear_namespace(0, state.nsid, 0, -1)
-    state.cursorSignId = nil
+    state.visualIds = nil
     state.numDisabledCursors = 0
     state.numEnabledCursors = 0
     if state.options then
@@ -1403,15 +1409,19 @@ local function cursorApplyDrift(cursor)
 end
 
 local function redrawCursorMark()
-    if state.cursorSignId then
-        del_extmark(0, state.nsid, state.cursorSignId)
+    if state.visualIds then
+        for _, id in ipairs(state.visualIds) do
+            del_extmark(0, state.nsid, id)
+        end
     end
-    state.cursorSignId = set_extmark(0, state.nsid, vim.fn.line(".") - 1, 0, {
-        undo_restore = false,
-        priority = 20000,
-        sign_text = state.signs[state.numDisabledCursors == 0 and 2 or 3],
-        sign_hl_group = "MultiCursorMainSign",
-    })
+    state.visualIds = {}
+    state.visualIds[#state.visualIds + 1] =
+        set_extmark(0, state.nsid, vim.fn.line(".") - 1, 0, {
+            undo_restore = false,
+            priority = 20000,
+            sign_text = state.signs[state.numDisabledCursors == 0 and 2 or 3],
+            sign_hl_group = "MultiCursorMainSign",
+        })
 end
 
 local function cursorContextRedraw()
