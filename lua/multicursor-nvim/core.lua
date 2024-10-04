@@ -1,6 +1,7 @@
 local feedkeysManager = require("multicursor-nvim.feedkeys-manager")
 local cursorManager = require("multicursor-nvim.cursor-manager")
 local inputManager = require("multicursor-nvim.input-manager")
+local snippetManager = require("multicursor-nvim.snippet-manager")
 
 local core = {
     performingAction = false,
@@ -25,7 +26,8 @@ function core.setup(opts)
 
     cursorManager:setup(nsid, opts)
     feedkeysManager:setup()
-    inputManager:setup(nsid, cursorManager)
+    inputManager:setup(nsid)
+    snippetManager:setup()
 
     vim.api.nvim_create_autocmd({ "WinLeave" }, {
         pattern = "*",

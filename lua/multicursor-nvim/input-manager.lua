@@ -1,7 +1,8 @@
 local TERM_CODES = require("multicursor-nvim.term-codes")
 local feedkeysManager = require("multicursor-nvim.feedkeys-manager")
+local cursorManager = require("multicursor-nvim.cursor-manager")
+local snippetManager = require("multicursor-nvim.snippet-manager")
 local util = require("multicursor-nvim.util")
-local tbl = require("multicursor-nvim.tbl")
 
 local SPECIAL_KEYS = {
     ["."] = true,
@@ -23,7 +24,6 @@ local SPECIAL_NORMAL_KEYS = {
 
 --- @class InputManager
 --- @field private _nsid number
---- @field private _cursorManager CursorManager
 --- @field private _cmdType string | nil
 --- @field private _inInsertMode boolean
 --- @field private _applying boolean
@@ -39,10 +39,8 @@ local SPECIAL_NORMAL_KEYS = {
 local InputManager = {}
 
 --- @param nsid number
---- @param cursorManager CursorManager
-function InputManager:setup(nsid, cursorManager)
+function InputManager:setup(nsid)
     self._nsid = nsid
-    self._cursorManager = cursorManager
     self._inInsertMode = false
     self._applying = false
     self._keys = ""
@@ -59,19 +57,6 @@ function InputManager:setup(nsid, cursorManager)
         end,
         self._nsid
     )
-
-    self._snippet = vim.snippet
-    vim.snippet = tbl.shallow_copy(self._snippet)
-    function vim.snippet.expand(snippetText, ...)
-        if self._cursorManager:hasCursors() then
-            self._snippetText = snippetText
-            self._snippetLine = vim.fn.getline(".")
-            self._snippetCol = vim.fn.col(".")
-            feedkeysManager.feedkeys(TERM_CODES.ESC, "nt", false)
-        else
-            self._snippet.expand(snippetText, ...)
-        end
-    end
 end
 
 --- @param callback function(cursor: Cursor, from: string, to: string)
@@ -125,9 +110,9 @@ function InputManager:_onSafeState()
     end
     local wasFromSelectMode = self._fromSelectMode
     if insertMode then
-        if self._snippetText then
-            feedkeysManager.feedkeys(TERM_CODES.ESC, "nt", false)
-        end
+        -- if snippetManager:hasSnippet() then
+        --     feedkeysManager.feedkeys(TERM_CODES.ESC, "nt", false)
+        -- end
         return
     else
         local selectMode = mode == "s"
@@ -150,15 +135,15 @@ function InputManager:_onSafeState()
             self._cmdType = nil
             self._keys = ""
             self._typed = ""
-            self._cursorManager:dirty()
-            if self._cursorManager:hasCursors() then
-                self._cursorManager:action(function(ctx)
+            cursorManager:dirty()
+            if cursorManager:hasCursors() then
+                cursorManager:action(function(ctx)
                     ctx:forEachCursor(function(cursor)
                         cursor:feedkeys("")
                     end)
                 end, { excludeMainCursor = true })
             else
-                self._cursorManager:update()
+                cursorManager:update()
             end
             self._applying = false
             return
@@ -166,88 +151,26 @@ function InputManager:_onSafeState()
         self._cmdType = nil
     end
 
-    if self._snippetText then
-        local snippetText = self._snippetText
-        self._snippetText = nil
-        self._cursorManager:dirty()
-        if self._cursorManager:hasCursors() then
-            local reg = vim.fn.getreg(".")
-            reg = util.removeStartFromEnd(reg, snippetText)
-
-            -- can't seem leave insert mode after using feedkeys mode "x!"
-            -- which is required since we must stay in insert mode so that
-            -- snippet.expand() has the correct position/state.
-            -- as a hacky workaround, we will map it to ascii bell (which
-            -- nobody should be using), and call it from insert mode.
-            vim.keymap.set("i", "\7", function()
-                self._snippet.expand(snippetText)
-            end)
-
-            local endMode
-            self._cursorManager:action(function(ctx)
-                local mainCursor = ctx:mainCursor()
-                local col = mainCursor:col()
-                mainCursor:perform(function()
-                    if col + 1 < self._snippetCol then
-                        local text = string.sub(self._snippetLine, col, self._snippetCol)
-                        if #text > 0 then
-                            feedkeysManager.feedkeys("a" .. text .. TERM_CODES.ESC, "n", false)
-                        end
-                    end
-                    feedkeysManager.feedkeys(col == 1 and "i" or "a", "n", false)
-                    feedkeysManager.feedkeys("\7", "", false)
-                    feedkeysManager.feedkeys(TERM_CODES.ESC, "nx", false)
-                end)
-                if self._insertModePos then
-                    mainCursor:setRedoChangePos({
-                        self._insertModePos[2],
-                        self._insertModePos[3],
-                    })
-                    mainCursor:setUndoChangePos({
-                        self._insertModePos[2],
-                        self._insertModePos[3],
-                    })
-                end
-
-                ctx:forEachCursor(function(cursor)
-                    cursor:perform(function()
-                        if wasFromSelectMode then
-                            feedkeysManager.feedkeys(
-                                TERM_CODES.CTRL_G .. "c", "n", false)
-                        else
-                            if #self._typed then
-                                feedkeysManager.feedkeys(self._typed, "", false)
-                            end
-                        end
-                        if #reg > 0 then
-                            feedkeysManager.feedkeys(reg, "n", false)
-                        end
-                        feedkeysManager.feedkeys("\7", "", false)
-                        feedkeysManager.feedkeys(TERM_CODES.ESC, "nx", false)
-                    end)
-                end)
-                self._insertModePos = nil
-                endMode = ctx:mainCursor():mode()
-            end, { excludeMainCursor = true, fixWindow = false })
-            vim.keymap.del("i", "\7")
-            self._snippet.stop()
-            self._keys = ""
-            self._typed = ""
-            self._applying = false
-            if endMode ~= "s" and endMode ~= "S" and endMode ~= TERM_CODES.CTRL_S then
-                feedkeysManager.feedkeys("a", "tn", false)
-            else
-                self._fromSelectMode = true
-            end
-            return
+    if snippetManager:hasSnippet() then
+        local endMode = snippetManager:performSnippet(
+            wasFromSelectMode, self._typed, self._insertModePos)
+        if endMode ~= "s" and endMode ~= "S" and endMode ~= TERM_CODES.CTRL_S then
+            feedkeysManager.feedkeys("a", "tn", false)
+        else
+            self._fromSelectMode = true
         end
+        self._insertModePos = nil
+        self._keys = ""
+        self._typed = ""
+        self._applying = false
+        return
     end
 
     if insertModeChanged then
-        self._cursorManager:dirty()
-        if self._cursorManager:hasCursors() then
+        cursorManager:dirty()
+        if cursorManager:hasCursors() then
             local reg = vim.fn.getreg(".")
-            self._cursorManager:action(function(ctx)
+            cursorManager:action(function(ctx)
                 ctx:forEachCursor(function(cursor)
                     cursor:perform(function()
                         if not wasFromSelectMode then
@@ -269,7 +192,7 @@ function InputManager:_onSafeState()
                 end
             })
         else
-            self._cursorManager:update()
+            cursorManager:update()
         end
         self._wasMode = mode
         self._applying = false
@@ -280,33 +203,33 @@ function InputManager:_onSafeState()
 
     local specialKey = string.match(self._keys, "%d*(.*)")
     if (self._wasMode == "n" and SPECIAL_NORMAL_KEYS[specialKey]) or SPECIAL_KEYS[specialKey] then
-        self._cursorManager:dirty()
+        cursorManager:dirty()
         if specialKey == "u" then
-            self._cursorManager:loadUndoItem(-1)
+            cursorManager:loadUndoItem(-1)
         elseif specialKey == TERM_CODES.CTRL_R then
-            self._cursorManager:loadUndoItem(1)
+            cursorManager:loadUndoItem(1)
         elseif specialKey == "." then
-            if self._cursorManager:hasCursors() then
-                self._cursorManager:action(function(ctx)
+            if cursorManager:hasCursors() then
+                cursorManager:action(function(ctx)
                     ctx:forEachCursor(function(cursor)
                         cursor:feedkeys(self._keys)
                     end)
                 end, { excludeMainCursor = true, allowUndo = true })
             else
-                self._cursorManager:update()
+                cursorManager:update()
             end
         else
-            self._cursorManager:update()
+            cursorManager:update()
         end
         self._typed = ""
         self._keys = ""
     else
         local handled = false
-        if #self._typed > 0 and self._cursorManager:hasCursors() then
-            self._cursorManager:dirty()
-            if self._cursorManager:hasCursors() then
+        if #self._typed > 0 and cursorManager:hasCursors() then
+            cursorManager:dirty()
+            if cursorManager:hasCursors() then
                 handled = true
-                self._cursorManager:action(function(ctx)
+                cursorManager:action(function(ctx)
                     if self._modeChangeCallbacks and self._wasMode ~= mode then
                         self:_emitModeChanged(ctx:mainCursor(), self._wasMode, mode)
                     end
@@ -321,11 +244,11 @@ function InputManager:_onSafeState()
         end
         if not handled then
             if self._modeChangeCallbacks and self._wasMode ~= mode then
-                self._cursorManager:action(function(ctx)
+                cursorManager:action(function(ctx)
                     self:_emitModeChanged(ctx:mainCursor(), self._wasMode, mode)
                 end, { excludeMainCursor = false })
             else
-                self._cursorManager:update()
+                cursorManager:update()
             end
         end
     end
