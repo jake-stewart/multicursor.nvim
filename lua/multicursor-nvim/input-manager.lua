@@ -197,41 +197,51 @@ function InputManager:_onSafeState()
 
             local endMode
             self._cursorManager:action(function(ctx)
+                local mainCursor = ctx:mainCursor()
+                local col = mainCursor:col()
+                local oldPos = mainCursor:getPos()
+                mainCursor:perform(function()
+                    if col + 1 < self._snippetCol then
+                        local text = string.sub(self._snippetLine, col, self._snippetCol)
+                        if #text > 0 then
+                            feedkeysManager.feedkeys("a" .. text .. TERM_CODES.ESC, "n", false)
+                        end
+                    end
+                    feedkeysManager.feedkeys(col == 1 and "i" or "a", "n", false)
+                    feedkeysManager.feedkeys("\7", "", false)
+                    feedkeysManager.feedkeys(TERM_CODES.ESC, "nx", false)
+                end)
+                if self._insertModePos then
+                    mainCursor:setRedoChangePos({
+                        self._insertModePos[2],
+                        self._insertModePos[3],
+                    })
+                    mainCursor:setUndoChangePos({
+                        self._insertModePos[2],
+                        self._insertModePos[3],
+                    })
+                end
+
                 ctx:forEachCursor(function(cursor)
                     cursor:perform(function()
-                        if cursor:isMainCursor() then
-                            local col = cursor:col()
-                            if col + 1 < self._snippetCol then
-                                local text = string.sub(self._snippetLine, col, self._snippetCol)
-                                if #text > 0 then
-                                    feedkeysManager.feedkeys("a" .. text .. TERM_CODES.ESC, "n", false)
-                                end
-                            end
-                            feedkeysManager.feedkeys("a", "n", false)
+                        if wasFromSelectMode then
+                            feedkeysManager.feedkeys(
+                                TERM_CODES.CTRL_G .. "c", "n", false)
                         else
-                            if wasFromSelectMode then
-                                feedkeysManager.feedkeys(
-                                    TERM_CODES.CTRL_G .. "c", "n", false)
-                            else
-                                if #self._typed then
-                                    feedkeysManager.feedkeys(self._typed, "", false)
-                                end
+                            if #self._typed then
+                                feedkeysManager.feedkeys(self._typed, "", false)
                             end
-                            if #reg > 0 then
-                                feedkeysManager.feedkeys(reg, "n", false)
-                            end
+                        end
+                        if #reg > 0 then
+                            feedkeysManager.feedkeys(reg, "n", false)
                         end
                         feedkeysManager.feedkeys("\7", "", false)
                         feedkeysManager.feedkeys(TERM_CODES.ESC, "nx", false)
                     end)
-                    cursor:setRedoChangePos(cursor:getPos())
                 end)
-                if self._insertModePos then
-                    ctx:mainCursor():setUndoChangePos({self._insertModePos[2], self._insertModePos[3]})
-                    self._insertModePos = nil
-                end
+                self._insertModePos = nil
                 endMode = ctx:mainCursor():mode()
-            end, { excludeMainCursor = false, fixWindow = false })
+            end, { excludeMainCursor = true, fixWindow = false })
             vim.keymap.del("i", "\7")
             self._snippet.stop()
             self._keys = ""
