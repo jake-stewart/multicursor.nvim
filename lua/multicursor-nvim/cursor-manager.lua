@@ -116,6 +116,7 @@ Cursor.__index = Cursor
 --- @field leftcol number
 --- @field textoffset number
 --- @field opts MultiCursorOpts
+--- @field keepRedo? boolean
 --- @field mainSignHlExists? boolean
 local state = {
     cursors = {},
@@ -603,7 +604,9 @@ local function cursorRead(cursor)
     cursor._pos = vim.fn.getcurpos()
     cursor._vPos = vim.fn.getpos("v")
     cursor._changePos = vim.fn.getpos("'[")
-    cursor._redoChangePos = cursor._changePos
+    if not state.keepRedo then
+        cursor._redoChangePos = cursor._changePos
+    end
     cursor._modifiedId = state.modifiedId
     cursor._register = vim.fn.getreginfo("")
     cursor._search = vim.fn.getreg("/")
@@ -1475,15 +1478,16 @@ end
 
 --- @package
 --- @param applyToMainCursor boolean
-local function cursorContextUpdate(applyToMainCursor)
+--- @param forceUndoSave? boolean
+local function cursorContextUpdate(applyToMainCursor, forceUndoSave)
     local origCursors, didMerge = cursorContextMergeCursors()
     if not state.currentSeq then
         local undoTree = vim.fn.undotree()
         state.currentSeq = undoTree.seq_cur
     else
-        if vim.b.changedtick ~= state.changedtick then
+        if forceUndoSave or vim.b.changedtick ~= state.changedtick then
             local undoTree = vim.fn.undotree()
-            if undoTree.seq_cur and state.currentSeq ~= undoTree.seq_cur then
+            if undoTree.seq_cur and (forceUndoSave or state.currentSeq ~= undoTree.seq_cur) then
                 if didMerge then
                     state.mainCursor._changePos = state.mainCursor._origPos
                     for _, cursor in ipairs(origCursors) do
@@ -1505,10 +1509,10 @@ local function cursorContextUpdate(applyToMainCursor)
                 local undoItem = #origCursors > 0
                     and packUndoCursors(state.mainCursor, origCursors)
                     or nil
+                state.undoItems[undoItemId(state.currentSeq)] = undoItem
                 local redoItem = #state.cursors > 0
                     and packRedoCursors(state.mainCursor, state.cursors)
                     or nil
-                state.undoItems[undoItemId(state.currentSeq)] = undoItem
                 state.redoItems[undoItemId(undoTree.seq_cur)] = redoItem
                 state.currentSeq = undoTree.seq_cur
             end
@@ -1618,10 +1622,13 @@ end
 --- @field fixWindow? boolean
 --- @field allowUndo? boolean
 --- @field ifNotUndo? function
+--- @field forceUndoSave? boolean
+--- @field keepChangePos? boolean
 
 --- @param callback fun(context: CursorContext)
 --- @param opts ActionOptions
 function CursorManager:action(callback, opts)
+    state.keepRedo = opts.keepChangePos
     local signsOnLeft = string.match(vim.o.signcolumn, "yes")
         or string.match(vim.o.signcolumn, "auto")
         or vim.o.signcolumn == "number"
@@ -1735,17 +1742,17 @@ function CursorManager:action(callback, opts)
     else
         origCursor._origPos = origCursor._pos
         origCursor._origChangePos = origCursor._changePos
+        origCursor._drift = { 0, 0 }
         origCursor._changePos = nil
         origCursor._enabled = true
         origCursor._state = CursorState.none
-        origCursor._drift = { 0, 0 }
     end
     for _, cursor in ipairs(state.cursors) do
         cursor._origPos = cursor._pos
         cursor._origChangePos = cursor._changePos
+        cursor._drift = { 0, 0 }
         cursor._changePos = nil
         cursor._state = CursorState.none
-        cursor._drift = { 0, 0 }
     end
     local result = callback(CursorContext)
 
@@ -1814,7 +1821,7 @@ function CursorManager:action(callback, opts)
     state.cursors = tbl.filter(state.cursors, function(cursor)
         return cursor._state ~= CursorState.deleted
     end)
-    cursorContextUpdate(not opts.excludeMainCursor)
+    cursorContextUpdate(not opts.excludeMainCursor, opts.forceUndoSave)
     if state.mainCursor then
         vim.fn.setreg(origRegName, state.mainCursor._register)
     end

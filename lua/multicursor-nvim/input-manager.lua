@@ -166,6 +166,9 @@ function InputManager:_onSafeState()
         local snippetText = self._snippetText
         self._snippetText = nil
         self._cursorManager:dirty()
+        if self._wasSnippet then
+            vim.cmd.undojoin()
+        end
         if self._cursorManager:hasCursors() then
             local reg = vim.fn.getreg(".")
 
@@ -220,21 +223,24 @@ function InputManager:_onSafeState()
                         feedkeysManager.feedkeys("\7", "", false)
                         feedkeysManager.feedkeys(TERM_CODES.ESC, "nx", false)
                     end)
-                    cursor:setRedoChangePos(cursor:getPos())
+                    -- cursor:setRedoChangePos(cursor:getPos())
                 end)
                 if self._insertModePos then
                     ctx:mainCursor():setUndoChangePos({self._insertModePos[2], self._insertModePos[3]})
                     self._insertModePos = nil
                 end
                 endMode = ctx:mainCursor():mode()
-            end, { excludeMainCursor = false, fixWindow = false })
+            end, { excludeMainCursor = false, fixWindow = false, keepChangePos = self._wasSnippet })
             vim.keymap.del("i", "\7")
             self._snippet.stop()
             self._keys = ""
             self._typed = ""
             self._applying = false
             if endMode ~= "s" and endMode ~= "S" and endMode ~= TERM_CODES.CTRL_S then
+                self._wasSnippet = true
                 feedkeysManager.feedkeys("a", "tn", false)
+            else
+                self._wasSnippet = false
             end
             return
         end
@@ -245,6 +251,9 @@ function InputManager:_onSafeState()
         if self._cursorManager:hasCursors() then
             local reg = vim.fn.getreg(".")
             self._cursorManager:action(function(ctx)
+                if self._wasSnippet then
+                    vim.cmd.undojoin()
+                end
                 ctx:forEachCursor(function(cursor)
                     cursor:perform(function()
                         if not wasFromSelectMode then
@@ -259,6 +268,8 @@ function InputManager:_onSafeState()
             end, {
                 excludeMainCursor = true,
                 allowUndo = true,
+                keepChangePos = self._wasSnippet,
+                forceUndoSave = self._wasSnippet,
                 ifNotUndo = function(mainCursor)
                     if self._modeChangeCallbacks and self._wasMode ~= mode then
                         self:_emitModeChanged(mainCursor, self._wasMode, mode)
@@ -274,6 +285,7 @@ function InputManager:_onSafeState()
         self._keys = ""
         return
     end
+    self._wasSnippet = false
 
     local specialKey = string.match(self._keys, "%d*(.*)")
     if (self._wasMode == "n" and SPECIAL_NORMAL_KEYS[specialKey]) or SPECIAL_KEYS[specialKey] then
