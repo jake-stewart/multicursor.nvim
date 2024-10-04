@@ -97,7 +97,7 @@ Cursor.__index = Cursor
 --- @package
 --- @class SharedMultiCursorState
 --- @field mainCursor Cursor | nil
---- @field visualIds? integer[]
+--- @field signIds? integer[]
 --- @field modifiedId integer
 --- @field cursors Cursor[]
 --- @field options? table
@@ -485,24 +485,15 @@ local VISUAL_LOOKUP = {
 local function cursorDraw(cursor)
     local visualHL
     local cursorHL
-    local signHL
-    local signText
     local priority
     if cursor._enabled then
         visualHL = "MultiCursorVisual"
         cursorHL = "MultiCursorCursor"
-        signHL = "MultiCursorSign"
         priority = 20000
-        signText = state.signs[state.numDisabledCursors == 0 and 2 or 3]
-        -- signText = state.numDisabledCursors == 0 and " │" or "││"
-        -- signText = state.numDisabledCursors == 0 and " ┃" or "┃┃"
-        -- signText = state.numDisabledCursors == 0 and " |" or "||"
     else
         visualHL = "MultiCursorDisabledVisual"
         cursorHL = "MultiCursorDisabledCursor"
-        signHL = "MultiCursorDisabledSign"
         priority = 10000
-        signText = state.signs[1]
     end
     local start
     local _end
@@ -543,8 +534,6 @@ local function cursorDraw(cursor)
         virt_text_pos = "overlay",
         priority = priority,
         virt_text_win_col = virt_text_win_col,
-        sign_text = signText,
-        sign_hl_group = signHL,
         hl_group = cursorHL,
         end_col = col + 1,
         virt_text_hide = true,
@@ -1374,7 +1363,7 @@ end
 
 function CursorContext:clear()
     clear_namespace(0, state.nsid, 0, -1)
-    state.visualIds = nil
+    state.signIds = nil
     state.numDisabledCursors = 0
     state.numEnabledCursors = 0
     if state.options then
@@ -1408,20 +1397,62 @@ local function cursorApplyDrift(cursor)
     return cursor
 end
 
-local function redrawCursorMark()
-    if state.visualIds then
-        for _, id in ipairs(state.visualIds) do
+local function redrawSigns()
+    if state.signIds then
+        for _, id in ipairs(state.signIds) do
             del_extmark(0, state.nsid, id)
         end
     end
-    state.visualIds = {}
-    state.visualIds[#state.visualIds + 1] =
-        set_extmark(0, state.nsid, vim.fn.line(".") - 1, 0, {
-            undo_restore = false,
-            priority = 20000,
-            sign_text = state.signs[state.numDisabledCursors == 0 and 2 or 3],
-            sign_hl_group = "MultiCursorMainSign",
-        })
+    state.signIds = {}
+    local hasDisabledCursor = false
+    local cursorAbove = 0
+    local cursorBelow = 0
+    local signsToAdd = {}
+    local ws = vim.fn.line("w0")
+    local we = vim.fn.line("w$")
+    for _, cursor in ipairs(state.cursors) do
+        if not cursor._enabled then
+            hasDisabledCursor = true
+        end
+        local line = cursor._pos[2]
+        if line < ws then
+            cursorAbove = math.max(cursorAbove, cursor._enabled and 2 or 1)
+            line = ws
+            signsToAdd[line] = math.max(signsToAdd[line] or 0, 0)
+        elseif line > we then
+            cursorBelow = math.max(cursorBelow, cursor._enabled and 2 or 1)
+            line = we
+            signsToAdd[line] = math.max(signsToAdd[line] or 0, 0)
+        else
+            signsToAdd[line] = math.max(signsToAdd[line] or 0, cursor._enabled and 2 or 1)
+        end
+    end
+    signsToAdd[state.mainCursor._pos[2]] = 2
+    for line, level in pairs(signsToAdd) do
+        if level == 2 and hasDisabledCursor then
+            level = 3
+        end
+        local signIdx
+        if line == ws then
+            signIdx = (cursorAbove == 0 and 0 or cursorAbove == 2 and 4 or 12) + level
+        elseif line == we then
+            signIdx = (cursorBelow == 0 and 0 or cursorBelow == 2 and 8 or 16) + level
+        else
+            signIdx = level
+        end
+
+        local signText = state.alignedSigns[signIdx]
+
+        state.signIds[#state.signIds + 1] =
+            set_extmark(0, state.nsid, line - 1, 0, {
+                undo_restore = false,
+                priority = 20000,
+                sign_text = signText,
+                sign_hl_group = line == state.mainCursor._pos[2]
+                    and "MultiCursorMainSign"
+                    or "MultiCursorSign",
+            })
+    end
 end
 
 local function cursorContextRedraw()
@@ -1436,7 +1467,7 @@ local function cursorContextRedraw()
             cursorSetMarks(cursor)
             cursorDraw(cursor)
         end
-        redrawCursorMark()
+        redrawSigns()
     end
 end
 
@@ -1491,7 +1522,7 @@ local function cursorContextUpdate(applyToMainCursor)
     if #state.cursors == 0 then
         CursorContext:clear()
     else
-        redrawCursorMark()
+        redrawSigns()
     end
 end
 
@@ -1503,6 +1534,26 @@ local CursorManager = {}
 function CursorManager:setup(nsid, opts)
     state.nsid = nsid
     state.opts = opts or {}
+
+    local DEFAULT_SIGNS = { "┆", "│", "┃", "↑", "↓", "⇡", "⇣" }
+    if state.opts.signs == false then
+        state.signs = {}
+    elseif type(state.opts.signs) == "table" then
+        state.signs = {}
+        for i = 1, 7 do
+            local sign = state.opts.signs[i]
+            if sign == nil then
+                sign = DEFAULT_SIGNS[i]
+            end
+            if sign ~= false then
+                state.signs[i] = vim.fn.nr2char(
+                    vim.fn.strgetchar(vim.fn.trim(sign), 0))
+            end
+        end
+    else
+        state.signs = DEFAULT_SIGNS
+    end
+
     vim.api.nvim_create_autocmd("BufEnter", {
         pattern = "*",
         callback = function()
@@ -1566,20 +1617,75 @@ end
 --- @param callback fun(context: CursorContext)
 --- @param opts ActionOptions
 function CursorManager:action(callback, opts)
-    if state.opts.signs then
-        state.signs = state.opts.signs
-    else
-        if string.match(vim.o.signcolumn, "yes")
-            or string.match(vim.o.signcolumn, "auto")
-            or vim.o.signcolumn == "number"
-            and not vim.o.number
-            and not vim.o.relativenumber
-        then
-            state.signs = { "┆ ", "│ ", "┃ " }
+    local signsOnLeft = string.match(vim.o.signcolumn, "yes")
+        or string.match(vim.o.signcolumn, "auto")
+        or vim.o.signcolumn == "number"
+        and not vim.o.number
+        and not vim.o.relativenumber
+    if signsOnLeft ~= state.signsOnLeft then
+        state.signsOnLeft = signsOnLeft
+        local leftSpace = signsOnLeft and "" or " "
+        local rightSpace = signsOnLeft and " " or ""
+        state.alignedSigns = {}
+        if state.signs[1] then
+            state.alignedSigns[1] = leftSpace .. state.signs[1] .. rightSpace
+        end
+        if state.signs[2] then
+            state.alignedSigns[2] = leftSpace .. state.signs[2] .. rightSpace
+        end
+        if state.signs[3] then
+            state.alignedSigns[3] = leftSpace .. state.signs[3] .. rightSpace
+        end
+        if state.signs[4] then
+            local leftUpArrow = signsOnLeft and "" or state.signs[4]
+            local rightUpArrow = signsOnLeft and state.signs[4] or ""
+            state.alignedSigns[4] = rightSpace .. state.signs[4] .. leftSpace
+            state.alignedSigns[5] = leftUpArrow .. state.signs[1] .. rightUpArrow
+            state.alignedSigns[6] = leftUpArrow .. state.signs[2] .. rightUpArrow
+            state.alignedSigns[7] = leftUpArrow .. state.signs[3] .. rightUpArrow
         else
-            state.signs = { " ┆", " │", " ┃" }
+            state.alignedSigns[5] = state.alignedSigns[1]
+            state.alignedSigns[6] = state.alignedSigns[2]
+            state.alignedSigns[7] = state.alignedSigns[3]
+        end
+        if state.signs[5] then
+            local leftDownArrow = signsOnLeft and "" or state.signs[5]
+            local rightDownArrow = signsOnLeft and state.signs[5] or ""
+            state.alignedSigns[8] = rightSpace .. state.signs[5] .. leftSpace
+            state.alignedSigns[9] = leftDownArrow .. state.signs[1] .. rightDownArrow
+            state.alignedSigns[10] = leftDownArrow .. state.signs[2] .. rightDownArrow
+            state.alignedSigns[11] = leftDownArrow .. state.signs[3] .. rightDownArrow
+        else
+            state.alignedSigns[8] = state.alignedSigns[1]
+            state.alignedSigns[9] = state.alignedSigns[2]
+            state.alignedSigns[10] = state.alignedSigns[3]
+        end
+        if state.signs[6] then
+            local leftUpArrow = signsOnLeft and "" or state.signs[6]
+            local rightUpArrow = signsOnLeft and state.signs[6] or ""
+            state.alignedSigns[12] = rightSpace .. state.signs[6] .. leftSpace
+            state.alignedSigns[13] = leftUpArrow .. state.signs[1] .. rightUpArrow
+            state.alignedSigns[14] = leftUpArrow .. state.signs[2] .. rightUpArrow
+            state.alignedSigns[15] = leftUpArrow .. state.signs[3] .. rightUpArrow
+        else
+            state.alignedSigns[13] = state.alignedSigns[1]
+            state.alignedSigns[14] = state.alignedSigns[2]
+            state.alignedSigns[15] = state.alignedSigns[3]
+        end
+        if state.signs[7] then
+            local leftDownArrow = signsOnLeft and "" or state.signs[7]
+            local rightDownArrow = signsOnLeft and state.signs[7] or ""
+            state.alignedSigns[16] = rightSpace .. state.signs[7] .. leftSpace
+            state.alignedSigns[17] = leftDownArrow .. state.signs[1] .. rightDownArrow
+            state.alignedSigns[18] = leftDownArrow .. state.signs[2] .. rightDownArrow
+            state.alignedSigns[19] = leftDownArrow .. state.signs[3] .. rightDownArrow
+        else
+            state.alignedSigns[17] = state.alignedSigns[1]
+            state.alignedSigns[18] = state.alignedSigns[2]
+            state.alignedSigns[19] = state.alignedSigns[3]
         end
     end
+
     if state.cursorline == nil or vim.o.cursorline ~= state.cursorline then
         state.cursorline = vim.o.cursorline
         createMainCursorSignHighlight()
