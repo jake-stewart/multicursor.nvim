@@ -56,4 +56,16 @@ function util.au(event, pattern, callback)
     })
 end
 
+function util.removeStartFromEnd(a, b)
+    local lenA = #a
+    local lenB = #b
+    local ret = a
+    for i = 1, math.min(lenA, lenB) do
+        if b:sub(1, i) == a:sub(lenA - i + 1) then
+            ret = a:sub(1, lenA - i)
+        end
+    end
+    return ret
+end
+
 return util

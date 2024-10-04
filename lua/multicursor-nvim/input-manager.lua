@@ -172,19 +172,7 @@ function InputManager:_onSafeState()
         self._cursorManager:dirty()
         if self._cursorManager:hasCursors() then
             local reg = vim.fn.getreg(".")
-
-            local function removeEndIfStartMatches(a, b)
-                local lenA = #a
-                local lenB = #b
-                local ret = a
-                for i = 1, math.min(lenA, lenB) do
-                    if b:sub(1, i) == a:sub(lenA - i + 1) then
-                        ret = a:sub(1, lenA - i)
-                    end
-                end
-                return ret
-            end
-            reg = removeEndIfStartMatches(reg, snippetText)
+            reg = util.removeStartFromEnd(reg, snippetText)
 
             -- can't seem leave insert mode after using feedkeys mode "x!"
             -- which is required since we must stay in insert mode so that

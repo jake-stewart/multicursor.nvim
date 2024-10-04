@@ -1426,7 +1426,9 @@ local function clearCursorContext(unmergedCursors, mergeRegisters, addMainCursor
 end
 
 function CursorContext:clear()
-    state.oldCursor = cursorCopy(state.mainCursor)
+    if state.mainCursor then
+        state.oldCursor = cursorCopy(state.mainCursor)
+    end
     state.oldCursors = {table.unpack(state.cursors)}
     state.oldSeqCur = state.currentSeq
     clearCursorContext(nil, true, false)
