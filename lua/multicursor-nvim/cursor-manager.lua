@@ -77,7 +77,7 @@ local CursorState = {
 --- @field package _origPos         CursorPos
 --- @field package _drift           [integer, integer]
 --- @field package _pos             CursorPos
---- @field package _register        string
+--- @field package _register        table
 --- @field package _search          string
 --- @field package _visualStart     MarkPos
 --- @field package _visualEnd       MarkPos
@@ -101,6 +101,7 @@ Cursor.__index = Cursor
 --- @field modifiedId integer
 --- @field cursors Cursor[]
 --- @field oldCursor? Cursor[]
+--- @field oldSeqCur? integer
 --- @field oldCursors? Cursor[]
 --- @field options? table
 --- @field nsid integer
@@ -115,6 +116,7 @@ Cursor.__index = Cursor
 --- @field numEnabledCursors number
 --- @field leftcol number
 --- @field textoffset number
+--- @field yanked? boolean
 --- @field opts MultiCursorOpts
 --- @field mainSignHlExists? boolean
 local state = {
@@ -130,6 +132,29 @@ local state = {
     leftcol = 0,
     textoffset = 0,
 }
+
+local function setOptions()
+    if not state.options then
+        state.origRegister = vim.v.register
+        state.options = {}
+        for key, value in pairs(OPTIONS_OVERRIDE) do
+            state.options[key] = vim.o[key]
+            vim.o[key] = value
+        end
+        vim.cmd.noh()
+    end
+end
+
+local function unsetOptions()
+    if state.options then
+        for key, value in pairs(state.options) do
+            vim.o[key] = value
+        end
+        state.options = nil
+        vim.schedule(vim.cmd.noh)
+    end
+end
+
 
 --- @return Cursor
 local function createCursor(cursor)
@@ -1363,25 +1388,44 @@ function CursorContext:hasCursors()
         and state.cursors[1] ~= state.mainCursor
 end
 
-function CursorContext:clear()
+--- @param unmergedCursors? Cursor[]
+--- @param mergeRegisters? boolean
+local function clearCursorContext(unmergedCursors, mergeRegisters)
     clear_namespace(0, state.nsid, 0, -1)
     state.signIds = nil
     state.numDisabledCursors = 0
     state.numEnabledCursors = 0
-    if state.options then
-        for key, value in pairs(state.options) do
-            vim.o[key] = value
+    unsetOptions()
+    if state.yanked then
+        state.yanked = nil
+        if mergeRegisters then
+            local cursors = unmergedCursors or state.cursors
+            if state.mainCursor then
+                cursors[#cursors + 1] = state.mainCursor
+            end
+            table.sort(cursors, compareCursorsPosition)
+            local buffer = {}
+            for _, cursor in ipairs(cursors) do
+                for _, line in ipairs(cursor._register.regcontents) do
+                    buffer[#buffer + 1] = line
+                end
+            end
+            vim.schedule(function()
+                vim.fn.setreg(state.origRegister,
+                    table.concat(buffer, "\n"), "l")
+            end)
         end
-        state.options = nil
-        vim.schedule(vim.cmd.noh)
     end
-    state.enabled = true
     state.cursors = {}
     state.mainCursor = nil
     if state.opts.shallowUndo then
         state.undoItems = {}
         state.redoItems = {}
     end
+end
+
+function CursorContext:clear()
+    clearCursorContext(nil, true)
 end
 
 --- @param cursor Cursor
@@ -1476,7 +1520,7 @@ end
 --- @package
 --- @param applyToMainCursor boolean
 local function cursorContextUpdate(applyToMainCursor)
-    local origCursors, didMerge = cursorContextMergeCursors()
+    local unmergedCursors, didMerge = cursorContextMergeCursors()
     if not state.currentSeq then
         local undoTree = vim.fn.undotree()
         state.currentSeq = undoTree.seq_cur
@@ -1486,7 +1530,7 @@ local function cursorContextUpdate(applyToMainCursor)
             if undoTree.seq_cur and state.currentSeq ~= undoTree.seq_cur then
                 if didMerge then
                     state.mainCursor._changePos = state.mainCursor._origPos
-                    for _, cursor in ipairs(origCursors) do
+                    for _, cursor in ipairs(unmergedCursors) do
                         cursor._changePos = cursor._origPos
                     end
                 else
@@ -1498,12 +1542,15 @@ local function cursorContextUpdate(applyToMainCursor)
                             state.mainCursor._redoChangePos = state.mainCursor._pos
                         end
                     end
-                    for _, cursor in ipairs(origCursors) do
+                    for _, cursor in ipairs(unmergedCursors) do
                         cursorApplyDrift(cursor)
                     end
                 end
-                local undoItem = #origCursors > 0
-                    and packUndoCursors(state.mainCursor, origCursors)
+                for _, cursor in ipairs(state.cursors) do
+                    cursor._redoChangePos = cursor._redoChangePos or cursor._pos
+                end
+                local undoItem = #unmergedCursors > 0
+                    and packUndoCursors(state.mainCursor, unmergedCursors)
                     or nil
                 local redoItem = #state.cursors > 0
                     and packRedoCursors(state.mainCursor, state.cursors)
@@ -1522,11 +1569,12 @@ local function cursorContextUpdate(applyToMainCursor)
     end
     state.changedtick = vim.b.changedtick
     if #state.cursors == 0 then
-        CursorContext:clear()
+        clearCursorContext(unmergedCursors, true)
     else
         redrawSigns()
         state.oldCursor = cursorCopy(state.mainCursor)
-        state.oldCursors = state.cursors
+        state.oldCursors = {table.unpack(state.cursors)}
+        state.oldSeqCur = state.currentSeq
     end
 end
 
@@ -1563,6 +1611,13 @@ function CursorManager:setup(nsid, opts)
         callback = function()
             state.currentSeq = vim.fn.undotree().seq_cur
             state.numLines = vim.fn.line("$")
+        end
+    })
+
+    vim.api.nvim_create_autocmd("TextYankPost", {
+        pattern = "*",
+        callback = function()
+            state.yanked = true
         end
     })
 end
@@ -1602,17 +1657,6 @@ local function createMainCursorSignHighlight()
     vim.api.nvim_set_hl(0, "MultiCursorMainSign", newHl)
 end
 
-local function setOptions()
-    if not state.options then
-        state.options = {}
-        for key, value in pairs(OPTIONS_OVERRIDE) do
-            state.options[key] = vim.o[key]
-            vim.o[key] = value
-        end
-        vim.cmd.noh()
-    end
-end
-
 --- @class ActionOptions
 --- @field excludeMainCursor? boolean
 --- @field fixWindow? boolean
@@ -1627,6 +1671,9 @@ function CursorManager:action(callback, opts)
         or vim.o.signcolumn == "number"
         and not vim.o.number
         and not vim.o.relativenumber
+    if state.yanked == nil then
+        state.yanked = false
+    end
     if signsOnLeft ~= state.signsOnLeft then
         state.signsOnLeft = signsOnLeft
         local leftSpace = signsOnLeft and "" or " "
@@ -1724,7 +1771,6 @@ function CursorManager:action(callback, opts)
         end
     end
 
-    local origRegName = vim.v.register
     local origCursor = state.mainCursor or createCursor({})
     state.mainCursor = origCursor
     cursorRead(state.mainCursor)
@@ -1835,7 +1881,7 @@ function CursorManager:loadUndoItem(direction)
     local lookup = direction == 1 and state.redoItems or state.undoItems
     local undoItem = lookup[id];
     if not undoItem then
-        CursorContext:clear()
+        clearCursorContext(nil, false)
         return
     end
     state.mainCursor, state.cursors, state.numEnabledCursors, state.numDisabledCursors = unpackCursors(
@@ -1843,16 +1889,20 @@ function CursorManager:loadUndoItem(direction)
     cursorContextMergeCursors()
     cursorWrite(state.mainCursor)
     if #state.cursors == 0 then
-        CursorContext:clear()
+        clearCursorContext(nil, false)
     else
         setOptions()
         cursorContextRedraw()
         state.oldCursor = cursorCopy(state.mainCursor)
-        state.oldCursors = state.cursors
+        state.oldCursors = {table.unpack(state.cursors)}
+        state.oldSeqCur = state.currentSeq
     end
 end
 
 function CursorManager:restoreCursors()
+    if state.oldSeqCur ~= state.currentSeq then
+        return
+    end
     local oldCursors = state.oldCursors or {}
     local oldCursor = state.oldCursor
     state.oldCursors = {}
@@ -1863,14 +1913,18 @@ function CursorManager:restoreCursors()
 
     state.cursors = {}
     for i, cursor in ipairs(oldCursors) do
-        state.cursors[i] = cursorCopy(cursor)
+        local newCursor = cursorCopy(cursor)
+        newCursor._state = CursorState.none
+        state.cursors[i] = newCursor
+        cursor._state = CursorState.none
     end
     if oldCursor then
         state.mainCursor = cursorCopy(oldCursor)
+        state.mainCursor._state = CursorState.none
         cursorWrite(state.mainCursor)
     end
     if #state.cursors == 0 then
-        self:clear()
+        clearCursorContext(nil, false)
     else
         setOptions()
         cursorContextRedraw()
