@@ -1623,6 +1623,7 @@ end
 --- @field allowUndo? boolean
 --- @field ifNotUndo? function
 --- @field forceUndoSave? boolean
+--- @field undojoin? boolean
 --- @field keepChangePos? boolean
 
 --- @param callback fun(context: CursorContext)
@@ -1729,6 +1730,10 @@ function CursorManager:action(callback, opts)
         elseif opts.excludeMainCursor and opts.ifNotUndo then
             opts.ifNotUndo(state.mainCursor)
         end
+    end
+
+    if opts.undojoin then
+        vim.cmd.undojoin()
     end
 
     local origRegName = vim.v.register

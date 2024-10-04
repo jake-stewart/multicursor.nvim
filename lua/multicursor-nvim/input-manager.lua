@@ -117,6 +117,9 @@ function InputManager:_onSafeState()
     if insertModeChanged then
         self._inInsertMode = insertMode
         if insertMode then
+            if self._wasSnippet then
+                vim.cmd.undojoin()
+            end
             self._insertModePos = vim.fn.getpos(".")
             if self._fromSelectMode then
                 self._insertModePos[3] = math.max(1, self._insertModePos[3] - 1)
@@ -166,9 +169,6 @@ function InputManager:_onSafeState()
         local snippetText = self._snippetText
         self._snippetText = nil
         self._cursorManager:dirty()
-        if self._wasSnippet then
-            vim.cmd.undojoin()
-        end
         if self._cursorManager:hasCursors() then
             local reg = vim.fn.getreg(".")
 
@@ -230,7 +230,12 @@ function InputManager:_onSafeState()
                     self._insertModePos = nil
                 end
                 endMode = ctx:mainCursor():mode()
-            end, { excludeMainCursor = false, fixWindow = false, keepChangePos = self._wasSnippet })
+            end, {
+                excludeMainCursor = false,
+                fixWindow = false,
+                keepChangePos = self._wasSnippet,
+                undojoin = self._wasSnippet
+            })
             vim.keymap.del("i", "\7")
             self._snippet.stop()
             self._keys = ""
@@ -251,9 +256,6 @@ function InputManager:_onSafeState()
         if self._cursorManager:hasCursors() then
             local reg = vim.fn.getreg(".")
             self._cursorManager:action(function(ctx)
-                if self._wasSnippet then
-                    vim.cmd.undojoin()
-                end
                 ctx:forEachCursor(function(cursor)
                     cursor:perform(function()
                         if not wasFromSelectMode then
@@ -268,6 +270,7 @@ function InputManager:_onSafeState()
             end, {
                 excludeMainCursor = true,
                 allowUndo = true,
+                undojoin = self._wasSnippet,
                 keepChangePos = self._wasSnippet,
                 forceUndoSave = self._wasSnippet,
                 ifNotUndo = function(mainCursor)
