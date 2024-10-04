@@ -199,7 +199,6 @@ function InputManager:_onSafeState()
             self._cursorManager:action(function(ctx)
                 local mainCursor = ctx:mainCursor()
                 local col = mainCursor:col()
-                local oldPos = mainCursor:getPos()
                 mainCursor:perform(function()
                     if col + 1 < self._snippetCol then
                         local text = string.sub(self._snippetLine, col, self._snippetCol)
@@ -249,6 +248,8 @@ function InputManager:_onSafeState()
             self._applying = false
             if endMode ~= "s" and endMode ~= "S" and endMode ~= TERM_CODES.CTRL_S then
                 feedkeysManager.feedkeys("a", "tn", false)
+            else
+                self._fromSelectMode = true
             end
             return
         end
