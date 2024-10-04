@@ -289,6 +289,12 @@ function examples.clearCursors()
     end)
 end
 
+function examples.restoreCursors()
+    mc.action(function(ctx)
+        ctx:restore()
+    end)
+end
+
 function examples.disableCursors()
     mc.action(function(ctx)
         local mainCursor = ctx:mainCursor()

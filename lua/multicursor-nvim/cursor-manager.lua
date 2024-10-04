@@ -1426,6 +1426,9 @@ local function clearCursorContext(unmergedCursors, mergeRegisters, addMainCursor
 end
 
 function CursorContext:clear()
+    state.oldCursor = cursorCopy(state.mainCursor)
+    state.oldCursors = {table.unpack(state.cursors)}
+    state.oldSeqCur = state.currentSeq
     clearCursorContext(nil, true, false)
 end
 
@@ -1902,35 +1905,26 @@ function CursorManager:loadUndoItem(direction)
     end
 end
 
-function CursorManager:restoreCursors()
+function CursorContext:restore()
     if state.oldSeqCur ~= state.currentSeq then
         return
     end
     local oldCursors = state.oldCursors or {}
     local oldCursor = state.oldCursor
-    state.oldCursors = {}
-    for i, cursor in ipairs(state.cursors) do
-        state.oldCursors[i] = cursor
-    end
-    state.oldCursor = state.mainCursor
-
-    state.cursors = {}
-    for i, cursor in ipairs(oldCursors) do
-        local newCursor = cursorCopy(cursor)
-        newCursor._state = CursorState.none
-        state.cursors[i] = newCursor
-        cursor._state = CursorState.none
+    state.oldCursors = self:getCursors()
+    state.oldCursor = self:mainCursor()
+    for _, cursor in ipairs(oldCursors) do
+        state.cursors[#state.cursors + 1] = cursor
+        cursor._state = CursorState.new
+        cursorSetMarks(cursor)
     end
     if oldCursor then
-        state.mainCursor = cursorCopy(oldCursor)
-        state.mainCursor._state = CursorState.none
-        cursorWrite(state.mainCursor)
+        state.mainCursor = oldCursor
+        state.mainCursor._state = CursorState.new
+        cursorSetMarks(state.mainCursor)
     end
-    if #state.cursors == 0 then
-        clearCursorContext(nil, false)
-    else
-        setOptions()
-        cursorContextRedraw()
+    for _, cursor in ipairs(state.oldCursors) do
+        cursor:delete()
     end
 end
 
