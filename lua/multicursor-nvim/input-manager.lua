@@ -196,10 +196,13 @@ function InputManager:_onSafeState()
                 ctx:forEachCursor(function(cursor)
                     cursor:perform(function()
                         if cursor:isMainCursor() then
-                            vim.fn.setline(".", self._snippetLine)
-                            local pos = cursor:getPos()
-                            pos[2] = math.max(self._snippetCol - 1, 1)
-                            vim.fn.setpos(".", { 0, pos[1], pos[2], 0 })
+                            local col = cursor:col()
+                            if col + 1 < self._snippetCol then
+                                local text = string.sub(self._snippetLine, col, self._snippetCol)
+                                if #text > 0 then
+                                    feedkeysManager.feedkeys("a" .. text .. TERM_CODES.ESC, "n", false)
+                                end
+                            end
                             feedkeysManager.feedkeys("a", "n", false)
                         else
                             if wasFromSelectMode then
@@ -253,7 +256,15 @@ function InputManager:_onSafeState()
                         self:_emitModeChanged(cursor, self._wasMode, mode)
                     end
                 end)
-            end, { excludeMainCursor = true, allowUndo = true })
+            end, {
+                excludeMainCursor = true,
+                allowUndo = true,
+                ifNotUndo = function(mainCursor)
+                    if self._modeChangeCallbacks and self._wasMode ~= mode then
+                        self:_emitModeChanged(mainCursor, self._wasMode, mode)
+                    end
+                end
+            })
         else
             self._cursorManager:update()
         end

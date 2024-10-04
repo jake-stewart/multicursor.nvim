@@ -38,6 +38,7 @@ return {
     lineSkipCursor = examples.lineSkipCursor,
     handleMouse = examples.handleMouse,
     clearCursors = examples.clearCursors,
+    restoreCursors = core.restoreCursors,
     disableCursors = examples.disableCursors,
     enableCursors = examples.enableCursors,
     toggleCursor = examples.toggleCursor,

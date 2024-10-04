@@ -35,6 +35,10 @@ function core.setup(opts)
     })
 end
 
+function core.restoreCursors()
+    cursorManager:restoreCursors()
+end
+
 --- @param callback fun(ctx: CursorContext)
 function core.action(callback)
     if core.performingAction then

@@ -100,6 +100,8 @@ Cursor.__index = Cursor
 --- @field signIds? integer[]
 --- @field modifiedId integer
 --- @field cursors Cursor[]
+--- @field oldCursor? Cursor[]
+--- @field oldCursors? Cursor[]
 --- @field options? table
 --- @field nsid integer
 --- @field virtualEditBlock? boolean
@@ -1523,6 +1525,8 @@ local function cursorContextUpdate(applyToMainCursor)
         CursorContext:clear()
     else
         redrawSigns()
+        state.oldCursor = cursorCopy(state.mainCursor)
+        state.oldCursors = state.cursors
     end
 end
 
@@ -1613,6 +1617,7 @@ end
 --- @field excludeMainCursor? boolean
 --- @field fixWindow? boolean
 --- @field allowUndo? boolean
+--- @field ifNotUndo? function
 
 --- @param callback fun(context: CursorContext)
 --- @param opts ActionOptions
@@ -1701,18 +1706,21 @@ function CursorManager:action(callback, opts)
         end
     end
 
-    if opts.allowUndo
-        and state.currentSeq
-        and state.changedtick
-        and state.changedtick ~= vim.b.changedtick
-    then
-        local undoTree = vim.fn.undotree()
-        if undoTree.seq_cur == undoTree.seq_last
-            and undoTree.seq_cur ~= state.currentSeq
+    if opts.allowUndo then
+        if state.currentSeq
+            and state.changedtick
+            and state.changedtick ~= vim.b.changedtick
         then
-            vim.cmd({ cmd = "undo", bang = true })
-            opts.excludeMainCursor = false
-            cursorWrite(state.mainCursor)
+            local undoTree = vim.fn.undotree()
+            if undoTree.seq_cur == undoTree.seq_last
+                and undoTree.seq_cur ~= state.currentSeq
+            then
+                vim.cmd({ cmd = "undo", bang = true })
+                opts.excludeMainCursor = false
+                cursorWrite(state.mainCursor)
+            end
+        elseif opts.excludeMainCursor and opts.ifNotUndo then
+            opts.ifNotUndo(state.mainCursor)
         end
     end
 
@@ -1836,6 +1844,33 @@ function CursorManager:loadUndoItem(direction)
     cursorWrite(state.mainCursor)
     if #state.cursors == 0 then
         CursorContext:clear()
+    else
+        setOptions()
+        cursorContextRedraw()
+        state.oldCursor = cursorCopy(state.mainCursor)
+        state.oldCursors = state.cursors
+    end
+end
+
+function CursorManager:restoreCursors()
+    local oldCursors = state.oldCursors or {}
+    local oldCursor = state.oldCursor
+    state.oldCursors = {}
+    for i, cursor in ipairs(state.cursors) do
+        state.oldCursors[i] = cursor
+    end
+    state.oldCursor = state.mainCursor
+
+    state.cursors = {}
+    for i, cursor in ipairs(oldCursors) do
+        state.cursors[i] = cursorCopy(cursor)
+    end
+    if oldCursor then
+        state.mainCursor = cursorCopy(oldCursor)
+        cursorWrite(state.mainCursor)
+    end
+    if #state.cursors == 0 then
+        self:clear()
     else
         setOptions()
         cursorContextRedraw()
