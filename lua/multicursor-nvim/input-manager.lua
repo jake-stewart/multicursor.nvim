@@ -242,9 +242,6 @@ function InputManager:_onSafeState()
         if self._cursorManager:hasCursors() then
             local reg = vim.fn.getreg(".")
             self._cursorManager:action(function(ctx)
-                if self._modeChangeCallbacks and self._wasMode ~= mode then
-                    self:_emitModeChanged(ctx:mainCursor(), self._wasMode, mode)
-                end
                 ctx:forEachCursor(function(cursor)
                     cursor:perform(function()
                         if not wasFromSelectMode then
