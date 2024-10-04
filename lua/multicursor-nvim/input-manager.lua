@@ -215,7 +215,12 @@ function InputManager:_onSafeState()
                     feedkeysManager.feedkeys(TERM_CODES.ESC, "nx", false)
                 end)
                 if not self._wasSnippet then
-                    mainCursor:setRedoChangePos({ self._insertModePos[2], self._insertModePos[3] })
+                    if self._insertModePos then
+                        mainCursor:setRedoChangePos({
+                            self._insertModePos[2],
+                            self._insertModePos[3],
+                        })
+                    end
                 end
 
                 ctx:forEachCursor(function(cursor)
@@ -235,9 +240,7 @@ function InputManager:_onSafeState()
                         feedkeysManager.feedkeys(TERM_CODES.ESC, "nx", false)
                     end)
                 end)
-                if self._insertModePos then
-                    self._insertModePos = nil
-                end
+                self._insertModePos = nil
                 endMode = ctx:mainCursor():mode()
             end, {
                 excludeMainCursor = true,
