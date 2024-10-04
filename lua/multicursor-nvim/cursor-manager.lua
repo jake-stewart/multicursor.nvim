@@ -1419,6 +1419,10 @@ local function cursorContextRedraw()
     state.cursorSignId = nil
     if #state.cursors > 0 then
         for _, cursor in ipairs(state.cursors) do
+            cursor._visualIds = nil
+            cursor._posId = nil
+            cursor._vPosId = nil
+            cursor._changePosId = nil
             cursorSetMarks(cursor)
             cursorDraw(cursor)
         end
