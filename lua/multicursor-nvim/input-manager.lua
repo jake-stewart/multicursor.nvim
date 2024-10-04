@@ -138,13 +138,17 @@ function InputManager:_onSafeState()
     if self._applying then
         return
     end
+    self._applying = true
+
     local cmdType = vim.fn.getcmdtype()
     if cmdType ~= "" then
+        self._applying = false
         self._cmdType = cmdType
         return
     elseif self._cmdType then
         if self._cmdType == ":" then
             self._cmdType = nil
+            self._keys = ""
             self._typed = ""
             self._cursorManager:dirty()
             if self._cursorManager:hasCursors() then
@@ -156,11 +160,11 @@ function InputManager:_onSafeState()
             else
                 self._cursorManager:update()
             end
+            self._applying = false
             return
         end
         self._cmdType = nil
     end
-    self._applying = true
 
     if self._snippetText then
         local snippetText = self._snippetText
