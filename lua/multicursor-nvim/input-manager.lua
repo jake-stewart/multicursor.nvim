@@ -198,7 +198,7 @@ function InputManager:_onSafeState()
             self._cursorManager:action(function(ctx)
                 ctx:forEachCursor(function(cursor)
                     cursor:perform(function()
-                        if false and cursor:isMainCursor() then
+                        if cursor:isMainCursor() then
                             local col = cursor:col()
                             if col + 1 < self._snippetCol then
                                 local text = string.sub(self._snippetLine, col, self._snippetCol)
@@ -223,18 +223,25 @@ function InputManager:_onSafeState()
                         feedkeysManager.feedkeys("\7", "", false)
                         feedkeysManager.feedkeys(TERM_CODES.ESC, "nx", false)
                     end)
+                    -- if not self._wasSnippet then
+                    --     cursor:setRedoChangePos(cursor:getPos())
+                    -- end
                 end)
                 if self._insertModePos then
+                    -- ctx:mainCursor():setUndoChangePos({self._insertModePos[2], self._insertModePos[3]})
+                    -- if not self._wasSnippet then
+                    --     ctx:mainCursor():setRedoChangePos({self._insertModePos[2], self._insertModePos[3]})
+                    -- end
                     self._insertModePos = nil
                 end
                 endMode = ctx:mainCursor():mode()
             end, {
-                allowUndo = true,
-                excludeMainCursor = true,
+                excludeMainCursor = false,
                 fixWindow = false,
                 keepChangePos = self._wasSnippet,
-                undojoin = self._wasSnippet,
+                undojoin = true,
             })
+            vim.print(self._wasSnippet)
             vim.keymap.del("i", "\7")
             self._snippet.stop()
             self._keys = ""
