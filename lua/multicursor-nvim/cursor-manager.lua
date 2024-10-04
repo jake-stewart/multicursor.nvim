@@ -1390,7 +1390,8 @@ end
 
 --- @param unmergedCursors? Cursor[]
 --- @param mergeRegisters? boolean
-local function clearCursorContext(unmergedCursors, mergeRegisters)
+--- @param addMainCursor? boolean
+local function clearCursorContext(unmergedCursors, mergeRegisters, addMainCursor)
     clear_namespace(0, state.nsid, 0, -1)
     state.signIds = nil
     state.numDisabledCursors = 0
@@ -1400,7 +1401,7 @@ local function clearCursorContext(unmergedCursors, mergeRegisters)
         state.yanked = nil
         if mergeRegisters then
             local cursors = unmergedCursors or state.cursors
-            if state.mainCursor then
+            if state.mainCursor and addMainCursor then
                 cursors[#cursors + 1] = state.mainCursor
             end
             table.sort(cursors, compareCursorsPosition)
@@ -1425,7 +1426,7 @@ local function clearCursorContext(unmergedCursors, mergeRegisters)
 end
 
 function CursorContext:clear()
-    clearCursorContext(nil, true)
+    clearCursorContext(nil, true, false)
 end
 
 --- @param cursor Cursor
@@ -1569,7 +1570,7 @@ local function cursorContextUpdate(applyToMainCursor)
     end
     state.changedtick = vim.b.changedtick
     if #state.cursors == 0 then
-        clearCursorContext(unmergedCursors, true)
+        clearCursorContext(unmergedCursors, true, true)
     else
         redrawSigns()
         state.oldCursor = cursorCopy(state.mainCursor)
@@ -1881,7 +1882,7 @@ function CursorManager:loadUndoItem(direction)
     local lookup = direction == 1 and state.redoItems or state.undoItems
     local undoItem = lookup[id];
     if not undoItem then
-        clearCursorContext(nil, false)
+        clearCursorContext(nil, false, true)
         return
     end
     state.mainCursor, state.cursors, state.numEnabledCursors, state.numDisabledCursors = unpackCursors(
@@ -1889,7 +1890,7 @@ function CursorManager:loadUndoItem(direction)
     cursorContextMergeCursors()
     cursorWrite(state.mainCursor)
     if #state.cursors == 0 then
-        clearCursorContext(nil, false)
+        clearCursorContext(nil, false, true)
     else
         setOptions()
         cursorContextRedraw()
