@@ -355,9 +355,17 @@ function Cursor:setSearch(search)
 --- @return self
 function Cursor:setVisual(visualStart, visualEnd)
 
---- Returns true if in visual or select mode.
+--- Returns true if cursor is in visual mode
 --- @return boolean
 function Cursor:inVisualMode()
+
+--- Returns true if cursor is in visual mode
+--- @return boolean
+function Cursor:inSelectMode()
+
+--- Returns true if cursor is in visual or select mode
+--- @return boolean
+function Cursor:hasSelection()
 ```
 
 ### CursorContext
