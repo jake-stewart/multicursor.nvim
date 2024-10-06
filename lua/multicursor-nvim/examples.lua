@@ -66,7 +66,7 @@ function examples.matchCursors(pattern)
         end
         local newCursors = {}
         ctx:forEachCursor(function(cursor)
-            if cursor:inVisualMode() then
+            if cursor:hasSelection() then
                 newCursors = tbl.concat(
                     newCursors, cursor:splitVisualLines())
             else
@@ -450,7 +450,7 @@ local function matchAddCursor(direction, add)
         local cursorChar
         local cursorWord
         local searchWord
-        if not mainCursor:inVisualMode() then
+        if not mainCursor:hasSelection() then
             local c = mainCursor:col()
             cursorChar = string.sub(mainCursor:getLine(), c, c)
             cursorWord = mainCursor:getCursorWord()
@@ -464,8 +464,8 @@ local function matchAddCursor(direction, add)
         end
         addCursor(ctx, function(cursor)
             local regex
-            local inVisualMode = cursor:inVisualMode()
-            if inVisualMode then
+            local hasSelection = cursor:hasSelection()
+            if hasSelection then
                 regex = "\\C\\V" .. escapeRegex(table.concat(cursor:getVisualLines(), "\n"))
                 if cursor:mode() == "V" or cursor:mode() == "S" then
                     cursor:feedkeys(cursor:atVisualStart() and "0" or "o0")
@@ -484,7 +484,7 @@ local function matchAddCursor(direction, add)
             cursor:perform(function()
                 vim.fn.search(regex, (direction == -1 and "b" or ""))
             end)
-            if inVisualMode then
+            if hasSelection then
                 cursor:feedkeys(TERM_CODES.ESC)
             end
         end, { addCursor = add })
@@ -505,9 +505,9 @@ function examples.matchAllAddCursors()
     mc.action(function(ctx)
         local mainCursor = ctx:mainCursor()
         local regex
-        local inVisualMode = mainCursor:inVisualMode()
+        local hasSelection = mainCursor:hasSelection()
         local atVisualStart = mainCursor:atVisualStart()
-        if inVisualMode then
+        if hasSelection then
             regex = "\\C\\V" .. escapeRegex(table.concat(mainCursor:getVisualLines(), "\n"))
             if mainCursor:mode() == "V" or mainCursor:mode() == "S" then
                 mainCursor:feedkeys(atVisualStart and "0" or "o0")

@@ -179,6 +179,30 @@ local function safeGetExtmark(id)
     return nil
 end
 
+local function cursorReset(cursor)
+    cursor._origPos = cursor._pos
+    cursor._origChangePos = cursor._changePos
+    cursor._changePos = nil
+    cursor._state = CursorState.none
+    cursor._drift = { 0, 0 }
+end
+
+--- @param cursor Cursor
+--- @param target Cursor
+local function cursorCopyMode(cursor, target)
+    if cursor._mode == target._mode then
+        return
+    end
+    if target._mode == "n" and cursor:hasSelection() then
+        if not cursor:atVisualStart() then
+            cursor:feedkeys("o" .. TERM_CODES.ESC)
+        else
+            cursor:feedkeys(TERM_CODES.ESC)
+        end
+    end
+    cursor._mode = target._mode
+end
+
 --- @param cursor Cursor
 local function cursorUpdatePos(cursor)
     local oldPos = cursor._pos
@@ -585,7 +609,7 @@ end
 local function cursorSetMarks(cursor)
     cursorClearMarks(cursor)
     local opts = { strict = false, undo_restore = false }
-    if cursor:inVisualMode() then
+    if cursor:hasSelection() then
         cursor._vPosId = set_extmark(
             0,
             state.nsid,
@@ -672,6 +696,21 @@ local function cursorWrite(cursor)
         vim.fn.setpos(".", cursor._pos)
     else
         error("unexpected mode:" .. mode)
+    end
+end
+
+--- @param cursor Cursor
+local function cursorUpdate(cursor)
+    if cursor._state == CursorState.deleted then
+        cursorErase(cursor)
+        cursorClearMarks(cursor)
+    elseif cursor._state == CursorState.new then
+        cursorCheckUpdate(cursor)
+        cursorDraw(cursor)
+    elseif cursor._state == CursorState.dirty then
+        cursorCheckUpdate(cursor)
+        cursorErase(cursor)
+        cursorDraw(cursor)
     end
 end
 
@@ -1073,13 +1112,12 @@ end
 -- the id is of each cursor is negative if the cursor is disabled
 
 --- @param cursors Cursor[]
---- @param mainCursor Cursor
 --- @return number[]
-local function packRedoCursors(mainCursor, cursors)
+local function packRedoCursors(cursors)
     local data = {}
-    data[1] = mainCursor._id
-    data[2] = mainCursor._redoChangePos[2]
-    data[3] = mainCursor._redoChangePos[3]
+    data[1] = state.mainCursor._id
+    data[2] = state.mainCursor._redoChangePos[2]
+    data[3] = state.mainCursor._redoChangePos[3]
     local i = 4
     for _, cursor in ipairs(cursors) do
         data[i] = cursor._enabled and cursor._id or -cursor._id
@@ -1091,13 +1129,12 @@ local function packRedoCursors(mainCursor, cursors)
 end
 
 --- @param cursors Cursor[]
---- @param mainCursor Cursor
 --- @return number[]
-local function packUndoCursors(mainCursor, cursors)
+local function packUndoCursors(cursors)
     local data = {}
-    data[1] = mainCursor._id
-    data[2] = mainCursor._changePos[2]
-    data[3] = mainCursor._changePos[3]
+    data[1] = state.mainCursor._id
+    data[2] = state.mainCursor._changePos[2]
+    data[3] = state.mainCursor._changePos[3]
     local i = 4
     for _, cursor in ipairs(cursors) do
         if cursor._enabled then
@@ -1115,20 +1152,17 @@ local function packUndoCursors(mainCursor, cursors)
 end
 
 --- @param data number[]
---- @param mainCursor Cursor
---- @param cursors Cursor[]
---- @return Cursor, Cursor[], integer, integer
-local function unpackCursors(data, mainCursor, cursors)
+local function unpackCursors(data)
     local cursorLookup = {}
-    for _, cursor in ipairs(cursors) do
+    for _, cursor in ipairs(state.cursors) do
         cursorLookup[cursor._id] = cursor
     end
-    local newCursors = {}
+    state.cursors = {}
     local newMainCursor
-    local numDisabledCursors = 0
-    local numEnabledCursors = 0
+    state.numDisabledCursors = 0
+    state.numEnabledCursors = 0
     for i = 1, #data, 3 do
-        local cursor = cursorLookup[math.abs(data[i])] or cursorCopy(mainCursor)
+        local cursor = cursorLookup[math.abs(data[i])] or cursorCopy(state.mainCursor)
         local col = math.max(1,
             math.min(
                 data[i + 2],
@@ -1143,17 +1177,17 @@ local function unpackCursors(data, mainCursor, cursors)
         cursor._modifiedId = state.modifiedId
         cursor._enabled = data[i] > 0
         if cursor._enabled then
-            numEnabledCursors = numEnabledCursors + 1
+            state.numEnabledCursors = state.numEnabledCursors + 1
         else
-            numDisabledCursors = numDisabledCursors + 1
+            state.numDisabledCursors = state.numDisabledCursors + 1
         end
         if i == 1 then
             newMainCursor = cursor
         else
-            newCursors[#newCursors + 1] = cursor
+            state.cursors[#state.cursors + 1] = cursor
         end
     end
-    return newMainCursor, newCursors, numEnabledCursors, numDisabledCursors
+    state.mainCursor = newMainCursor
 end
 
 --- Returns a new cursor with the same position, registers,
@@ -1209,7 +1243,7 @@ end
 --- @return Pos, Pos
 function Cursor:getVisual()
     cursorCheckUpdate(self)
-    if self:inVisualMode() then
+    if self:hasSelection() then
         if self:atVisualStart() then
             return
                 {self._pos[2], self._pos[3], self._pos[4] },
@@ -1309,7 +1343,7 @@ function Cursor:setVisual(visualStart, visualEnd)
         self._visualStart = { self._visualStart[1], visualStart[1], visualStart[2], 0 }
         self._visualEnd = { self._visualEnd[1], visualEnd[1], visualEnd[2], 0 }
     end
-    if self:inVisualMode() then
+    if self:hasSelection() then
         local nvs = self._visualStart
         local nve = self._visualEnd
         if atVisualEnd then
@@ -1327,8 +1361,24 @@ end
 
 --- Returns true if in visual or select mode.
 --- @return boolean
-function Cursor:inVisualMode()
+function Cursor:hasSelection()
     return not not VISUAL_LOOKUP[self._mode]
+end
+
+--- Returns true if cursor is in visual char/line/block mode
+--- @return boolean
+function Cursor:inVisualMode()
+    return self._mode == "v"
+        or self._mode == "V"
+        or self._mode == TERM_CODES.CTRL_V
+end
+
+--- Returns true if cursor is in select char/line/block mode
+--- @return boolean
+function Cursor:inSelectMode()
+    return self._mode == "s"
+        or self._mode == "S"
+        or self._mode == TERM_CODES.CTRL_S
 end
 
 --- When cursors are disabled, only the main cursor can be interacted with.
@@ -1449,6 +1499,50 @@ local function cursorApplyDrift(cursor)
     return cursor
 end
 
+local function updateSigns()
+    local signsOnLeft = string.match(vim.o.signcolumn, "yes")
+        or string.match(vim.o.signcolumn, "auto")
+        or vim.o.signcolumn == "number"
+        and not vim.o.number
+        and not vim.o.relativenumber
+
+    if signsOnLeft == state.signsOnLeft then
+        return
+    end
+
+    state.signsOnLeft = signsOnLeft
+    local leftSpace = signsOnLeft and "" or " "
+    local rightSpace = signsOnLeft and " " or ""
+    state.alignedSigns = {}
+
+    local function createCursorSign(n)
+        if state.signs[n] then
+            state.alignedSigns[n] = leftSpace .. state.signs[n] .. rightSpace
+        end
+    end
+    local function createArrowSign(n, offset)
+        if state.signs[n] then
+            local leftChar = signsOnLeft and "" or state.signs[n]
+            local rightChar = signsOnLeft and state.signs[n] or ""
+            state.alignedSigns[offset] = rightSpace .. state.signs[n] .. leftSpace
+            state.alignedSigns[offset + 1] = leftChar .. (state.signs[1] or " ") .. rightChar
+            state.alignedSigns[offset + 2] = leftChar .. (state.signs[2] or " ") .. rightChar
+            state.alignedSigns[offset + 3] = leftChar .. (state.signs[3] or " ") .. rightChar
+        else
+            state.alignedSigns[offset + 1] = state.alignedSigns[1]
+            state.alignedSigns[offset + 2] = state.alignedSigns[2]
+            state.alignedSigns[offset + 3] = state.alignedSigns[3]
+        end
+    end
+    createCursorSign(1)
+    createCursorSign(2)
+    createCursorSign(3)
+    createArrowSign(4, 4)
+    createArrowSign(5, 8)
+    createArrowSign(6, 12)
+    createArrowSign(7, 16)
+end
+
 local function redrawSigns()
     if state.signIds then
         for _, id in ipairs(state.signIds) do
@@ -1530,41 +1624,39 @@ local function cursorContextUpdate(applyToMainCursor)
     if not state.currentSeq then
         local undoTree = vim.fn.undotree()
         state.currentSeq = undoTree.seq_cur
-    else
-        if vim.b.changedtick ~= state.changedtick then
-            local undoTree = vim.fn.undotree()
-            if undoTree.seq_cur and state.currentSeq ~= undoTree.seq_cur then
-                if didMerge then
-                    state.mainCursor._changePos = state.mainCursor._origPos
-                    for _, cursor in ipairs(unmergedCursors) do
-                        cursor._changePos = cursor._origPos
-                    end
+    elseif vim.b.changedtick ~= state.changedtick then
+        local undoTree = vim.fn.undotree()
+        if undoTree.seq_cur and state.currentSeq ~= undoTree.seq_cur then
+            if didMerge then
+                state.mainCursor._changePos = state.mainCursor._origPos
+                for _, cursor in ipairs(unmergedCursors) do
+                    cursor._changePos = cursor._origPos
+                end
+            else
+                if applyToMainCursor then
+                    cursorApplyDrift(state.mainCursor)
                 else
-                    if applyToMainCursor then
-                        cursorApplyDrift(state.mainCursor)
-                    else
-                        state.mainCursor._changePos = state.mainCursor._origChangePos
-                        if not state.mainCursor._redoChangePos then
-                            state.mainCursor._redoChangePos = state.mainCursor._pos
-                        end
-                    end
-                    for _, cursor in ipairs(unmergedCursors) do
-                        cursorApplyDrift(cursor)
+                    state.mainCursor._changePos = state.mainCursor._origChangePos
+                    if not state.mainCursor._redoChangePos then
+                        state.mainCursor._redoChangePos = state.mainCursor._pos
                     end
                 end
-                for _, cursor in ipairs(state.cursors) do
-                    cursor._redoChangePos = cursor._redoChangePos or cursor._pos
+                for _, cursor in ipairs(unmergedCursors) do
+                    cursorApplyDrift(cursor)
                 end
-                local undoItem = #unmergedCursors > 0
-                    and packUndoCursors(state.mainCursor, unmergedCursors)
-                    or nil
-                local redoItem = #state.cursors > 0
-                    and packRedoCursors(state.mainCursor, state.cursors)
-                    or nil
-                state.undoItems[undoItemId(state.currentSeq)] = undoItem
-                state.redoItems[undoItemId(undoTree.seq_cur)] = redoItem
-                state.currentSeq = undoTree.seq_cur
             end
+            for _, cursor in ipairs(state.cursors) do
+                cursor._redoChangePos = cursor._redoChangePos or cursor._pos
+            end
+            local undoItem = #unmergedCursors > 0
+                and packUndoCursors(unmergedCursors)
+                or nil
+            local redoItem = #state.cursors > 0
+                and packRedoCursors(state.cursors)
+                or nil
+            state.undoItems[undoItemId(state.currentSeq)] = undoItem
+            state.redoItems[undoItemId(undoTree.seq_cur)] = redoItem
+            state.currentSeq = undoTree.seq_cur
         end
         for _, cursor in ipairs(state.cursors) do
             cursor._changePos = cursor._changePos
@@ -1578,9 +1670,6 @@ local function cursorContextUpdate(applyToMainCursor)
         clearCursorContext(unmergedCursors, true, true)
     else
         redrawSigns()
-        -- state.oldCursor = cursorCopy(state.mainCursor)
-        -- state.oldCursors = {table.unpack(state.cursors)}
-        -- state.oldSeqCur = state.currentSeq
     end
 end
 
@@ -1644,7 +1733,10 @@ function CursorManager:update()
     cursorContextUpdate(false)
 end
 
-local function createMainCursorSignHighlight()
+local function updateCursorline()
+    if vim.o.cursorline == state.cursorline then
+        return
+    end
     if state.mainSignHlExists == nil then
         state.mainSignHlExists = vim.fn.hlexists("MultiCursorMainSign") == 1
     end
@@ -1665,6 +1757,72 @@ local function createMainCursorSignHighlight()
     vim.api.nvim_set_hl(0, "MultiCursorMainSign", newHl)
 end
 
+--- @param opts ActionOptions
+local function tryUndo(opts)
+    if not opts.allowUndo then
+        return
+    end
+    if state.currentSeq
+        and state.changedtick
+        and state.changedtick ~= vim.b.changedtick
+    then
+        local undoTree = vim.fn.undotree()
+        if undoTree.seq_cur == undoTree.seq_last
+            and undoTree.seq_cur ~= state.currentSeq
+        then
+            vim.cmd({ cmd = "undo", bang = true })
+            opts.excludeMainCursor = false
+            cursorWrite(state.mainCursor)
+        end
+    elseif opts.excludeMainCursor and opts.ifNotUndo then
+        opts.ifNotUndo(state.mainCursor)
+    end
+end
+
+local function updateVirtualEdit()
+    state.virtualEditBlock = false
+    for _, key in ipairs(vim.opt.virtualedit:get()) do
+        if key == "block" or key == "all" then
+            state.virtualEditBlock = true
+            break
+        end
+    end
+end
+
+--- @param origCursor Cursor
+--- @param winStartLine integer
+local function fixWindowScroll(origCursor, winStartLine)
+    local newStartLine = vim.fn.line("w0")
+    local newEndLine = vim.fn.line("w$")
+    local scrollOff = vim.o.scrolloff
+    if scrollOff >= math.floor((newEndLine - newStartLine) / 2) then
+        -- dont go scrolling since cursor is guarenteed
+        -- to be in the middle of the screen due to scrolloff
+    elseif origCursor._pos[2] <= newEndLine - scrollOff then
+        local rowDelta = math.max(
+            newStartLine - origCursor._pos[2] + scrollOff,
+            math.min(
+                newEndLine - origCursor._pos[2] - scrollOff,
+                newStartLine - winStartLine - origCursor._drift[1]
+            )
+        )
+        if rowDelta < 0 then
+            local absDelta = math.abs(rowDelta)
+            feedkeys(absDelta .. TERM_CODES.CTRL_E)
+        elseif rowDelta > 0 then
+            local absDelta = rowDelta
+            feedkeys(absDelta .. TERM_CODES.CTRL_Y)
+        end
+    end
+    -- i would also update leftcol here, but vim.fn.winsaveview()
+    -- is returning outdated values. probably a neovim bug
+end
+
+local function forceStatuslineUpdate()
+    vim.o.statusline = vim.o.statusline
+    vim.o.rulerformat = vim.o.rulerformat
+end
+
 --- @class ActionOptions
 --- @field excludeMainCursor? boolean
 --- @field fixWindow? boolean
@@ -1674,204 +1832,55 @@ end
 --- @param callback fun(context: CursorContext)
 --- @param opts ActionOptions
 function CursorManager:action(callback, opts)
-    local signsOnLeft = string.match(vim.o.signcolumn, "yes")
-        or string.match(vim.o.signcolumn, "auto")
-        or vim.o.signcolumn == "number"
-        and not vim.o.number
-        and not vim.o.relativenumber
     if state.yanked == nil then
         state.yanked = false
     end
-    if signsOnLeft ~= state.signsOnLeft then
-        state.signsOnLeft = signsOnLeft
-        local leftSpace = signsOnLeft and "" or " "
-        local rightSpace = signsOnLeft and " " or ""
-        state.alignedSigns = {}
-        if state.signs[1] then
-            state.alignedSigns[1] = leftSpace .. state.signs[1] .. rightSpace
-        end
-        if state.signs[2] then
-            state.alignedSigns[2] = leftSpace .. state.signs[2] .. rightSpace
-        end
-        if state.signs[3] then
-            state.alignedSigns[3] = leftSpace .. state.signs[3] .. rightSpace
-        end
-        if state.signs[4] then
-            local leftUpArrow = signsOnLeft and "" or state.signs[4]
-            local rightUpArrow = signsOnLeft and state.signs[4] or ""
-            state.alignedSigns[4] = rightSpace .. state.signs[4] .. leftSpace
-            state.alignedSigns[5] = leftUpArrow .. state.signs[1] .. rightUpArrow
-            state.alignedSigns[6] = leftUpArrow .. state.signs[2] .. rightUpArrow
-            state.alignedSigns[7] = leftUpArrow .. state.signs[3] .. rightUpArrow
-        else
-            state.alignedSigns[5] = state.alignedSigns[1]
-            state.alignedSigns[6] = state.alignedSigns[2]
-            state.alignedSigns[7] = state.alignedSigns[3]
-        end
-        if state.signs[5] then
-            local leftDownArrow = signsOnLeft and "" or state.signs[5]
-            local rightDownArrow = signsOnLeft and state.signs[5] or ""
-            state.alignedSigns[8] = rightSpace .. state.signs[5] .. leftSpace
-            state.alignedSigns[9] = leftDownArrow .. state.signs[1] .. rightDownArrow
-            state.alignedSigns[10] = leftDownArrow .. state.signs[2] .. rightDownArrow
-            state.alignedSigns[11] = leftDownArrow .. state.signs[3] .. rightDownArrow
-        else
-            state.alignedSigns[8] = state.alignedSigns[1]
-            state.alignedSigns[9] = state.alignedSigns[2]
-            state.alignedSigns[10] = state.alignedSigns[3]
-        end
-        if state.signs[6] then
-            local leftUpArrow = signsOnLeft and "" or state.signs[6]
-            local rightUpArrow = signsOnLeft and state.signs[6] or ""
-            state.alignedSigns[12] = rightSpace .. state.signs[6] .. leftSpace
-            state.alignedSigns[13] = leftUpArrow .. state.signs[1] .. rightUpArrow
-            state.alignedSigns[14] = leftUpArrow .. state.signs[2] .. rightUpArrow
-            state.alignedSigns[15] = leftUpArrow .. state.signs[3] .. rightUpArrow
-        else
-            state.alignedSigns[13] = state.alignedSigns[1]
-            state.alignedSigns[14] = state.alignedSigns[2]
-            state.alignedSigns[15] = state.alignedSigns[3]
-        end
-        if state.signs[7] then
-            local leftDownArrow = signsOnLeft and "" or state.signs[7]
-            local rightDownArrow = signsOnLeft and state.signs[7] or ""
-            state.alignedSigns[16] = rightSpace .. state.signs[7] .. leftSpace
-            state.alignedSigns[17] = leftDownArrow .. state.signs[1] .. rightDownArrow
-            state.alignedSigns[18] = leftDownArrow .. state.signs[2] .. rightDownArrow
-            state.alignedSigns[19] = leftDownArrow .. state.signs[3] .. rightDownArrow
-        else
-            state.alignedSigns[17] = state.alignedSigns[1]
-            state.alignedSigns[18] = state.alignedSigns[2]
-            state.alignedSigns[19] = state.alignedSigns[3]
-        end
-    end
-
-    if state.cursorline == nil or vim.o.cursorline ~= state.cursorline then
-        state.cursorline = vim.o.cursorline
-        createMainCursorSignHighlight()
-    end
+    updateSigns()
+    updateCursorline()
     setOptions()
+    updateVirtualEdit()
     state.leftcol = vim.fn.winsaveview().leftcol
     state.textoffset = vim.fn.getwininfo(vim.fn.win_getid())[1].textoff
-    state.virtualEditBlock = false
-    for _, key in ipairs(vim.opt.virtualedit:get()) do
-        if key == "block" or key == "all" then
-            state.virtualEditBlock = true
-            break
-        end
-    end
 
-    if opts.allowUndo then
-        if state.currentSeq
-            and state.changedtick
-            and state.changedtick ~= vim.b.changedtick
-        then
-            local undoTree = vim.fn.undotree()
-            if undoTree.seq_cur == undoTree.seq_last
-                and undoTree.seq_cur ~= state.currentSeq
-            then
-                vim.cmd({ cmd = "undo", bang = true })
-                opts.excludeMainCursor = false
-                cursorWrite(state.mainCursor)
-            end
-        elseif opts.excludeMainCursor and opts.ifNotUndo then
-            opts.ifNotUndo(state.mainCursor)
-        end
-    end
+    tryUndo(opts)
 
     local origCursor = state.mainCursor or createCursor({})
     state.mainCursor = origCursor
-    cursorRead(state.mainCursor)
-    local winStartLine = vim.fn.line("w0")
-    cursorSetMarks(state.mainCursor)
-    if not opts.excludeMainCursor then
-        state.cursors[#state.cursors + 1] = origCursor
+    cursorRead(origCursor)
+    cursorSetMarks(origCursor)
+    origCursor._enabled = true
+    if opts.excludeMainCursor then
+        cursorReset(origCursor)
     else
-        origCursor._origPos = origCursor._pos
-        origCursor._origChangePos = origCursor._changePos
-        origCursor._changePos = nil
-        origCursor._enabled = true
-        origCursor._state = CursorState.none
-        origCursor._drift = { 0, 0 }
+        state.cursors[#state.cursors + 1] = origCursor
     end
     for _, cursor in ipairs(state.cursors) do
-        cursor._origPos = cursor._pos
-        cursor._origChangePos = cursor._changePos
-        cursor._changePos = nil
-        cursor._state = CursorState.none
-        cursor._drift = { 0, 0 }
+        cursorReset(cursor)
     end
+    local winStartLine = vim.fn.line("w0")
     local result = callback(CursorContext)
 
     state.mainCursor = CursorContext:mainCursor()
-    if not state.mainCursor:inVisualMode() then
+    if not state.mainCursor:hasSelection() then
         state.mainCursor._mode = "n"
     end
     for _, cursor in ipairs(state.cursors) do
         if cursor._enabled and cursor._state ~= CursorState.deleted then
-            if cursor._mode ~= state.mainCursor._mode then
-                if state.mainCursor._mode == "n" and cursor:inVisualMode() then
-                    if not cursor:atVisualStart() then
-                        cursor:feedkeys("o" .. TERM_CODES.ESC)
-                    else
-                        cursor:feedkeys(TERM_CODES.ESC)
-                    end
-                end
-                cursor._mode = state.mainCursor._mode
-            end
+            cursorCopyMode(cursor, state.mainCursor)
         end
     end
     cursorCheckUpdate(state.mainCursor)
-    cursorErase(state.mainCursor)
-    cursorClearMarks(state.mainCursor)
     cursorWrite(state.mainCursor)
     if state.mainCursor == origCursor and opts.fixWindow ~= false then
-        local newStartLine = vim.fn.line("w0")
-        local newEndLine = vim.fn.line("w$")
-        local scrollOff = vim.o.scrolloff
-        if scrollOff >= math.floor((newEndLine - newStartLine) / 2) then
-            -- dont go scrolling since cursor is guarenteed
-            -- to be in the middle of the screen due to scrolloff
-        elseif origCursor._pos[2] <= newEndLine - scrollOff then
-            local rowDelta = math.max(
-                newStartLine - origCursor._pos[2] + scrollOff,
-                math.min(
-                    newEndLine - origCursor._pos[2] - scrollOff,
-                    newStartLine - winStartLine - origCursor._drift[1]
-                )
-            )
-            if rowDelta < 0 then
-                local absDelta = math.abs(rowDelta)
-                feedkeys(absDelta .. TERM_CODES.CTRL_E)
-            elseif rowDelta > 0 then
-                local absDelta = rowDelta
-                feedkeys(absDelta .. TERM_CODES.CTRL_Y)
-            end
-        end
-        -- i would also update leftcol here, but vim.fn.winsaveview()
-        -- is returning outdated values. probably a neovim bug
+        fixWindowScroll(origCursor, winStartLine)
     end
     state.mainCursor._state = CursorState.deleted
-    for _, cursor in ipairs(state.cursors) do
-        if cursor._state == CursorState.deleted then
-            cursorErase(cursor)
-            cursorClearMarks(cursor)
-        elseif cursor._state == CursorState.new then
-            cursorCheckUpdate(cursor)
-            cursorDraw(cursor)
-        elseif cursor._state == CursorState.dirty then
-            cursorCheckUpdate(cursor)
-            cursorErase(cursor)
-            cursorDraw(cursor)
-        end
-    end
     state.cursors = tbl.filter(state.cursors, function(cursor)
+        cursorUpdate(cursor)
         return cursor._state ~= CursorState.deleted
     end)
     cursorContextUpdate(not opts.excludeMainCursor)
-    -- force statusline and ruler update
-    vim.o.statusline = vim.o.statusline
-    vim.o.rulerformat = vim.o.rulerformat
+    forceStatuslineUpdate()
     return result
 end
 
@@ -1883,14 +1892,18 @@ function CursorManager:loadUndoItem(direction)
         return
     end
     state.currentSeq = undoTree.seq_cur
-    local lookup = direction == 1 and state.redoItems or state.undoItems
-    local undoItem = lookup[id];
+    local lookup = direction == 1
+        and state.redoItems
+        or state.undoItems
+    local undoItem = lookup[id]
     if not undoItem then
         clearCursorContext(nil, false, true)
         return
     end
-    state.mainCursor, state.cursors, state.numEnabledCursors, state.numDisabledCursors = unpackCursors(
-        undoItem, CursorContext:mainCursor(), state.cursors)
+    if not state.mainCursor then
+        state.mainCursor = cursorRead(createCursor({}))
+    end
+    unpackCursors(undoItem)
     cursorContextMergeCursors()
     cursorWrite(state.mainCursor)
     if #state.cursors == 0 then
