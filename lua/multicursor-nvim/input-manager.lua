@@ -253,7 +253,6 @@ function InputManager:_onKey(key, typed)
     if self._applying or isInsertOrReplaceMode(self._wasMode) then
         return
     end
-    self._wasMode = vim.fn.mode()
     self._keys = self._keys .. key
     self._typed = self._typed .. typed
 end
