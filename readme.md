@@ -359,7 +359,7 @@ function Cursor:setVisual(visualStart, visualEnd)
 --- @return boolean
 function Cursor:inVisualMode()
 
---- Returns true if cursor is in visual mode
+--- Returns true if cursor is in select mode
 --- @return boolean
 function Cursor:inSelectMode()
 
