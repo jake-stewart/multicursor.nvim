@@ -276,8 +276,11 @@ local function cursorDrawVisualChar(cursor, lines, start, hl)
     local ve
     if cursor._vPos[2] < cursor._pos[2]
         or cursor._vPos[2] == cursor._pos[2]
-        and (cursor._vPos[3] + cursor._vPos[4])
-            < (cursor._pos[3] + cursor._pos[4])
+        and (
+            cursor._vPos[3] < cursor._pos[3]
+            or cursor._vPos[3] == cursor._pos[3]
+            and cursor._vPos[4] < cursor._pos[4]
+        )
     then
         vs = cursor._vPos
         ve = cursor._pos
@@ -293,11 +296,13 @@ local function cursorDrawVisualChar(cursor, lines, start, hl)
             undo_restore = false,
             priority = 2000,
             virt_text = ve[3] > #line
-                and {{string.rep(" ", ve[4] - vs[4] + 1), hl}}
-                or nil,
+                and (vs[3] > #line
+                    and {{string.rep(" ", ve[4] - vs[4] + 1), hl}}
+                    or {{string.rep(" ", ve[4] + 1), hl}}
+                ) or nil,
             end_col = ve[3],
             virt_text_pos = "overlay",
-            virt_text_win_col = displayWidth + vs[4] - state.leftcol,
+            virt_text_win_col = displayWidth + (vs[3] > #line and vs[4] or 0) - state.leftcol,
             hl_group = hl,
         })
         cursor._visualIds[#cursor._visualIds + 1] = id
@@ -306,17 +311,29 @@ local function cursorDrawVisualChar(cursor, lines, start, hl)
         while i <= ve[2] do
             local row = i - 1
             local line = lines[row - start + 1]
-            local col = i == vs[2] and (vs[3] - 1 + vs[4]) or 0
+            local col = i == vs[2] and (vs[3] - 1) or 0
             local displayWidth = line and vim.fn.strdisplaywidth(line) or 0
             local endCol = i == ve[2]
                 and ve[3] - 1
                 or #line
-            local virt_text = endCol >= #line and {{
-                i == ve[2]
-                    and string.rep(" ", ve[4] + (ve[3] == displayWidth + 1 and 1 or 0))
-                    or " ",
-                hl
-            }} or nil
+            local endVirtCol = i == ve[2]
+                and endCol
+                or endCol + ve[4]
+            local virt_text = endVirtCol >= #line
+                and (col > #line
+                    and {{
+                        i == ve[2]
+                            and string.rep(" ", ve[4] + (endVirtCol == displayWidth + 1 and 1 or 0))
+                            or " ",
+                        hl
+                    }}
+                    or {{
+                        i == ve[2]
+                            and string.rep(" ", ve[4] + 1)
+                            or " ",
+                        hl
+                    }}
+                ) or nil
             local id = set_extmark(0, state.nsid, row, col, {
                 strict = false,
                 undo_restore = false,
@@ -325,7 +342,7 @@ local function cursorDrawVisualChar(cursor, lines, start, hl)
                 priority = 2000,
                 virt_text_pos = "overlay",
                 virt_text_win_col = displayWidth
-                    + (i == vs[2] and vs[4] or 0) - state.leftcol,
+                    + (col >= #line and i == vs[2] and vs[4] or 0) - state.leftcol,
                 hl_group = hl,
             })
             cursor._visualIds[#cursor._visualIds + 1] = id
@@ -350,7 +367,7 @@ local function cursorDrawVisualLine(cursor, lines, start, hl)
             undo_restore = false,
             virt_text = {{" ", hl}},
             end_col = #line,
-            virt_text_pos = "inline",
+            virt_text_pos = "overlay",
             priority = 2000,
             virt_text_win_col = displayWidth - state.leftcol,
             hl_group = hl,
@@ -367,10 +384,25 @@ end
 local function cursorDrawVisualBlock(cursor, lines, start, hl)
     local startLine = math.min(cursor._vPos[2], cursor._pos[2])
     local endLine = math.max(cursor._vPos[2], cursor._pos[2])
-    local vc = cursor._vPos[3] + cursor._vPos[4]
-    local pc = cursor._pos[3] + cursor._pos[4]
-    local startCol = math.min(vc, pc)
-    local endCol = math.max(vc, pc)
+    local startCol
+    local endCol
+    local startVirtCol
+    local endVirtCol
+    local atEnd = cursor._vPos[3] < cursor._pos[3]
+        or cursor._vPos[3] == cursor._pos[3]
+        and cursor._vPos[4] < cursor._pos[4]
+    if atEnd then
+        startCol = cursor._vPos[3]
+        endCol = cursor._pos[3]
+        startVirtCol = startCol + cursor._vPos[4]
+        endVirtCol = endCol + cursor._pos[4]
+    else
+        startCol = cursor._pos[3]
+        endCol = cursor._vPos[3]
+        startVirtCol = startCol + cursor._pos[4]
+        endVirtCol = endCol + cursor._vPos[4]
+    end
+    local col = startCol < #lines[1] and startCol or startVirtCol
     local atEndOfLine = cursor._pos[5] == 2147483647
 
     local maxCol = 0
@@ -385,29 +417,51 @@ local function cursorDrawVisualBlock(cursor, lines, start, hl)
         end
         maxCol = maxCol + 1
     else
-        maxCol = endCol
+        maxCol = endVirtCol
     end
 
     local i = startLine
     while i <= endLine do
         local line = lines[i - start]
-        if line and #line >= startCol then
+        if line then
             local displayWidth = vim.fn.strdisplaywidth(line)
             local virt_text
-            local lineEndCol = atEndOfLine and #line or endCol
-            if maxCol >= #line and state.virtualEditBlock then
-                virt_text = {{
-                    string.rep(" ", maxCol - #line),
-                    hl
-                }}
+            local lineEndCol = atEndOfLine and #line or endVirtCol
+            if state.virtualEditBlock then
+                if atEndOfLine then
+                    if maxCol > #line then
+                        virt_text = {{
+                            string.rep(" ", maxCol - #line),
+                            hl
+                        }}
+                    end
+                elseif startCol > #line then
+                    virt_text = {{
+                        string.rep(" ", endVirtCol - startVirtCol + 1),
+                        hl
+                    }}
+                elseif col > #line then
+                    virt_text = {{
+                        string.rep(" ", endVirtCol - col + 1),
+                        hl
+                    }}
+                elseif endVirtCol >= #line then
+                    virt_text = {{
+                        string.rep(" ", endVirtCol - #line),
+                        hl
+                    }}
+                end
             end
-            local id = set_extmark(0, state.nsid, i - 1, startCol - 1, {
+            local virt_text_win_col = displayWidth
+                + (col > #line and (col - #line) - 1 or 0)
+                - state.leftcol
+            local id = set_extmark(0, state.nsid, i - 1, col - 1, {
                 strict = false,
                 undo_restore = false,
                 end_col = lineEndCol,
-                virt_text_pos = "inline",
+                virt_text_pos = "overlay",
                 priority = 2000,
-                virt_text_win_col = displayWidth - state.leftcol,
+                virt_text_win_col = virt_text_win_col,
                 virt_text = virt_text,
                 hl_group = hl,
             })
@@ -566,14 +620,15 @@ local function cursorDraw(cursor)
     end
 
     local row = cursor._pos[2] - 1
-    local col = cursor._pos[3] + cursor._pos[4] - 1
+    local col = cursor._pos[3] - 1
+    local virtCol = col + cursor._pos[4]
 
     local charLine = lines[cursor._pos[2] - start]
     local displayWidth = vim.fn.strdisplaywidth(charLine)
 
     local virt_text_win_col
-    if col > #charLine then
-        virt_text_win_col = displayWidth + col - #charLine - state.leftcol
+    if virtCol > #charLine then
+        virt_text_win_col = displayWidth + virtCol - #charLine - state.leftcol
         if virt_text_win_col - state.textoffset < 0 then
             virt_text_win_col = nil
         end
