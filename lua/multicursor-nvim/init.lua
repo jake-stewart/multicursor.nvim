@@ -25,6 +25,8 @@ return {
     numCursors = core.numCursors,
     numEnabledCursors = core.numEnabledCursors,
     numDisabledCursors = core.numDisabledCursors,
+    jumpForward = core.jumpForward,
+    jumpBackward = core.jumpBackward,
     splitCursors = examples.splitCursors,
     alignCursors = examples.alignCursors,
     matchCursors = examples.matchCursors,

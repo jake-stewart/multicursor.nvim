@@ -1,10 +1,10 @@
 --- @class FeedkeysManager
---- @field feedkeys function
+--- @field nvim_feedkeys function
 --- @field private _fedKeys string
 local FeedkeysManager = {}
 
 function FeedkeysManager:setup()
-    self.feedkeys = vim.api.nvim_feedkeys
+    self.nvim_feedkeys = vim.api.nvim_feedkeys
     self._fedKeys = ""
 
     function vim.api.nvim_feedkeys(macro, mode, escape)
@@ -17,7 +17,7 @@ function FeedkeysManager:setup()
                 end
             end
         end
-        return self.feedkeys(macro, mode, escape)
+        return self.nvim_feedkeys(macro, mode, escape)
     end
 
     local originalFeedkeys = vim.fn.feedkeys
@@ -33,6 +33,16 @@ function FeedkeysManager:setup()
         end
         return originalFeedkeys(macro, mode)
     end
+end
+
+function FeedkeysManager:keepjumpsFeedkeys(keys, mode)
+    keys = vim.fn.substitute(keys, "'", "'..\"'\"..'", "g")
+    vim.cmd("keepjumps call feedkeys('" .. keys .. "', '" .. mode .. "')")
+end
+
+function FeedkeysManager:noAutocommandsKeepjumpsFeedkeys(keys, mode)
+    keys = vim.fn.substitute(keys, "'", "'..\"'\"..'", "g")
+    vim.cmd("noautocmd keepjumps call feedkeys('" .. keys .. "', '" .. mode .. "')")
 end
 
 --- @param typed string

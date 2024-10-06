@@ -21,7 +21,7 @@ function SnippetManager:setup()
             self._snippetText = snippetText
             self._snippetLine = vim.fn.getline(".")
             self._snippetCol = vim.fn.col(".")
-            feedkeysManager.feedkeys(TERM_CODES.ESC, "nt", false)
+            feedkeysManager.nvim_feedkeys(TERM_CODES.ESC, "nt", false)
         else
             self._snippet.expand(snippetText, ...)
         end
@@ -59,12 +59,12 @@ function SnippetManager:performSnippet(wasFromSelectMode, typed, insertModePos)
                 local text = string.sub(self._snippetLine, col, self._snippetCol)
                 if #text > 0 then
                     atStartCol = false
-                    feedkeysManager.feedkeys("a" .. text .. TERM_CODES.ESC, "n", false)
+                    feedkeysManager.nvim_feedkeys("a" .. text .. TERM_CODES.ESC, "n", false)
                 end
             end
-            feedkeysManager.feedkeys(atStartCol and "i" or "a", "n", false)
-            feedkeysManager.feedkeys("\7", "", false)
-            feedkeysManager.feedkeys(TERM_CODES.ESC, "nx", false)
+            feedkeysManager.nvim_feedkeys(atStartCol and "i" or "a", "n", false)
+            feedkeysManager.nvim_feedkeys("\7", "", false)
+            feedkeysManager.nvim_feedkeys(TERM_CODES.ESC, "nx", false)
         end)
         if insertModePos then
             mainCursor:setRedoChangePos({
@@ -80,25 +80,25 @@ function SnippetManager:performSnippet(wasFromSelectMode, typed, insertModePos)
         ctx:forEachCursor(function(cursor)
             cursor:perform(function()
                 if wasFromSelectMode then
-                    feedkeysManager.feedkeys(
+                    feedkeysManager.nvim_feedkeys(
                         TERM_CODES.CTRL_G .. "c", "n", false)
                 else
                     if #typed then
-                        feedkeysManager.feedkeys(typed, "", false)
+                        feedkeysManager.nvim_feedkeys(typed, "", false)
                     end
                 end
                 if #reg > 0 then
-                    feedkeysManager.feedkeys(reg, "n", false)
+                    feedkeysManager.nvim_feedkeys(reg, "n", false)
                 end
-                feedkeysManager.feedkeys("\7", "", false)
-                feedkeysManager.feedkeys(TERM_CODES.ESC, "nx", false)
+                feedkeysManager.nvim_feedkeys("\7", "", false)
+                feedkeysManager.nvim_feedkeys(TERM_CODES.ESC, "nx", false)
             end)
         end)
     end, { excludeMainCursor = true, fixWindow = false })
     vim.keymap.del("i", "\7")
     self._snippet.stop()
     if vim.fn.mode() == "n" then
-        feedkeysManager.feedkeys("a", "tn", false)
+        feedkeysManager.nvim_feedkeys("a", "tn", false)
     end
 end
 

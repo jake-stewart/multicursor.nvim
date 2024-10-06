@@ -101,9 +101,9 @@ function InputManager:_handleExitInsertMode(mode, wasFromSelectMode)
             ctx:forEachCursor(function(cursor)
                 cursor:perform(function()
                     if not wasFromSelectMode then
-                        feedkeysManager.feedkeys(self._typed, "", false)
+                        feedkeysManager.nvim_feedkeys(self._typed, "", false)
                     end
-                    feedkeysManager.feedkeys(reg, "nx", false)
+                    feedkeysManager.nvim_feedkeys(reg, "nx", false)
                 end)
                 if self._modeChangeCallbacks and self._wasMode ~= mode then
                     self:_emitModeChanged(cursor, self._wasMode, mode)
@@ -128,12 +128,22 @@ function InputManager:_handleSnippet(wasFromSelectMode)
         wasFromSelectMode, self._typed, self._insertModeStartPos)
 end
 
-function InputManager:_handleSpecialKey(specialKey)
+function InputManager:_handleSpecialKey(specialKey, count)
     cursorManager:dirty()
     if specialKey == "u" then
         cursorManager:loadUndoItem(-1)
     elseif specialKey == TERM_CODES.CTRL_R then
         cursorManager:loadUndoItem(1)
+    elseif specialKey == TERM_CODES.CTRL_I then
+        if cursorManager:hasCursors() then
+            feedkeysManager:noAutocommandsKeepjumpsFeedkeys(count .. TERM_CODES.CTRL_O, "nx")
+            cursorManager:navigateJumplist(1)
+        end
+    elseif specialKey == TERM_CODES.CTRL_O then
+        if cursorManager:hasCursors() then
+            feedkeysManager:noAutocommandsKeepjumpsFeedkeys(count .. TERM_CODES.CTRL_I, "nx")
+            cursorManager:navigateJumplist(-1)
+        end
     elseif specialKey == "." then
         if cursorManager:hasCursors() then
             cursorManager:action(function(ctx)
@@ -221,17 +231,22 @@ function InputManager:_onSafeState()
 
     if self._cmdType == ":" then
         self:_handleLeaveCommandlineMode()
+    elseif self._cmdType
+        and string.sub(self._typed, #self._typed, #self._typed) == TERM_CODES.ESC
+    then
+        -- for some reason escape doesn't cancel search when feedkeys
     elseif snippetManager:hasSnippet() then
         self:_handleSnippet(wasFromSelectMode)
     elseif isInsertOrReplaceMode(self._wasMode) then
         self:_handleExitInsertMode(mode, wasFromSelectMode)
     else
-        local command = string.match(self._keys, "%d*(.*)")
+        local count, command = string.match(self._keys, "(%d*)(.*)")
+        local commandChar = string.sub(command, 1, 1)
         local isSpecialKey = self._wasMode == "n"
-            and SPECIAL_NORMAL_KEYS[command]
-            or SPECIAL_KEYS[command]
+            and (SPECIAL_NORMAL_KEYS[command] or SPECIAL_NORMAL_KEYS[commandChar])
+            or (SPECIAL_KEYS[command] or SPECIAL_KEYS[commandChar])
         if isSpecialKey then
-            self:_handleSpecialKey(command)
+            self:_handleSpecialKey(command, tonumber(count) or 1)
         else
             self:_handleKeys(mode)
         end

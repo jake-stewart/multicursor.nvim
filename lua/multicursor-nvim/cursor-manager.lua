@@ -28,7 +28,8 @@ local function feedkeys(keys, opts)
     if opts and opts.keycodes then
         keys = replace_termcodes(keys, true, true, true)
     end
-    feedkeysManager.feedkeys(keys, mode, false)
+    -- feedkeysManager.nvim_feedkeys(keys, mode, false)
+    feedkeysManager:keepjumpsFeedkeys(keys, mode)
 end
 
 --- @param a Cursor
@@ -42,6 +43,12 @@ local function compareCursorsPosition(a, b)
         return a._pos[3] < b._pos[3]
     end
     return a._pos[2] < b._pos[2]
+end
+
+--- @param a Pos
+--- @param b Pos
+local function positionsEqual(a, b)
+    return a[2] == b[2] and a[3] == b[3] and a[4] == b[4]
 end
 
 --- See :h getcurpos()
@@ -87,6 +94,8 @@ local CursorState = {
 --- @field package _posId           integer | nil
 --- @field package _changePosId     integer | nil
 --- @field package _vPosId          integer | nil
+--- @field package _jumps           Pos[]
+--- @field package _jumpIdx         integer
 local Cursor = {}
 Cursor.__index = Cursor
 
@@ -103,6 +112,8 @@ Cursor.__index = Cursor
 --- @field oldCursor? Cursor[]
 --- @field oldSeqCur? integer
 --- @field oldCursors? Cursor[]
+--- @field oldJumplist? Pos[]
+--- @field oldJumpIdx? integer
 --- @field options? table
 --- @field nsid integer
 --- @field virtualEditBlock? boolean
@@ -119,6 +130,9 @@ Cursor.__index = Cursor
 --- @field yanked? boolean
 --- @field opts MultiCursorOpts
 --- @field mainSignHlExists? boolean
+--- @field jumps Pos[]
+--- @field jumpIdx integer
+--- @field package lastJump? Pos
 local state = {
     cursors = {},
     undoItems = {},
@@ -131,6 +145,9 @@ local state = {
     numLines = 0,
     leftcol = 0,
     textoffset = 0,
+    jumps = {},
+    didPushJump = false,
+    jumpIdx = 0
 }
 
 local function setOptions()
@@ -162,6 +179,8 @@ local function createCursor(cursor)
     state.id = state.id + 1
     cursor._enabled = true
     cursor._drift = { 0, 0 }
+    cursor._jumpIdx = 0
+    cursor._jumps = {}
     return setmetatable(cursor, Cursor)
 end
 
@@ -1501,6 +1520,9 @@ local function clearCursorContext(unmergedCursors, mergeRegisters, addMainCursor
     state.signIds = nil
     state.numDisabledCursors = 0
     state.numEnabledCursors = 0
+    state.lastJump = nil
+    state.jumps = {}
+    state.jumpIdx = 0
     unsetOptions()
     if state.yanked then
         state.yanked = nil
@@ -1535,6 +1557,8 @@ function CursorContext:clear()
         state.oldCursor = cursorCopy(state.mainCursor)
     end
     state.oldCursors = {table.unpack(state.cursors)}
+    state.oldJumpIdx = state.jumpIdx
+    state.oldJumplist = state.jumps
     state.oldSeqCur = state.currentSeq
     clearCursorContext(nil, true, false)
 end
@@ -1899,9 +1923,32 @@ function CursorManager:action(callback, opts)
 
     tryUndo(opts)
 
+    local jump = vim.fn.getpos("''")
+    local didJump = not state.lastJump or not positionsEqual(jump, state.lastJump)
+    if didJump then
+        state.lastJump = jump
+        if opts.allowUndo and not (
+            #state.jumps > 0
+            and state.mainCursor
+            and positionsEqual(state.jumps[state.jumpIdx], state.mainCursor._pos)
+        ) then
+            state.didPushJump = true
+            for _, cursor in ipairs(state.cursors) do
+                cursor._jumpIdx = cursor._jumpIdx + 1
+                cursor._jumps[cursor._jumpIdx] = cursor._pos
+                cursor._jumps[cursor._jumpIdx + 1] = nil
+            end
+            state.jumpIdx = state.jumpIdx + 1
+            state.jumps[state.jumpIdx] = state.mainCursor
+                and state.mainCursor._pos or vim.fn.getpos(".")
+            state.jumps[state.jumpIdx + 1] = nil
+        end
+    end
+
     local origCursor = state.mainCursor or createCursor({})
     state.mainCursor = origCursor
     cursorRead(origCursor)
+
     cursorSetMarks(origCursor)
     origCursor._enabled = true
     if opts.excludeMainCursor then
@@ -1934,6 +1981,19 @@ function CursorManager:action(callback, opts)
         cursorUpdate(cursor)
         return cursor._state ~= CursorState.deleted
     end)
+
+    if didJump then
+        if opts.allowUndo then
+            for _, cursor in ipairs(state.cursors) do
+                cursor._jumps[cursor._jumpIdx + 1] = cursor._pos
+                cursor._jumps[cursor._jumpIdx + 2] = nil
+            end
+            state.jumps[state.jumpIdx + 1] = state.mainCursor
+                and state.mainCursor._pos or vim.fn.getpos(".")
+            state.jumps[state.jumpIdx + 2] = nil
+        end
+    end
+
     cursorContextUpdate(not opts.excludeMainCursor)
     forceStatuslineUpdate()
     return result
@@ -1972,12 +2032,50 @@ function CursorManager:loadUndoItem(direction)
     end
 end
 
+--- @param direction integer
+function CursorManager:navigateJumplist(direction)
+    for _, cursor in ipairs(state.cursors) do
+        if direction == -1 and state.didPushJump then
+            direction = 0
+        end
+        cursor._jumpIdx = cursor._jumpIdx + direction
+        local jump = cursor._jumps[cursor._jumpIdx] or (direction < 0 and cursor._jumps[1] or nil)
+        cursor._jumpIdx = math.min(#cursor._jumps, math.max(1, cursor._jumpIdx))
+        if jump then
+            cursorErase(cursor)
+            cursorClearMarks(cursor)
+            cursor._pos = { jump[1], jump[2], jump[3], jump[4], jump[3] }
+            cursorSetMarks(cursor)
+            cursorDraw(cursor)
+        end
+    end
+    state.jumpIdx = state.jumpIdx + direction
+    local mainJump = state.jumps[state.jumpIdx] or state.mainCursor._pos
+    state.jumpIdx = math.min(#state.jumps,
+        math.max(1, state.jumpIdx))
+    if mainJump then
+        local pos = {
+            mainJump[1],
+            mainJump[2],
+            mainJump[3],
+            mainJump[4],
+            mainJump[3],
+        }
+        state.mainCursor._pos = pos
+        cursorWrite(state.mainCursor)
+    end
+    state.didPushJump = false
+    state.lastJump = vim.fn.getpos("''")
+end
+
 function CursorContext:restore()
     if state.oldSeqCur ~= state.currentSeq then
         return
     end
     local oldCursors = state.oldCursors or {}
     local oldCursor = state.oldCursor
+    state.jumps = state.oldJumplist or {}
+    state.jumpIdx = state.oldJumpIdx or 0
     state.oldCursors = self:getCursors()
     state.oldCursor = self:mainCursor()
     for _, cursor in ipairs(oldCursors) do

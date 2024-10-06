@@ -2,6 +2,7 @@ local feedkeysManager = require("multicursor-nvim.feedkeys-manager")
 local cursorManager = require("multicursor-nvim.cursor-manager")
 local inputManager = require("multicursor-nvim.input-manager")
 local snippetManager = require("multicursor-nvim.snippet-manager")
+local TERM_CODES = require("multicursor-nvim.term-codes")
 
 local core = {
     performingAction = false,
@@ -37,6 +38,25 @@ function core.setup(opts)
     })
 end
 
+local function jump(direction, key)
+    inputManager:performAction(function()
+        local count = math.max(1, vim.v.count)
+        if cursorManager:hasCursors() then
+            cursorManager:navigateJumplist(direction * count)
+        else
+            feedkeysManager.nvim_feedkeys(count .. key, "nx", true)
+        end
+    end)
+end
+
+function core.jumpForward()
+    jump(1, TERM_CODES.CTRL_I)
+end
+
+function core.jumpBackward()
+    jump(-1, TERM_CODES.CTRL_O)
+end
+
 --- @param callback fun(ctx: CursorContext)
 function core.action(callback)
     if core.performingAction then
@@ -64,7 +84,7 @@ function core.feedkeys(keys, opts)
         keys = vim.api.nvim_replace_termcodes(
             keys, true, true, true)
     end
-    feedkeysManager.feedkeys(keys, mode, false)
+    feedkeysManager.nvim_feedkeys(keys, mode, false)
 end
 
 --- Returns whether multiple cursors exist
