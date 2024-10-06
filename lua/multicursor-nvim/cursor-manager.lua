@@ -1869,9 +1869,6 @@ function CursorManager:action(callback, opts)
         return cursor._state ~= CursorState.deleted
     end)
     cursorContextUpdate(not opts.excludeMainCursor)
-    if state.mainCursor then
-        -- vim.fn.setreg(state.origRegister, state.mainCursor._register)
-    end
     -- force statusline and ruler update
     vim.o.statusline = vim.o.statusline
     vim.o.rulerformat = vim.o.rulerformat

@@ -50,18 +50,19 @@ function SnippetManager:performSnippet(wasFromSelectMode, typed, insertModePos)
         self._snippet.expand(self._snippetText)
     end)
 
-    local endMode
     cursorManager:action(function(ctx)
         local mainCursor = ctx:mainCursor()
         local col = mainCursor:col()
         mainCursor:perform(function()
+            local atStartCol = self._snippetCol <= 1
             if col + 1 < self._snippetCol then
                 local text = string.sub(self._snippetLine, col, self._snippetCol)
                 if #text > 0 then
+                    atStartCol = false
                     feedkeysManager.feedkeys("a" .. text .. TERM_CODES.ESC, "n", false)
                 end
             end
-            feedkeysManager.feedkeys(col == 1 and "i" or "a", "n", false)
+            feedkeysManager.feedkeys(atStartCol and "i" or "a", "n", false)
             feedkeysManager.feedkeys("\7", "", false)
             feedkeysManager.feedkeys(TERM_CODES.ESC, "nx", false)
         end)
@@ -93,11 +94,12 @@ function SnippetManager:performSnippet(wasFromSelectMode, typed, insertModePos)
                 feedkeysManager.feedkeys(TERM_CODES.ESC, "nx", false)
             end)
         end)
-        endMode = ctx:mainCursor():mode()
     end, { excludeMainCursor = true, fixWindow = false })
     vim.keymap.del("i", "\7")
     self._snippet.stop()
-    return endMode
+    if vim.fn.mode() == "n" then
+        feedkeysManager.feedkeys("a", "tn", false)
+    end
 end
 
 return SnippetManager
