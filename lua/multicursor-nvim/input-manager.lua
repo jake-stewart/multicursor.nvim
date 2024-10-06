@@ -128,22 +128,12 @@ function InputManager:_handleSnippet(wasFromSelectMode)
         wasFromSelectMode, self._typed, self._insertModeStartPos)
 end
 
-function InputManager:_handleSpecialKey(specialKey, count)
+function InputManager:_handleSpecialKey(specialKey)
     cursorManager:dirty()
     if specialKey == "u" then
         cursorManager:loadUndoItem(-1)
     elseif specialKey == TERM_CODES.CTRL_R then
         cursorManager:loadUndoItem(1)
-    elseif specialKey == TERM_CODES.CTRL_I then
-        if cursorManager:hasCursors() then
-            feedkeysManager:noAutocommandsKeepjumpsFeedkeys(count .. TERM_CODES.CTRL_O, "nx")
-            cursorManager:navigateJumplist(1)
-        end
-    elseif specialKey == TERM_CODES.CTRL_O then
-        if cursorManager:hasCursors() then
-            feedkeysManager:noAutocommandsKeepjumpsFeedkeys(count .. TERM_CODES.CTRL_I, "nx")
-            cursorManager:navigateJumplist(-1)
-        end
     elseif specialKey == "." then
         if cursorManager:hasCursors() then
             cursorManager:action(function(ctx)
@@ -240,13 +230,13 @@ function InputManager:_onSafeState()
     elseif isInsertOrReplaceMode(self._wasMode) then
         self:_handleExitInsertMode(mode, wasFromSelectMode)
     else
-        local count, command = string.match(self._keys, "(%d*)(.*)")
+        local command = string.match(self._keys, "%d*(.*)")
         local commandChar = string.sub(command, 1, 1)
         local isSpecialKey = self._wasMode == "n"
             and (SPECIAL_NORMAL_KEYS[command] or SPECIAL_NORMAL_KEYS[commandChar])
             or (SPECIAL_KEYS[command] or SPECIAL_KEYS[commandChar])
         if isSpecialKey then
-            self:_handleSpecialKey(command, tonumber(count) or 1)
+            self:_handleSpecialKey(command)
         else
             self:_handleKeys(mode)
         end
