@@ -259,7 +259,8 @@ end
 
 --- @private
 function InputManager:_onKey(key, typed)
-    if feedkeysManager:wasFedKeys(typed) then
+    typed = feedkeysManager:removeFedKeys(typed)
+    if #typed == 0 then
         return
     end
     if self._applying or isInsertOrReplaceMode(self._wasMode) then

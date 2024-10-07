@@ -46,18 +46,26 @@ function FeedkeysManager:noAutocommandsKeepjumpsFeedkeys(keys, mode)
 end
 
 --- @param typed string
---- @return boolean
-function FeedkeysManager:wasFedKeys(typed)
+--- @return string
+function FeedkeysManager:removeFedKeys(typed)
     if #self._fedKeys > 0 then
         local start, _end = string.find(self._fedKeys, typed, 1, true)
         if start == 1 and _end then
             self._fedKeys = string.sub(self._fedKeys, _end + 1, #self._fedKeys)
-            return true
+            return ""
         else
+            start, _end = string.find(typed, self._fedKeys, 1, true)
             self._fedKeys = ""
+            if start == 1 and _end then
+                typed = string.sub(typed, _end + 1, #typed)
+                return typed
+            else
+                self._fedKeys = ""
+                return typed
+            end
         end
     end
-    return false
+    return typed
 end
 
 return FeedkeysManager
