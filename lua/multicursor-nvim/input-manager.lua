@@ -138,7 +138,7 @@ function InputManager:_handleSpecialKey(specialKey)
         if cursorManager:hasCursors() then
             cursorManager:action(function(ctx)
                 ctx:forEachCursor(function(cursor)
-                    cursor:feedkeys(self._keys)
+                    cursor:feedkeys(".")
                 end)
             end, { excludeMainCursor = true, allowUndo = true })
         else
@@ -231,14 +231,21 @@ function InputManager:_onSafeState()
         self:_handleExitInsertMode(mode, wasFromSelectMode)
     else
         local command = string.match(self._keys, "%d*(.*)")
-        local commandChar = string.sub(command, 1, 1)
-        local isSpecialKey = self._wasMode == "n"
-            and (SPECIAL_NORMAL_KEYS[command] or SPECIAL_NORMAL_KEYS[commandChar])
-            or (SPECIAL_KEYS[command] or SPECIAL_KEYS[commandChar])
-        if isSpecialKey then
+        if self._wasMode == "n"
+            and SPECIAL_NORMAL_KEYS[command]
+            or SPECIAL_KEYS[command]
+        then
             self:_handleSpecialKey(command)
         else
-            self:_handleKeys(mode)
+            local commandChar = string.sub(command, 1, 1)
+            if self._wasMode == "n"
+                and SPECIAL_NORMAL_KEYS[commandChar]
+                or SPECIAL_KEYS[commandChar]
+            then
+                self:_handleSpecialKey(commandChar)
+            else
+                self:_handleKeys(mode)
+            end
         end
     end
     self._wasMode = vim.fn.mode()
