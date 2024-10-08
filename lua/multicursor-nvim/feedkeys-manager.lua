@@ -20,6 +20,15 @@ function FeedkeysManager:setup()
         return self.nvim_feedkeys(macro, mode, escape)
     end
 
+    -- self.nvim_input = vim.nvim_input
+    -- function vim.nvim_input(keys)
+    --     if type(keys) == "string" then
+    --         self._fedKeys = self._fedKeys
+    --             .. vim.api.replace_termcodes(keys, true, true, true)
+    --     end
+    --     self.nvim_input(keys)
+    -- end
+
     local originalFeedkeys = vim.fn.feedkeys
     function vim.fn.feedkeys(macro, mode)
         if type(mode) == "string" then

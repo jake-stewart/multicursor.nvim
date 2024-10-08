@@ -1512,10 +1512,7 @@ function CursorContext:hasCursors()
         and state.cursors[1] ~= state.mainCursor
 end
 
---- @param unmergedCursors? Cursor[]
---- @param mergeRegisters? boolean
---- @param addMainCursor? boolean
-local function clearCursorContext(unmergedCursors, mergeRegisters, addMainCursor)
+local function clearCursorContext()
     clear_namespace(0, state.nsid, 0, -1)
     state.signIds = nil
     state.numDisabledCursors = 0
@@ -1524,25 +1521,14 @@ local function clearCursorContext(unmergedCursors, mergeRegisters, addMainCursor
     state.jumps = {}
     state.jumpIdx = 0
     unsetOptions()
-    if state.yanked then
-        state.yanked = nil
-        if mergeRegisters then
-            local cursors = unmergedCursors or state.cursors
-            if state.mainCursor and addMainCursor then
-                cursors[#cursors + 1] = state.mainCursor
-            end
-            table.sort(cursors, compareCursorsPosition)
-            local buffer = {}
-            for _, cursor in ipairs(cursors) do
-                for _, line in ipairs(cursor._register.regcontents) do
-                    buffer[#buffer + 1] = line
-                end
-            end
-            vim.schedule(function()
-                vim.fn.setreg(state.origRegister,
-                    table.concat(buffer, "\n"), "l")
-            end)
-        end
+    state.yanked = false
+    if state.yankedBuffer then
+        local buffer = state.yankedBuffer
+        state.yankedBuffer = nil
+        vim.schedule(function()
+            vim.fn.setreg(state.origRegister,
+                table.concat(buffer, "\n"), "l")
+        end)
     end
     state.cursors = {}
     state.mainCursor = nil
@@ -1560,7 +1546,7 @@ function CursorContext:clear()
     state.oldJumpIdx = state.jumpIdx
     state.oldJumplist = state.jumps
     state.oldSeqCur = state.currentSeq
-    clearCursorContext(nil, true, false)
+    clearCursorContext()
 end
 
 --- @param cursor Cursor
@@ -1746,7 +1732,7 @@ local function cursorContextUpdate(applyToMainCursor)
     end
     state.changedtick = vim.b.changedtick
     if #state.cursors == 0 then
-        clearCursorContext(unmergedCursors, true, true)
+        clearCursorContext()
     else
         redrawSigns()
     end
@@ -1911,9 +1897,6 @@ end
 --- @param callback fun(context: CursorContext)
 --- @param opts ActionOptions
 function CursorManager:action(callback, opts)
-    if state.yanked == nil then
-        state.yanked = false
-    end
     updateSigns()
     updateCursorline()
     setOptions()
@@ -1994,6 +1977,22 @@ function CursorManager:action(callback, opts)
         end
     end
 
+    if state.yanked then
+        state.yanked = false
+        state.cursors[#state.cursors + 1] = state.mainCursor
+        table.sort(state.cursors, compareCursorsPosition)
+        local buffer = {}
+        for _, cursor in ipairs(state.cursors) do
+            for _, line in ipairs(cursor._register.regcontents) do
+                buffer[#buffer + 1] = line
+            end
+        end
+        state.yankedBuffer = buffer
+        state.cursors = tbl.filter(state.cursors, function(cursor)
+            return cursor ~= state.mainCursor
+        end)
+    end
+
     cursorContextUpdate(not opts.excludeMainCursor)
     forceStatuslineUpdate()
     return result
@@ -2012,7 +2011,7 @@ function CursorManager:loadUndoItem(direction)
         or state.undoItems
     local undoItem = lookup[id]
     if not undoItem then
-        clearCursorContext(nil, false, true)
+        clearCursorContext()
         return
     end
     if not state.mainCursor then
@@ -2022,7 +2021,7 @@ function CursorManager:loadUndoItem(direction)
     cursorContextMergeCursors()
     cursorWrite(state.mainCursor)
     if #state.cursors == 0 then
-        clearCursorContext(nil, false, true)
+        clearCursorContext()
     else
         setOptions()
         cursorContextRedraw()
