@@ -591,18 +591,52 @@ local setOpfunc = vim.fn[vim.api.nvim_exec([[
   echon get(function('s:setOpfunc'), 'name')
 ]], true)]
 
-function examples.addCursorWithMotion()
-    local curPos = tbl.slice(vim.fn.getcurpos(), 2)
-    setOpfunc(function(motion)
+function examples.addCursorOperator()
+    local mode = vim.fn.mode()
+    local curPos = vim.fn.getpos(".")
+    local fromVisual = mode == "v"
+        or mode == "V"
+        or mode == TERM_CODES.CTRL_V
+        or mode == "s"
+        or mode == "S"
+        or mode == TERM_CODES.CTRL_S
+    local atVisualStart
+    if fromVisual then
+        local vPos = vim.fn.getpos("v")
+        atVisualStart = curPos[2] < vPos[2]
+            or curPos[2] == vPos[2]
+            and (curPos[3] < vPos[3]
+                or curPos[3] == vPos[3]
+                and curPos[4] < vPos[4])
+    end
+    setOpfunc(function()
         mc.action(function(ctx)
-            local changeStart = tbl.slice(vim.fn.getpos("'["), 2)
-            local changeEnd = tbl.slice(vim.fn.getpos("']"), 2)
-            if motion == "char" then
-                ctx:mainCursor():clone():setPos(changeEnd)
-            elseif motion == "line" then
-                ctx:mainCursor():clone():setPos(changeEnd)
-            elseif motion == "block" then
-                ctx:mainCursor():clone():setPos(changeEnd)
+            local mainCursor = ctx:mainCursor()
+            local lastCursor
+            local firstCursor
+            local changeStart = vim.fn.getpos("'[")
+            local changeEnd = vim.fn.getpos("']")
+            for i = changeStart[2], changeEnd[2] do
+                local col = math.min(
+                    curPos[3],
+                    vim.fn.col({ i, "$" }) - 1
+                )
+                lastCursor = mainCursor:clone():setPos({i, col})
+                if not firstCursor then
+                    firstCursor = lastCursor
+                end
+            end
+            mainCursor:delete()
+            if fromVisual then
+                if atVisualStart then
+                    firstCursor:select()
+                else
+                    lastCursor:select()
+                end
+            elseif curPos[2] == lastCursor:line() then
+                firstCursor:select()
+            else
+                lastCursor:select()
             end
         end)
     end)

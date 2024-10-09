@@ -31,7 +31,7 @@ return {
     matchCursors = examples.matchCursors,
     transposeCursors = examples.transposeCursors,
     addCursor = examples.addCursor,
-    addCursorWithMotion = examples.addCursorWithMotion,
+    addCursorOperator = examples.addCursorOperator,
     skipCursor = examples.skipCursor,
     matchAddCursor = examples.matchAddCursor,
     matchSkipCursor = examples.matchSkipCursor,
