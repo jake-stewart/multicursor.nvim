@@ -14,6 +14,22 @@ function tbl.concat(...)
 end
 
 --- @generic T
+--- @param array T[]
+--- @param start number
+--- @param stop? number
+--- @return T[]
+function tbl.slice(array, start, stop)
+    local n = #array
+    start = math.max(start or 1, 1)
+    stop = math.min(stop or n, n)
+    local sliced = {}
+    for i = start, stop do
+        table.insert(sliced, array[i])
+    end
+    return sliced
+end
+
+--- @generic T
 --- @generic Y
 --- @param t T[]
 --- @param callback fun(v: T, i: integer, t: T[]): Y

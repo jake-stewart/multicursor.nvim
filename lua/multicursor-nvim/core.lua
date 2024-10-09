@@ -110,4 +110,8 @@ function core.numDisabledCursors()
     return cursorManager:numDisabledCursors()
 end
 
+function core.clearCursors()
+    cursorManager:clear()
+end
+
 return core

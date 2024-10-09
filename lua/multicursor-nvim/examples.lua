@@ -283,12 +283,6 @@ function examples.handleMouse()
     end)
 end
 
-function examples.clearCursors()
-    mc.action(function(ctx)
-        ctx:clear()
-    end)
-end
-
 function examples.restoreCursors()
     mc.action(function(ctx)
         ctx:restore()
@@ -588,6 +582,31 @@ end
 --- @param direction? -1 | 1
 function examples.lineSkipCursor(direction)
     lineAddCursor(direction, false)
+end
+
+local setOpfunc = vim.fn[vim.api.nvim_exec([[
+  func s:setOpfunc(val)
+    let &opfunc = a:val
+  endfunc
+  echon get(function('s:setOpfunc'), 'name')
+]], true)]
+
+function examples.addCursorWithMotion()
+    local curPos = tbl.slice(vim.fn.getcurpos(), 2)
+    setOpfunc(function(motion)
+        mc.action(function(ctx)
+            local changeStart = tbl.slice(vim.fn.getpos("'["), 2)
+            local changeEnd = tbl.slice(vim.fn.getpos("']"), 2)
+            if motion == "char" then
+                ctx:mainCursor():clone():setPos(changeEnd)
+            elseif motion == "line" then
+                ctx:mainCursor():clone():setPos(changeEnd)
+            elseif motion == "block" then
+                ctx:mainCursor():clone():setPos(changeEnd)
+            end
+        end)
+    end)
+    vim.fn.feedkeys("g@", "nt")
 end
 
 return examples
