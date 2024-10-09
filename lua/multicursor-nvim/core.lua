@@ -30,6 +30,13 @@ function core.setup(opts)
     inputManager:setup(nsid)
     snippetManager:setup()
 
+    if vim.fn.mapcheck(TERM_CODES.CTRL_I) == ""
+        and vim.fn.mapcheck(TERM_CODES.CTRL_O) == ""
+    then
+        vim.keymap.set("n", TERM_CODES.CTRL_I, core.jumpForward)
+        vim.keymap.set("n", TERM_CODES.CTRL_O, core.jumpBackward)
+    end
+
     vim.api.nvim_create_autocmd({ "WinLeave" }, {
         pattern = "*",
         callback = function()
