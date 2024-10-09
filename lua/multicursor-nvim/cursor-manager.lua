@@ -2033,13 +2033,32 @@ end
 
 --- @param direction integer
 function CursorManager:navigateJumplist(direction)
+    local jumpIdx
+    local jump
+    local numJumps
     for _, cursor in ipairs(state.cursors) do
         if direction == -1 and state.didPushJump then
             direction = 0
         end
-        cursor._jumpIdx = cursor._jumpIdx + direction
-        local jump = cursor._jumps[cursor._jumpIdx] or (direction < 0 and cursor._jumps[1] or nil)
-        cursor._jumpIdx = math.min(#cursor._jumps, math.max(1, cursor._jumpIdx))
+
+        jumpIdx = cursor._jumpIdx + direction
+        jump = nil
+        numJumps = #cursor._jumps
+        if jumpIdx < 1 then
+            jumpIdx = 1
+            if cursor._jumpIdx > 1 then
+                jump = cursor._jumps[jumpIdx]
+            end
+        elseif jumpIdx > numJumps then
+            jumpIdx = numJumps
+            if cursor._jumpIdx < numJumps then
+                jump = cursor._jumps[jumpIdx]
+            end
+        else
+            jump = cursor._jumps[jumpIdx]
+        end
+        cursor._jumpIdx = jumpIdx
+
         if jump then
             cursorErase(cursor)
             cursorClearMarks(cursor)
@@ -2048,10 +2067,24 @@ function CursorManager:navigateJumplist(direction)
             cursorDraw(cursor)
         end
     end
-    state.jumpIdx = state.jumpIdx + direction
-    local mainJump = state.jumps[state.jumpIdx] or state.mainCursor._pos
-    state.jumpIdx = math.min(#state.jumps,
-        math.max(1, state.jumpIdx))
+    jumpIdx = state.jumpIdx + direction
+    jump = nil
+    numJumps = #state.jumps
+    local mainJump
+    if jumpIdx < 1 then
+        jumpIdx = 1
+        if state.jumpIdx > 1 then
+            mainJump = state.jumps[jumpIdx]
+        end
+    elseif jumpIdx > numJumps then
+        jumpIdx = numJumps
+        if state.jumpIdx < numJumps then
+            mainJump = state.jumps[jumpIdx]
+        end
+    else
+        mainJump = state.jumps[jumpIdx]
+    end
+    state.jumpIdx = jumpIdx
     if mainJump then
         local pos = {
             mainJump[1],

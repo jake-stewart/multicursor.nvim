@@ -47,11 +47,10 @@ end
 
 local function jump(direction, key)
     inputManager:performAction(function()
-        local count = math.max(1, vim.v.count)
         if cursorManager:hasCursors() then
-            cursorManager:navigateJumplist(direction * count)
+            cursorManager:navigateJumplist(direction * vim.v.count1)
         else
-            feedkeysManager.nvim_feedkeys(count .. key, "nx", true)
+            feedkeysManager.nvim_feedkeys(vim.v.count1 .. key, "nx", true)
         end
     end)
 end
