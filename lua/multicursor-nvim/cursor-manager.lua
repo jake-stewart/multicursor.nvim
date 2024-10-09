@@ -135,6 +135,7 @@ Cursor.__index = Cursor
 --- @field package lastJump? Pos
 local state = {
     cursors = {},
+    errors = {},
     undoItems = {},
     redoItems = {},
     numDisabledCursors = 0,
@@ -1380,13 +1381,13 @@ function Cursor:perform(callback)
     self._modifiedId = state.modifiedId
     self._state = CursorState.dirty
     cursorWrite(self)
-    local success, err = pcall(callback, self)
+    local success = pcall(callback, self)
     state.numLines = vim.fn.line("$")
     if success then
         cursorRead(self)
         cursorSetMarks(self)
     else
-        util.echoerr(err)
+        state.errors[#state.errors + 1] = vim.v.errmsg
     end
 end
 
@@ -1519,6 +1520,7 @@ local function clearCursorContext()
     state.numEnabledCursors = 0
     state.lastJump = nil
     state.jumps = {}
+    state.errors = {}
     state.jumpIdx = 0
     unsetOptions()
     state.yanked = false
@@ -1905,6 +1907,7 @@ function CursorManager:action(callback, opts)
     state.textoffset = vim.fn.getwininfo(vim.fn.win_getid())[1].textoff
 
     tryUndo(opts)
+    state.errors = {}
 
     local jump = vim.fn.getpos("''")
     local didJump = not state.lastJump or not positionsEqual(jump, state.lastJump)
@@ -1995,6 +1998,13 @@ function CursorManager:action(callback, opts)
 
     cursorContextUpdate(not opts.excludeMainCursor)
     forceStatuslineUpdate()
+
+    local errors = tbl.uniq(state.errors)
+    state.errors = {}
+    for _, error in ipairs(errors) do
+        util.echoerr(error, false)
+    end
+
     return result
 end
 

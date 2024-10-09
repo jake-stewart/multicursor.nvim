@@ -1,15 +1,21 @@
 local util = {}
 
-function util.echoerr(message)
+function util.echoerr(message, history)
+    if history == nil then
+        history = true
+    end
     message = type(message) == "string"
         and message or vim.inspect(message)
-    vim.api.nvim_echo({{message, "Error"}}, true, {})
+    vim.api.nvim_echo({{message, "Error"}}, history, {})
 end
 
-function util.echowarn(message)
+function util.echowarn(message, history)
+    if history == nil then
+        history = true
+    end
     message = type(message) == "string"
         and message or vim.inspect(message)
-    vim.api.nvim_echo({{message, "WarningMsg"}}, true, {})
+    vim.api.nvim_echo({{message, "WarningMsg"}}, history, {})
 end
 
 local alreadyWarned = {}
