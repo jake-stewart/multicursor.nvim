@@ -41,6 +41,14 @@ function InputManager:setup(nsid)
     self._typed = ""
     self._fromSelectMode = false
 
+    local originalGetChar = vim.fn.getchar
+    function vim.fn.getchar(...)
+        if ({...})[1] == 1 and cursorManager:hasCursors() then
+            return 0
+        end
+        return originalGetChar(...)
+     end
+
     util.au("SafeState", "*", function()
         self:_onSafeState()
     end)
