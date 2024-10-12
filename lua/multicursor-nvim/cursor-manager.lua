@@ -1236,33 +1236,40 @@ local function unpackCursors(data)
     local newMainCursor
     state.numDisabledCursors = 0
     state.numEnabledCursors = 0
+    state.numLines = vim.fn.line("$")
     for i = 1, #data, 3 do
-        local cursor = cursorLookup[math.abs(data[i])] or cursorCopy(state.mainCursor)
-        local col = math.max(1,
-            math.min(
-                data[i + 2],
-                #get_lines(0, data[i + 1] - 1, data[i + 1], true)[1]
+        if data[i + 1] >= 1 and data[i + 1] <= state.numLines then
+            local cursor = cursorLookup[math.abs(data[i])] or cursorCopy(state.mainCursor)
+            local col = math.max(1,
+                math.min(
+                    data[i + 2],
+                    #get_lines(0, data[i + 1] - 1, data[i + 1], true)[1]
+                )
             )
-        )
-        local curswantVirtcol = vim.fn.virtcol({ data[i + 1], data[i + 2] })
-        cursor._pos = { 0, data[i + 1], col, 0, curswantVirtcol }
-        cursor._mode = "n"
-        cursor._vPos = cursor._pos
-        cursor._changePos = cursor._pos
-        cursor._modifiedId = state.modifiedId
-        cursor._enabled = data[i] > 0
-        if cursor._enabled then
-            state.numEnabledCursors = state.numEnabledCursors + 1
-        else
-            state.numDisabledCursors = state.numDisabledCursors + 1
-        end
-        if i == 1 then
-            newMainCursor = cursor
-        else
-            state.cursors[#state.cursors + 1] = cursor
+            local curswantVirtcol = vim.fn.virtcol({ data[i + 1], data[i + 2] })
+            cursor._pos = { 0, data[i + 1], col, 0, curswantVirtcol }
+            cursor._mode = "n"
+            cursor._vPos = cursor._pos
+            cursor._changePos = cursor._pos
+            cursor._modifiedId = state.modifiedId
+            cursor._enabled = data[i] > 0
+            if cursor._enabled then
+                state.numEnabledCursors = state.numEnabledCursors + 1
+            else
+                state.numDisabledCursors = state.numDisabledCursors + 1
+            end
+            if i == 1 then
+                newMainCursor = cursor
+            else
+                state.cursors[#state.cursors + 1] = cursor
+            end
         end
     end
-    state.mainCursor = newMainCursor
+    if newMainCursor then
+        state.mainCursor = newMainCursor
+    else
+        state.mainCursor = CursorContext:nearestCursor(state.mainCursor:getPos())
+    end
 end
 
 --- Returns a new cursor with the same position, registers,
@@ -2028,6 +2035,9 @@ function CursorManager:loadUndoItem(direction)
         state.mainCursor = cursorRead(createCursor({}))
     end
     unpackCursors(undoItem)
+    if not state.mainCursor then
+        state.mainCursor = cursorRead(createCursor({}))
+    end
     cursorContextMergeCursors()
     cursorWrite(state.mainCursor)
     if #state.cursors == 0 then

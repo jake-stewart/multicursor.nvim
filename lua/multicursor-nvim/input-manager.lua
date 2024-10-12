@@ -119,7 +119,7 @@ function InputManager:_handleExitInsertMode(mode, wasFromSelectMode)
             end)
         end, {
             excludeMainCursor = true,
-            allowUndo = true,
+            allowUndo = false,
             ifNotUndo = function(mainCursor)
                 if self._modeChangeCallbacks and self._wasMode ~= mode then
                     self:_emitModeChanged(mainCursor, self._wasMode, mode)
