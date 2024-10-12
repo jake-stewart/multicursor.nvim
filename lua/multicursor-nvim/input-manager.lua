@@ -106,6 +106,9 @@ function InputManager:_handleExitInsertMode(mode, wasFromSelectMode)
     if cursorManager:hasCursors() then
         local reg = vim.fn.getreg(".")
         cursorManager:action(function(ctx)
+            if self._modeChangeCallbacks and self._wasMode ~= mode then
+                self:_emitModeChanged(ctx:mainCursor(), self._wasMode, mode)
+            end
             ctx:forEachCursor(function(cursor)
                 cursor:perform(function()
                     if not wasFromSelectMode then
@@ -120,11 +123,6 @@ function InputManager:_handleExitInsertMode(mode, wasFromSelectMode)
         end, {
             excludeMainCursor = true,
             allowUndo = false,
-            ifNotUndo = function(mainCursor)
-                if self._modeChangeCallbacks and self._wasMode ~= mode then
-                    self:_emitModeChanged(mainCursor, self._wasMode, mode)
-                end
-            end
         })
     else
         cursorManager:update()
