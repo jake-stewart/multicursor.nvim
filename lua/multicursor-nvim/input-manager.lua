@@ -224,6 +224,7 @@ function InputManager:_onSafeState()
 
     local cmdType = vim.fn.getcmdtype()
     if cmdType ~= "" then
+        self._wasMode = mode
         self._cmdType = cmdType
         return
     end
@@ -242,16 +243,19 @@ function InputManager:_onSafeState()
         self:_handleExitInsertMode(mode, wasFromSelectMode)
     else
         local command = string.match(self._keys, "%d*(.*)")
-        if self._wasMode == "n"
-            and SPECIAL_NORMAL_KEYS[command]
-            or SPECIAL_KEYS[command]
+        if self._wasMode ~= "c" and
+            (self._wasMode == "n"
+                and SPECIAL_NORMAL_KEYS[command]
+                or SPECIAL_KEYS[command])
         then
             self:_handleSpecialKey(command)
         else
             local commandChar = string.sub(command, 1, 1)
-            if self._wasMode == "n"
-                and SPECIAL_NORMAL_KEYS[commandChar]
-                or SPECIAL_KEYS[commandChar]
+            if self._wasMode ~= "c" and
+                (self._wasMode == "n"
+                    and SPECIAL_NORMAL_KEYS[commandChar]
+                    or SPECIAL_KEYS[commandChar]
+                )
             then
                 self:_handleSpecialKey(commandChar)
             else
