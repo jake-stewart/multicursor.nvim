@@ -3,6 +3,7 @@ local feedkeysManager = require("multicursor-nvim.feedkeys-manager")
 local cursorManager = require("multicursor-nvim.cursor-manager")
 local snippetManager = require("multicursor-nvim.snippet-manager")
 local util = require("multicursor-nvim.util")
+local tbl = require("multicursor-nvim.tbl")
 
 local SPECIAL_KEYS = {
     ["."] = true,
@@ -155,24 +156,28 @@ function InputManager:_handleSpecialKey(specialKey)
     end
 end
 
+local ADAPTERS = {
+    function() require("flash.plugins.char").state:hide() end
+}
+
 function InputManager:_handleKeys(mode)
     local handled = false
     if #self._typed > 0 and cursorManager:hasCursors() then
         cursorManager:dirty()
-        if cursorManager:hasCursors() then
-            handled = true
-            cursorManager:action(function(ctx)
+        handled = true
+        local adapters = tbl.filter(ADAPTERS, pcall)
+        cursorManager:action(function(ctx)
+            if self._modeChangeCallbacks and self._wasMode ~= mode then
+                self:_emitModeChanged(ctx:mainCursor(), self._wasMode, mode)
+            end
+            ctx:forEachCursor(function(cursor)
+                cursor:feedkeys(self._typed, { remap = true })
                 if self._modeChangeCallbacks and self._wasMode ~= mode then
-                    self:_emitModeChanged(ctx:mainCursor(), self._wasMode, mode)
+                    self:_emitModeChanged(cursor, self._wasMode, mode)
                 end
-                ctx:forEachCursor(function(cursor)
-                    cursor:feedkeys(self._typed, { remap = true })
-                    if self._modeChangeCallbacks and self._wasMode ~= mode then
-                        self:_emitModeChanged(cursor, self._wasMode, mode)
-                    end
-                end)
-            end, { excludeMainCursor = true, allowUndo = true })
-        end
+                tbl.forEach(adapters, pcall)
+            end)
+        end, { excludeMainCursor = true, allowUndo = true })
     end
     if not handled then
         if self._modeChangeCallbacks and self._wasMode ~= mode then
