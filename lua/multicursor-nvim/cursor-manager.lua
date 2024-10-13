@@ -1821,9 +1821,18 @@ local function updateCursorline()
         name = "MultiCursorSign",
         link = false
     })
-    if vim.o.cursorline then
+    if vim.o.cursorline
+        and vim.o.signcolumn == "number"
+        and (vim.o.number or vim.o.relativenumber)
+    then
         local hl = vim.api.nvim_get_hl(0, {
-            name = "CursorLine",
+            name = "CursorLineNr",
+            link = false
+        })
+        newHl = vim.tbl_deep_extend("keep", newHl, hl)
+    else
+        local hl = vim.api.nvim_get_hl(0, {
+            name = "CursorLineSign",
             link = false
         })
         newHl = vim.tbl_deep_extend("keep", newHl, hl)
