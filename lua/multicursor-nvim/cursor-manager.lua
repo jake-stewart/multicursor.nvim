@@ -1666,7 +1666,7 @@ local function redrawSigns()
         state.signIds[#state.signIds + 1] =
             set_extmark(0, state.nsid, line - 1, 0, {
                 undo_restore = false,
-                priority = 20000,
+                priority = 20000 + level * 10,
                 sign_text = signText,
                 sign_hl_group = line == state.mainCursor._pos[2]
                     and "MultiCursorMainSign"
