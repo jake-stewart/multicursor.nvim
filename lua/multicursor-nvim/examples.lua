@@ -64,6 +64,7 @@ function examples.matchCursors(pattern)
         if not pattern or pattern == "" then
             return
         end
+        --- @type Cursor[]
         local newCursors = {}
         ctx:forEachCursor(function(cursor)
             if cursor:hasSelection() then

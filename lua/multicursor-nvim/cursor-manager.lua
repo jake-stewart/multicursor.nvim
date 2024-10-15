@@ -1300,12 +1300,17 @@ function Cursor:getVisualLines()
             true
         )
     end
+    local pos = self._pos
     local vPos = self._vPos
     if vPos[3] == 0 then
         vPos = { table.unpack(vPos) }
         vPos[3] = 1
     end
-    return vim.fn.getregion(vPos, self._pos, {
+    if pos[3] == 0 then
+        pos = { table.unpack(pos) }
+        pos[3] = 1
+    end
+    return vim.fn.getregion(vPos, pos, {
         type = VISUAL_LOOKUP[self._mode].visual,
         exclusive = false
     })
