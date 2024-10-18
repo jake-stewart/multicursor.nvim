@@ -128,6 +128,7 @@ Cursor.__index = Cursor
 --- @field leftcol number
 --- @field textoffset number
 --- @field yanked? boolean
+--- @field yankedWhileDisabled? boolean
 --- @field opts MultiCursorOpts
 --- @field mainSignHlExists? boolean
 --- @field jumps Pos[]
@@ -805,12 +806,16 @@ end
 --- Enables or disables all cursors
 --- @param value boolean
 function CursorContext:setCursorsEnabled(value)
+    local reg = state.yankedWhileDisabled
+        and vim.fn.getreginfo("")
+    state.yankedWhileDisabled = false
     for _, cursor in ipairs(state.cursors) do
         if cursor ~= state.mainCursor and cursor._enabled ~= value
             and cursor._state ~= CursorState.deleted
         then
             state.numDisabledCursors = state.numDisabledCursors + (value and -1 or 1)
             state.numEnabledCursors = state.numEnabledCursors + (value and 1 or -1)
+            cursor._register = reg or cursor._register
             cursor._enabled = value
             cursor._state = CursorState.dirty
         end
@@ -1534,6 +1539,7 @@ local function clearCursorContext()
     state.jumps = {}
     state.errors = {}
     state.jumpIdx = 0
+    state.yankedWhileDisabled = false
     unsetOptions()
     state.yanked = false
     if state.yankedBuffer then
@@ -2015,6 +2021,11 @@ function CursorManager:action(callback, opts)
         state.cursors = tbl.filter(state.cursors, function(cursor)
             return cursor ~= state.mainCursor
         end)
+        if state.numDisabledCursors > 0
+            and state.numEnabledCursors == 0
+        then
+            state.yankedWhileDisabled = true
+        end
     end
 
     cursorContextUpdate(not opts.excludeMainCursor)

@@ -514,24 +514,24 @@ function examples.matchAllAddCursors()
             regex = "\\v<\\C\\V" .. escapeRegex(word) .. "\\v>"
         end
 
-        local lines = vim.api.nvim_buf_get_lines(0, 0, -1, true)
-        local matches = util.matchlist(lines, regex, { userConfig = false })
-
-        if #matches > 0 then
-            for _, match in ipairs(matches) do
-                local cursor = mainCursor:clone()
-                local start = { match.idx + 1, match.byteidx + 1 }
-                local _end = { match.idx + 1, match.byteidx + #match.text }
-                if atVisualStart then
-                    cursor:setPos(start)
-                    cursor:setVisualAnchor(_end)
-                else
-                    cursor:setPos(_end)
-                    cursor:setVisualAnchor(start)
+        local origPos = mainCursor:getPos()
+        while true do
+            addCursor(ctx, function(cursor)
+                cursor:perform(function()
+                    vim.fn.search(regex)
+                end)
+                if hasSelection then
+                    cursor:feedkeys(TERM_CODES.ESC)
                 end
+            end, { addCursor = true })
+            local newPos = mainCursor:getPos()
+            if origPos[1] == newPos[1]
+                and origPos[2] == newPos[2]
+            then
+                break
             end
-            mainCursor:delete()
         end
+        mainCursor:delete()
     end)
 end
 
