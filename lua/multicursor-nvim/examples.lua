@@ -512,6 +512,7 @@ function examples.matchAllAddCursors()
         else
             local word = mainCursor:getCursorWord()
             regex = "\\v<\\C\\V" .. escapeRegex(word) .. "\\v>"
+            mainCursor:feedkeys('"_yiw')
         end
 
         local origPos = mainCursor:getPos()
