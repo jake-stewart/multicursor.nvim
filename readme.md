@@ -93,7 +93,7 @@ https://github.com/user-attachments/assets/a8c136dc-4786-447b-95c0-8e2a48f5776f
         set("n", "<leader>gv", mc.restoreCursors)
 
         -- Align cursor columns.
-        set("v", "<leader>a", mc.alignCursors)
+        set("n", "<leader>a", mc.alignCursors)
 
         -- Split visual selections by regex.
         set("v", "S", mc.splitCursors)
