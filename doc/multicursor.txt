@@ -14,6 +14,23 @@ Table of Contents                              *multicursor-table-of-contents*
   • Cursor Methods                                    |multicursor-API-Cursor|
 
 ==============================================================================
+Features                                                *multicursor-features*
+
+    • Visual and select modes with char/line/block selections
+    • Normal, insert, replace modes
+    • Undo/redo
+    • Virtualedit
+    • Autocompletion
+    • Snippet expansion (use `vim.snippet.expand`)
+    • Cursor specific registers for searching and yanking
+    • Match & split cursor selections with regex
+    • Transpose cursor selections
+    • Align cursor columns
+    • Easily extended with the Cursor API
+    • Works with most plugins and remaps
+
+
+==============================================================================
 Example Configuration                      *multicursor-example-configuration*
 
 basic usage of multicursor.nvim with the default config.
