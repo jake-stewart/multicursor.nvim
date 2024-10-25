@@ -1,4 +1,4 @@
-*multicursor.txt          Multiple cursors in Neovim which work how you expect.
+*multicursor.txt*        multiple cursors in Neovim which work how you expect.
 
 ==============================================================================
 Table of Contents                              *multicursor-table-of-contents*
@@ -199,7 +199,7 @@ see all the default features implemented using the Cursor API.
 Types                                                  *multicursor-API-Types*
 CursorQuery                                    *multicursor-types-CursorQuery*
 >lua
-    ---@alias CursorQuery {disableCursors?: boolean, enableCursors?: boolean}
+    --- @alias CursorQuery {disableCursors?: boolean, enableCursors?: boolean}
 <
     Fields: ~
       • disableCursors (`boolean?`) if true return disable cursors
@@ -488,7 +488,7 @@ mc.feedkeys({keys}, {opts})                           *multicursor-feedkeys*
 <
 
     Parameters: ~
-      • {keys} (`string`) to be typed
+      • {keys} (`string`) string representing a command
       • {opts} (`table`) options
         • {opts.remap} (`boolean?`) if true use remapped keys
         • {opts.keycodes} (`boolean?`) if true translate keycodes
@@ -509,24 +509,24 @@ mc.action(func)                                           *multicursor-action*
 ==============================================================================
 Context Methods                                      *multicursor-API-Context*
 
-      • setCursorsEnabled                  |multicursor-ctx-setCursorsEnabled|
-      • getCursors                                |multicursor-ctx-getCursors|
-      • addCursor                                  |multicursor-ctx-addCursor|
-      • forEachCursor                          |multicursor-ctx-forEachCursor|
-      • mapCursors                                |multicursor-ctx-mapCursors|
-      • findLastCursor                        |multicursor-ctx-findLastCursor|
-      • findCursor                                |multicursor-ctx-findCursor|
-      • nextCursor                                |multicursor-ctx-nextCursor|
-      • prevCursor                                |multicursor-ctx-prevCursor|
-      • nearestCursor                          |multicursor-ctx-nearestCursor|
-      • getCursorAtPos                        |multicursor-ctx-getCursorAtPos|
-      • overlappedCursor                    |multicursor-ctx-overlappedCursor|
-      • mainCursor                                |multicursor-ctx-mainCursor|
-      • firstCursor                              |multicursor-ctx-firstCursor|
-      • lastCursor                                |multicursor-ctx-lastCursor|
-      • cursorsEnabled                        |multicursor-ctx-cursorsEnabled|
-      • hasCursors                                |multicursor-ctx-hasCursors|
-      • clear                                          |multicursor-ctx-clear|
+    • setCursorsEnabled                    |multicursor-ctx-setCursorsEnabled|
+    • getCursors                                  |multicursor-ctx-getCursors|
+    • addCursor                                    |multicursor-ctx-addCursor|
+    • forEachCursor                            |multicursor-ctx-forEachCursor|
+    • mapCursors                                  |multicursor-ctx-mapCursors|
+    • findLastCursor                          |multicursor-ctx-findLastCursor|
+    • findCursor                                  |multicursor-ctx-findCursor|
+    • nextCursor                                  |multicursor-ctx-nextCursor|
+    • prevCursor                                  |multicursor-ctx-prevCursor|
+    • nearestCursor                            |multicursor-ctx-nearestCursor|
+    • getCursorAtPos                          |multicursor-ctx-getCursorAtPos|
+    • overlappedCursor                      |multicursor-ctx-overlappedCursor|
+    • mainCursor                                  |multicursor-ctx-mainCursor|
+    • firstCursor                                |multicursor-ctx-firstCursor|
+    • lastCursor                                  |multicursor-ctx-lastCursor|
+    • cursorsEnabled                          |multicursor-ctx-cursorsEnabled|
+    • hasCursors                                  |multicursor-ctx-hasCursors|
+    • clear                                            |multicursor-ctx-clear|
 
 
 
@@ -787,5 +787,334 @@ ctx:hasCursors()                                  *multicursor-ctx-hasCursors*
 
 ctx:clear()                                            *multicursor-ctx-clear*
     Removes all cursors
+
+==============================================================================
+Cursor Methods                                        *multicursor-API-Cursor*
+
+Cursor:line()                                        |multicursor-cursor-line|
+Cursor:col()                                          |multicursor-cursor-col|
+Cursor:getLine()                                  |multicursor-cursor-getLine|
+Cursor:delete()                                    |multicursor-cursor-delete|
+Cursor:overlappedCursor()                |multicursor-cursor-overlappedCursor|
+Cursor:select()                                    |multicursor-cursor-select|
+Cursor:isMainCursor()                        |multicursor-cursor-isMainCursor|
+Cursor:atVisualStart()                      |multicursor-cursor-atVisualStart|
+Cursor:splitVisualLines()                |multicursor-cursor-splitVisualLines|
+Cursor:getPos()                                    |multicursor-Cursor-getPos|
+Cursor:setPos(pos)                                 |multicursor-Cursor-setPos|
+Cursor:setVisualAnchor(pos)               |multicursor-Cursor-setVisualAnchor|
+Cursor:getVisualAnchor()                  |multicursor-Cursor-getVisualAnchor|
+Cursor:setRedoChangePos(pos)             |multicursor-cursor-setRedoChangePos|
+Cursor:clone()                                      |multicursor-cursor-clone|
+Cursor:getVisualLines()                    |multicursor-Cursor-getVisualLines|
+Cursor:getFullVisualLines()            |multicursor-Cursor-getFullVisualLines|
+Cursor:getVisual()                              |multicursor-cursor-getVisual|
+Cursor:mode()                                        |multicursor-cursor-mode|
+Cursor:setMode(mode)                              |multicursor-cursor-setMode|
+Cursor:disable()                                  |multicursor-cursor-disable|
+Cursor:enable()                                    |multicursor-cursor-enable|
+Cursor:feedkeys(keys, opts)                      |multicursor-cursor-feedkeys|
+Cursor:perform(callback)                          |multicursor-cursor-perform|
+Cursor:getCursorWord(callback)              |multicursor-cursor-getCursorWord|
+Cursor:setSearch(search)                        |multicursor-cursor-setSearch|
+Cursor:setVisual(visualStart, visualEnd)        |multicursor-cursor-setVisual|
+Cursor:inVisualMode()                        |multicursor-cursor-inVisualMode|
+Cursor:inSelectMode()                        |multicursor-cursor-inSelectMode|
+Cursor:hasSelection()                        |multicursor-cursor-hasSelection|
+
+
+
+Cursor:line()                                        *multicursor-cursor-line*
+    Returns this cursors current line number, 1 indexed. >lua
+    --- @return integer
+<
+
+    Return: ~
+      • (`integer`) line number
+
+Cursor:col()                                          *multicursor-cursor-col*
+    Returns this cursors current column number, 1 indexed. >lua
+    --- @return integer
+<
+
+    Return: ~
+      • (`integer`) column number
+
+Cursor:getLine()                                  *multicursor-cursor-getLine*
+    Returns the full line text of where this cursor is located. >lua
+    --- @return string
+<
+    Return: ~
+      • (`string`) line text
+
+Cursor:delete()                                    *multicursor-cursor-delete*
+    Deletes this cursor. If this is the main cursor then the closest cursor to
+    it is set as the new main cursor. If this is the last remaining cursor, a
+    new cursor is created at its position.
+
+Cursor:overlappedCursor()                *multicursor-cursor-overlappedCursor*
+    Returns the disabled cursor underneath this one, if it exists >lua
+    --- @return Cursor | nil
+<
+    Return: ~
+      • (`Cursor | nil`) disabled `Cursor` or nil if there isn't any
+
+    See also: ~
+      • |multicursor-API-Cursor|
+
+Cursor:select()                                    *multicursor-cursor-select*
+    Sets this cursor as the main cursor. >lua
+    --- @return self
+<
+    Return: ~
+      • (`self`) cursor
+
+Cursor:isMainCursor()                        *multicursor-cursor-isMainCursor*
+    Returns whether this cursor is the main cursor. >lua
+    --- @return boolean
+<
+    Return: ~
+      • (`boolean`) true if it is a main cursor
+
+Cursor:atVisualStart()                      *multicursor-cursor-atVisualStart*
+    A cursor can either be at the start or end of a visual selection.
+    For example, if you select lines 10-20, your cursor can either be
+    on line 10 (start) or 20 (end). this method returns true when at
+    the start. >lua
+    --- @return boolean
+<
+    Return: ~
+      • (`boolean`) true if the cursor is at the beginning of the selection
+
+Cursor:splitVisualLines()                *multicursor-cursor-splitVisualLines*
+    For each line of the cursor's visual selection, a new cursor is
+    created, visually selecting only the single line.
+    This method deletes the original cursor. >lua
+    --- @return Cursor[]
+<
+    Return: ~
+      • (`table`) table of Cursors
+
+Cursor:getPos()                                    *multicursor-Cursor-getPos*
+    Returns the position of a cursor >lua
+    --- @return Pos
+<
+    Return: ~
+      • (`Pos`) position of the cursor
+
+    See also: ~
+      • |multicursor-types-Pos|
+
+Cursor:setPos({pos})                               *multicursor-Cursor-setPos*
+    Sets the position of the cursor >lua
+    --- @param pos SimplePos | Pos
+    --- @return self
+<
+    See also: ~
+      • |multicursor-types-SimplePos|
+      • |multicursor-types-Pos|
+
+Cursor:setVisualAnchor({pos})             *multicursor-Cursor-setVisualAnchor*
+    Sets the position of the visual anchor
+    equivalent of `setpos()` on `'v'` for a cursor >lua
+    --- @param pos SimplePos | Pos
+    --- @return self
+<
+    Parameters: ~
+      • {pos} (`SimplePos | Pos`) new position of the anchor
+
+    Return: ~
+      • (`self`) cursor
+
+    See also: ~
+      • |multicursor-types-SimplePos|
+      • |multicursor-types-Pos|
+      • |Visual|
+      • |setpos()|
+
+Cursor:getVisualAnchor()                  *multicursor-Cursor-getVisualAnchor*
+    Returns the position of cursor's visual anchor 
+    same as `getpos('v')` >lua
+    --- @return Pos
+<
+    Return: ~
+      • (`Pos`) position of the anchor
+
+    See also: ~
+      • |multicursor-types-SimplePos|
+      • |multicursor-types-Pos|
+      • |Visual|
+      • |getpos()|
+
+Cursor:setRedoChangePos({pos})           *multicursor-cursor-setRedoChangePos*
+    Sets the position of the redo position marker >lua
+    --- @param pos SimplePos | Pos
+<
+    Parameters: ~
+      • {pos} (`table`) new position that is either `SimplePos` or `Pos`
+
+    See also: ~
+      • |multicursor-types-SimplePos|
+      • |multicursor-types-Pos|
+
+Cursor:clone()                                      *multicursor-cursor-clone*
+    Returns a new cursor with the same position, registers,
+    visual selection, and mode as this cursor. >lua
+    --- @return Cursor
+<
+    Return: ~
+      • (`Cursor`) full copy of the cursor
+
+    See also: ~
+      • |multicursor-API-Cursor|
+
+Cursor:getVisualLines()                    *multicursor-Cursor-getVisualLines*
+    Returns only the text contained in each line of the visual selection. >lua
+    --- @return string[]
+<
+    Return: ~
+      • (`table`) table containing the lines that are only in the visual
+        selection
+
+Cursor:getFullVisualLines()            *multicursor-Cursor-getFullVisualLines*
+    Returns the full line for each line of the visual selection. >lua
+    --- @return string[]
+<
+    Return: ~
+      • (`table`) same as `'<,'>` for a cursor
+
+Cursor:getVisual()                              *multicursor-cursor-getVisual*
+    Returns start and end positions of visual selection start position
+    is before or equal to end position. >lua
+    --- @return Pos, Pos
+<
+    Return: ~
+      • (`Pos`) starting position of the visual selection
+      • (`Pos`) ending position of the visual selection
+
+    See also: ~
+      • |multicursor-types-Pos|
+
+Cursor:mode()                                        *multicursor-cursor-mode*
+    Returns this cursor's current mode.
+    It should only ever be in normal, visual, or select modes. >lua
+    --- @return string: "n" | "v" | "V" | <c-v> | "s" | "S" | <c-s>
+>
+    Return: ~
+      • (`string`) mode of the cursor
+
+    See also: ~
+      • |mode()|
+
+Cursor:setMode({mode})                            *multicursor-cursor-setMode*
+--- Sets this cursor's mode.
+--- It should only ever be in normal, visual, or select modes. >lua
+    --- @param mode string: "n" | "v" | "V" | <c-v> | "s" | "S" | <c-s>
+    --- @return self
+<
+    Parameters: ~
+      • (`string`) new mode of the cursor
+
+    Return: ~
+      • (`self`) cursor
+
+    See also: ~
+      • |mode()|
+
+Cursor:disable()                                  *multicursor-cursor-disable*
+    Disable the cursor
+
+Cursor:enable()                                    *multicursor-cursor-enable*
+    Enable the cursor
+
+Cursor:feedkeys({keys}, {opts?})                 *multicursor-cursor-feedkeys*
+    Makes the cursor perform a command/commands.
+    For example, cursor:feedkeys('dw') will delete a word.
+    By default, keys are not remapped and keycodes are not parsed. >lua
+    --- @param keys string
+    --- @param opts? { remap?: boolean, keycodes?: boolean }
+<
+    Parameters: ~
+      • {keys} (`string`) string representing a command
+      • {opts} (`table`) options
+        • {opts.remap} (`boolean?`) if true use remapped keys
+        • {opts.keycodes} (`boolean?`) if true translate keycodes
+
+Cursor:perform({callback})                        *multicursor-cursor-perform*
+    Call callback with cursor >lua
+    --- @param callback fun(cursor: Cursor)
+<
+    Parameters: ~
+      • {callback} (`function`) function to execute on a cursor
+
+    See also: ~
+      • |multicursor-API-Cursor|
+
+Cursor:getCursorWord({callback})            *multicursor-cursor-getCursorWord*
+    Return the <cword> for this cursor >lua
+    --- @return string
+<
+    Return: ~
+      • (`string`) current word under cursor
+
+    See also: ~
+      • |<cword>|
+
+Cursor:setSearch({search})                      *multicursor-cursor-setSearch*
+    Set the search register of this cursor >lua
+    --- @param search string
+<
+    Parameters: ~
+      • (`string`) new content of the register
+
+    See also: ~
+      • |/|
+
+Cursor:setVisual({visualStart}, {visualEnd})    *multicursor-cursor-setVisual*
+    Sets the visual selection and sets the cursor position to `visualEnd`. >lua
+    --- @param visualStart SimplePos | Pos
+    --- @param visualEnd SimplePos | Pos
+    --- @return self
+<
+    Parameters: ~
+      • {visualStart} (`SimplePos | Pos`) start position of the visual
+        selection
+      • {visualEnd} (`SimplePos | Pos`) end position of the visual selection
+
+    See also: ~
+      • |multicursor-types-SimplePos|
+      • |multicursor-types-Pos|
+      • |Visual|
+
+Cursor:inVisualMode()                        *multicursor-cursor-inVisualMode*
+    Returns true if cursor is in visual mode >lua
+    --- @return boolean
+<
+    Return: ~
+      • (`boolean`) true if cursor is in visual mode
+
+    See also: ~
+      • |Visual|
+
+Cursor:inSelectMode()                        *multicursor-cursor-inSelectMode*
+    Returns true if cursor is in select mode >lua
+    --- @return boolean
+<
+    Return: ~
+      • (`boolean`) true if cursor is in select mode
+
+    See also: ~
+      • |Select|
+
+Cursor:hasSelection()                        *multicursor-cursor-hasSelection*
+    Returns true if cursor is in visual or select mode >lua
+    --- @return boolean
+<
+    Return: ~
+      • (`boolean`) true if either in select or visual mode
+
+    See also: ~
+      • |Visual|
+      • |Select|
 
 vim:tw=78:ts=8:noet:ft=help:norl:
