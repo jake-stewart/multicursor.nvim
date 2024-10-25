@@ -1,0 +1,479 @@
+*multicursor.txt          Multiple cursors in Neovim which work how you expect.
+
+==============================================================================
+Table of Contents                              *multicursor-table-of-contents*
+
+1. Features                                             |multicursor-features|
+2. Example Configuration                   |multicursor-example-configuration|
+• Selecting Cursors                            |multicursor-selecting-cursors|
+• Changing Cursors                              |multicursor-changing-cursors|
+• Using Cursors                                    |multicursor-using-cursors|
+3. API                                                       |multicursor-API|
+
+==============================================================================
+Example Configuration                      *multicursor-example-configuration*
+
+basic usage of multicursor.nvim with the default config.
+
+>lua
+    {
+	"jake-stewart/multicursor.nvim",
+	branch = "1.0",
+	config = function()
+	    local mc = require("multicursor-nvim")
+
+	    mc.setup()
+
+	    local set = vim.keymap.set
+
+	    -- Add or skip cursor above/below the main cursor.
+	    set({"n", "v"}, "<up>",
+		function() mc.lineAddCursor(-1) end)
+	    set({"n", "v"}, "<down>",
+		function() mc.lineAddCursor(1) end)
+	    set({"n", "v"}, "<leader><up>",
+		function() mc.lineSkipCursor(-1) end)
+	    set({"n", "v"}, "<leader><down>",
+		function() mc.lineSkipCursor(1) end)
+
+	    -- Add or skip adding a new cursor by matching word/selection
+	    set({"n", "v"}, "<leader>n",
+		function() mc.matchAddCursor(1) end)
+	    set({"n", "v"}, "<leader>s",
+		function() mc.matchSkipCursor(1) end)
+	    set({"n", "v"}, "<leader>N",
+		function() mc.matchAddCursor(-1) end)
+	    set({"n", "v"}, "<leader>S",
+		function() mc.matchSkipCursor(-1) end)
+
+	    -- Add all matches in the document
+	    set({"n", "v"}, "<leader>A", mc.matchAllAddCursors)
+
+	    -- You can also add cursors with any motion you prefer:
+	    -- set("n", "<right>", function()
+	    --     mc.addCursor("w")
+	    -- end)
+	    -- set("n", "<leader><right>", function()
+	    --     mc.skipCursor("w")
+	    -- end)
+
+	    -- Rotate the main cursor.
+	    set({"n", "v"}, "<left>", mc.nextCursor)
+	    set({"n", "v"}, "<right>", mc.prevCursor)
+
+	    -- Delete the main cursor.
+	    set({"n", "v"}, "<leader>x", mc.deleteCursor)
+
+	    -- Add and remove cursors with control + left click.
+	    set("n", "<c-leftmouse>", mc.handleMouse)
+
+	    -- Easy way to add and remove cursors using the main cursor.
+	    set({"n", "v"}, "<c-q>", mc.toggleCursor)
+
+	    -- Clone every cursor and disable the originals.
+	    set({"n", "v"}, "<leader><c-q>", mc.duplicateCursors)
+
+	    set("n", "<esc>", function()
+		if not mc.cursorsEnabled() then
+		    mc.enableCursors()
+		elseif mc.hasCursors() then
+		    mc.clearCursors()
+		else
+		    -- Default <esc> handler.
+		end
+	    end)
+
+	    -- bring back cursors if you accidentally clear them
+	    set("n", "<leader>gv", mc.restoreCursors)
+
+	    -- Align cursor columns.
+	    set("n", "<leader>a", mc.alignCursors)
+
+	    -- Split visual selections by regex.
+	    set("v", "S", mc.splitCursors)
+
+	    -- Append/insert for each line of visual selections.
+	    set("v", "I", mc.insertVisual)
+	    set("v", "A", mc.appendVisual)
+
+	    -- match new cursors within visual selections by regex.
+	    set("v", "M", mc.matchCursors)
+
+	    -- Rotate visual selection contents.
+	    set("v", "<leader>t",
+		function() mc.transposeCursors(1) end)
+	    set("v", "<leader>T",
+		function() mc.transposeCursors(-1) end)
+
+	    -- Jumplist support
+	    set({"v", "n"}, "<c-i>", mc.jumpForward)
+	    set({"v", "n"}, "<c-o>", mc.jumpBackward)
+
+	    -- Customize how cursors look.
+	    local hl = vim.api.nvim_set_hl
+	    hl(0, "MultiCursorCursor", { link = "Cursor" })
+	    hl(0, "MultiCursorVisual", { link = "Visual" })
+	    hl(0, "MultiCursorSign", { link = "SignColumn"})
+	    hl(0, "MultiCursorDisabledCursor", { link = "Visual" })
+	    hl(0, "MultiCursorDisabledVisual", { link = "Visual" })
+	    hl(0, "MultiCursorDisabledSign", { link = "SignColumn"})
+	end
+    }
+<
+==============================================================================
+Selecting Cursors                              *multicursor-selecting-cursors*
+
+- You can add cursors above/below the current cursor with `<up>` and `<down>`.
+- You can skip a line with `<leader><up>` or `<leader><down>`.
+- You can match the word/selection under the cursor forwards or backwards with
+  `<leader>n` and `<leader>N`.
+- You can skip a match forwards or backwards using `<leader>s` and
+  `<leader>S`.
+- You can add and remove cursors using the mouse with `<c-leftmouse>`.
+
+==============================================================================
+Changing Cursors                                *multicursor-changing-cursors*
+
+- You can rotate through cursors with `<left>` and `<right>`.
+- You can delete the current cursor using `<leader>x`
+- You can disable cursors with `<c-q>`, which means only the main cursor
+  moves.
+- You can also press `<leader><c-q>` to duplicate cursors, disabling the
+  originals.
+- When cursors are disabled, you can press `<c-q>` to add a cursor under the
+  main cursor.
+- You can press `<esc>` to enable cursors again.
+
+==============================================================================
+Using Cursors                                      *multicursor-using-cursors*
+
+- Once you have your cursors, you use vim normally as you would with a single
+  cursor.
+- You can press `<leader>a` to align cursor columns.
+- You can press `S` to split a visual selection by regex into multiple
+  selections.
+- You can press `M` to run a regex within your visual selection, creating
+  a new cursor for each match.
+- You can press `<leader>t` and `<leader>T` to transpose visual selections,
+  which means the text within each visual selection will be rotated between
+  cursors.
+
+
+- When you want to collapse your cursors back into one, press `<esc>`.
+
+==============================================================================
+API                                                          *multicursor-API*
+
+All of the provided features are implemented using the Cursor API, which is
+accessible for writing your own complex multi-cursor logic.
+
+You can use the Cursor API by calling `mc.action` with a callback, like so:
+
+>lua
+    mc.action(function(ctx)
+	local cursors = ctx:getCursors()
+    end)
+<
+
+The `ctx` is a `CursorContext` which lets you query for cursors.
+In the snippet, we simply called `getCursors()` to get a list of all our cursors.
+
+In the next snippet, we will instead call `firstCursor()` to get only the
+highest cursor in the document. Once we have our cursor, we can interact with it.
+
+>lua
+    mc.action(function(ctx)
+	local cursor = ctx:firstCursor()
+	vim.print(cursor:getLine())
+	cursor:feedkeys("ihello world")
+    end)
+>
+
+And that's it. You can view the prototypes below to
+see all the default features implemented using the Cursor API.
+
+==============================================================================
+
+mc.addCursor({motion})                                 *multicursor-addCursor*
+    Add a cursor and move only the main cursor using motion.
+
+    Usage example: >lua
+        vim.keymap.set("n", "<right>", function()
+            mc.addCursor("w")
+        end)
+<
+
+    Parameters: ~
+      • {motion} (`string`) motion to execute on the main cursor leaving a new
+      cursor behind
+
+mc.skipCursor({motion})                               *multicursor-skipCursor*
+    Move only the main cursor using motion.
+
+    Usage example: >lua
+        vim.keymap.set("n", "<leader><right>", function()
+            mc.skipCursor("w")
+        end)
+<
+
+    Parameters: ~
+      • {motion} (`string`) motion to execute on the main cursor without
+      adding a new cursor
+
+mc.lineAddCursor({direction})                      *multicursor-lineAddCursor*
+    Add a cursor above or below the the main cursor, skipping empty lines.
+
+    Usage example: >lua
+        vim.keymap.set({"n", "v"}, "<up>", function()
+            mc.lineAddCursor(-1)
+        end)
+        vim.keymap.set({"n", "v"}, "<down>", function()
+            mc.lineAddCursor(1)
+        end)
+<
+
+    Parameters: ~
+      • {direction} (`-1 | 1`) when passing in `-1` spawn a cursor in the
+      previous line, while `1` spawn in the next line
+
+mc.lineSkipCursor({direction})                    *multicursor-lineSkipCursor*
+    Move only the main cursor up or down a line, skipping empty lines.
+
+    Usage example: >lua
+        vim.keymap.set({"n", "v"}, "<leader><up>", function()
+            mc.lineSkipCursor(-1)
+        end)
+        vim.keymap.set({"n", "v"}, "<leader><down>", function()
+            mc.lineSkipCursor(1)
+        end)
+<
+
+    Parameters: ~
+      • {direction} (`-1 | 1`) when passing in `-1` spawn a cursor in the
+      previous line, while `1` spawn in the next line
+
+mc.matchAddCursor({direction})                    *multicursor-matchAddCursor*
+    Add a new cursor by matching the current word/selection.
+
+    Usage example: >lua
+        vim.keymap.set({"n", "v"}, "<leader>n", function()
+            mc.matchAddCursor(1)
+        end)
+        vim.keymap.set({"n", "v"}, "<leader>s", function()
+            mc.matchSkipCursor(1)
+        end)
+<
+
+    Parameters: ~
+      • {direction} (`-1 | 1`) when passing in `-1` spawn a cursor in the
+      previous line, while `1` spawn in the next line
+
+mc.matchSkipCursor({direction})                  *multicursor-matchSkipCursor*
+    Move only the main cursor by matching the current word/selection.
+
+    Usage example: >lua
+        vim.keymap.set({"n", "v"}, "<leader>N", function()
+            mc.matchAddCursor(-1)
+        end)
+        vim.keymap.set({"n", "v"}, "<leader>S", function()
+            mc.matchSkipCursor(-1)
+        end)
+<
+
+    Parameters: ~
+      • {direction} (`-1 | 1`) when passing in `-1` spawn a cursor in the
+      previous line, while `1` spawn in the next line
+
+mc.matchAllAddCursors()                       *multicursor-matchAllAddCursors*
+    Add a cursor for every match of the word/selection under the cursor.
+
+    Usage example: >lua
+        vim.keymap.set({"n", "v"}, "<leader>A", mc.matchAllAddCursors)
+<
+
+mc.nextCursor()                                       *multicursor-nextCursor*
+    Select the cursor after the main cursor.
+
+    Usage example: >lua
+        vim.keymap.set({"n", "v"}, "<left>", mc.nextCursor)
+<
+
+mc.prevCursor()                                       *multicursor-prevCursor*
+    Select the cursor before the main cursor.
+
+    Usage example: >lua
+        vim.keymap.set({"n", "v"}, "<right>", mc.prevCursor)
+<
+
+mc.firstCursor()                                     *multicursor-firstCursor*
+    Select the first cursor.
+
+    Usage example: >lua
+        vim.keymap.set({"n", "v"}, "H", mc.firstCursor)
+<
+
+mc.lastCursor()                                       *multicursor-lastCursor*
+    Select the last cursor.
+
+    Usage example: >lua
+        vim.keymap.set({"n", "v"}, "L", mc.lastCursor)
+<
+
+mc.hasCursors()                                       *multicursor-hasCursors*
+    Returns whether multiple cursors exist.
+
+    Usage example: >lua
+        vim.keymap.set({ "n", "v" }, "<esc>", function()
+            if mc.hasCursors() then
+                mc.clearCursors()
+            end
+        end)
+<
+
+    Return: ~
+      • (`boolean`) true if there are more than 1 cursors
+
+mc.deleteCursor()                                   *multicursor-deleteCursor*
+    Delete the main cursor.
+
+    Usage example: >lua
+        vim.keymap.set({"n", "v"}, "<leader>x", mc.deleteCursor)
+<
+
+mc.clearCursors()                                   *multicursor-clearCursors*
+    Clear all cursors except main cursor.
+
+    Usage example: >lua
+        vim.keymap.set({ "n", "v" }, "<esc>", function()
+            if mc.hasCursors() then
+                mc.clearCursors()
+            end
+        end)
+<
+
+mc.handleMouse()                                     *multicursor-handleMouse*
+    Use in a mouse mapping to handle mouse input.
+
+    Usage example: >lua
+        vim.keymap.set("n", "<c-leftmouse>", mc.handleMouse)
+<
+
+mc.alignCursors()                                   *multicursor-alignCursors*
+    Align columns of cursors on multiple lines.
+
+    Usage example: >lua
+        vim.keymap.set("n", "<leader>a", mc.alignCursors)
+<
+
+mc.splitCursors()                                   *multicursor-splitCursors*
+    Split visual selections with a regex separator. For example, visually
+    selecting "a,b,c,d" and splitting with "," will create four cursors, one
+    on each letter.
+
+    Usage example: >lua
+        vim.keymap.set("v", "S", mc.splitCursors)
+<
+
+mc.matchCursors()                                   *multicursor-matchCursors*
+
+    Match a pattern over a visual selection, creating a new cursor for each match.
+    For example, visually selecting "foo bar foo" and matching with "foo" will
+    create two cursors, one on each "foo"
+
+    Usage example: >lua
+        vim.keymap.set("v", "M", mc.matchCursors)
+<
+
+mc.transposeCursors(direction)                  *multicursor-transposeCursors*
+    Rotate the contents of each visual selection for each cursor.
+
+    Usage example: >lua
+        vim.keymap.set("v", "<leader>t", function()
+            mc.transposeCursors(1)
+        end)
+        vim.keymap.set("v", "<leader>T", function()
+            mc.transposeCursors(-1)
+        end)
+<
+
+    Parameters: ~
+      • {direction} (`-1 | 1`) With `1` for clockwise rotation and `-1` for
+      anti-clockwise. 
+
+mc.insertVisual()                                   *multicursor-insertVisual*
+    Create a cursor for each line of the visual selection, and enter insert
+    mode with `I`
+
+    Usage example: >lua
+        vim.keymap.set("v", "I", mc.insertVisual)
+<
+
+mc.appendVisual()                                   *multicursor-appendVisual*
+    Create a cursor for each line of the visual selection, and enter insert
+    mode with `A`
+    Usage example: >lua
+        vim.keymap.set("v", "A", mc.appendVisual)
+<
+
+mc.disableCursors()                               *multicursor-disableCursors*
+    Locks the cursors from moving. This is useful for repositioning main
+    cursor for adding more cursors.
+    Usage example: >lua
+        vim.keymap.set({"n", "v"}, "<c-q>", mc.disableCursors)
+<
+
+    See also: ~
+      • |multicursor-enableCursors|
+
+mc.enableCursors()                                 *multicursor-enableCursors*
+Unlocks the cursors from moving.
+    Usage example: >lua
+        vim.keymap.set({"n", "v"}, "<c-q>", mc.enableCursors)
+<
+
+    See also: ~
+      • |multicursor-disableCursors|
+
+mc.cursorsEnabled()                               *multicursor-cursorsEnabled*
+    Returns whether the cursors are locked from moving.
+
+    Usage example: >lua
+        if not mc.cursorsEnabled() then
+            mc.enableCursors()
+        end
+<
+
+    Return: ~
+      • (`boolean`) true if cursors are locked
+
+    See also: ~
+      • |multicursor-disableCursors|
+      • |multicursor-enableCursors|
+
+mc.feedkeys({keys}, {opts})                           *multicursor-feedkeys*
+    Use instead of `vim.fn.feedkeys()` or `vim.api.nvim_feedkeys()` in
+    multicursor mappings to avoid bugs.
+
+    Usage example: >lua
+<
+
+    Parameters: ~
+      • {keys} (`string`) to be typed
+      • {opts} (`table`) options
+        • {opts.remap} (`boolean?`) if true use remapped keys
+        • {opts.keycodes} (`boolean?`) if true translate keycodes
+
+mc.action(func)                                           *multicursor-action*
+    Perform a complex action using the Cursor API. See below for details.
+
+    Usage example: >lua
+        mc.action(function(ctx)
+            local cursors = ctx:getCursors()
+        end)
+<
+
+    Parameters: ~
+      • {func} (`function`) function to execute on cursors
+        • {ctx} (`CursorContext`) allows to query for cursors
+
+vim:tw=78:ts=8:noet:ft=help:norl:
