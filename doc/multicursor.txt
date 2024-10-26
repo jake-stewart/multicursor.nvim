@@ -1,8 +1,8 @@
 *multicursor.txt*                                             multicursor.nvim
 
-Multiple cursors in Neovim.              *multicursor* *multicursor.nvim* *mc*
-
-https://github.com/jake-stewart/multicursor.nvim
+Multiple cursors in Neovim.                                      *multicursor*
+					                    *multicursor.nvim*
+                                                                          *mc*
 
 ==============================================================================
 Table of Contents                              *multicursor-table-of-contents*
