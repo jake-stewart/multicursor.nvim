@@ -507,7 +507,8 @@ API                                                          *multicursor-api*
 All of the provided actions are implemented using the Cursor API, which is
 accessible for writing your own complex multi-cursor logic.
 
-You can use the Cursor API by calling |multicursor-action| with a callback, like so:
+You can use the Cursor API by calling |multicursor-action| with a callback,
+like so:
 
 >lua
     mc.action(function(ctx)
@@ -532,6 +533,10 @@ it.
 
 And that's it. You can view the types below to see all the default features
 implemented using the Cursor API.
+
+See also: ~
+  • |multicursor-action|
+  • |multicursor-api-Context|
 
 
 ------------------------------------------------------------------------------
