@@ -1912,11 +1912,6 @@ local function fixWindowScroll(origCursor, winStartLine)
     -- is returning outdated values. probably a neovim bug
 end
 
-local function forceStatuslineUpdate()
-    vim.o.statusline = vim.o.statusline
-    vim.o.rulerformat = vim.o.rulerformat
-end
-
 --- @class ActionOptions
 --- @field excludeMainCursor? boolean
 --- @field fixWindow? boolean
@@ -2029,7 +2024,6 @@ function CursorManager:action(callback, opts)
     end
 
     cursorContextUpdate(not opts.excludeMainCursor)
-    forceStatuslineUpdate()
 
     local errors = tbl.uniq(state.errors)
     state.errors = {}
