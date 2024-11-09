@@ -9,14 +9,14 @@ Table of Contents                              *multicursor-table-of-contents*
 
 1. Features                                             |multicursor-features|
 2. Example Configuration                   |multicursor-example-configuration|
-  • Selecting Cursors                          |multicursor-selecting-cursors|
-  • Changing Cursors                            |multicursor-changing-cursors|
-  • Using Cursors                                  |multicursor-using-cursors|
+ • Selecting Cursors                           |multicursor-selecting-cursors|
+ • Changing Cursors                             |multicursor-changing-cursors|
+ • Using Cursors                                   |multicursor-using-cursors|
 3. Actions                                               |multicursor-actions|
 4. API                                                       |multicursor-api|
-  • Types                                              |multicursor-api-types|
-  • Context Methods                                  |multicursor-api-Context|
-  • Cursor Methods                                    |multicursor-api-Cursor|
+ • Types                                               |multicursor-api-types|
+ • Context Methods                                   |multicursor-api-Context|
+ • Cursor Methods                                     |multicursor-api-Cursor|
 
 
 ==============================================================================
@@ -239,6 +239,7 @@ mc.addCursor({motion})                                 *multicursor-addCursor*
       • {motion} (`string`) motion to execute on the main cursor leaving a new
         cursor behind
 
+
 mc.skipCursor({motion})                               *multicursor-skipCursor*
     Move only the main cursor using motion.
 
@@ -250,6 +251,7 @@ mc.skipCursor({motion})                               *multicursor-skipCursor*
     Parameters: ~
       • {motion} (`string`) motion to execute on the main cursor without
         adding a new cursor
+
 
 mc.lineAddCursor({direction})                      *multicursor-lineAddCursor*
     Add a cursor above or below the the main cursor, skipping empty lines.
@@ -266,6 +268,7 @@ mc.lineAddCursor({direction})                      *multicursor-lineAddCursor*
       • {direction} (`-1 | 1`) when passing in `-1` spawn a cursor in the
 	previous line, while `1` spawn in the next line
 
+
 mc.lineSkipCursor({direction})                    *multicursor-lineSkipCursor*
     Move only the main cursor up or down a line, skipping empty lines.
 
@@ -280,6 +283,7 @@ mc.lineSkipCursor({direction})                    *multicursor-lineSkipCursor*
     Parameters: ~
       • {direction} (`-1 | 1`) when passing in `-1` spawn a cursor in the
 	previous line, while `1` spawn in the next line
+
 
 mc.matchAddCursor({direction})                    *multicursor-matchAddCursor*
     Add a new cursor by matching the current word/selection.
@@ -296,6 +300,7 @@ mc.matchAddCursor({direction})                    *multicursor-matchAddCursor*
       • {direction} (`-1 | 1`) when passing in `-1` spawn a cursor in the
 	previous line, while `1` spawn in the next line
 
+
 mc.matchSkipCursor({direction})                  *multicursor-matchSkipCursor*
     Move only the main cursor by matching the current word/selection.
 
@@ -310,6 +315,7 @@ mc.matchSkipCursor({direction})                  *multicursor-matchSkipCursor*
     Parameters: ~
       • {direction} (`-1 | 1`) when passing in `-1` spawn a cursor in the
 	previous line, while `1` spawn in the next line
+
 
 mc.matchAllAddCursors()                       *multicursor-matchAllAddCursors*
     Add a cursor for every match of the word/selection under the cursor.
@@ -358,6 +364,7 @@ mc.hasCursors()                                       *multicursor-hasCursors*
 <
     Return: ~
       • (`boolean`) true if there are more than 1 cursors.
+
 
 mc.deleteCursor()                                   *multicursor-deleteCursor*
     Delete the main cursor.
@@ -424,6 +431,7 @@ mc.transposeCursors(direction)                  *multicursor-transposeCursors*
       • {direction} (`-1 | 1`) With `1` for clockwise rotation and `-1` for
         anti-clockwise.
 
+
 mc.insertVisual()                                   *multicursor-insertVisual*
     Create a cursor for each line of the visual selection, and enter insert
     mode with `I`.
@@ -450,6 +458,7 @@ mc.disableCursors()                               *multicursor-disableCursors*
     See also: ~
       • |multicursor-enableCursors|
 
+
 mc.enableCursors()                                 *multicursor-enableCursors*
     Unlocks the cursors from moving.
 
@@ -458,6 +467,7 @@ mc.enableCursors()                                 *multicursor-enableCursors*
 <
     See also: ~
       • |multicursor-disableCursors|
+
 
 mc.cursorsEnabled()                               *multicursor-cursorsEnabled*
     Returns whether the cursors are locked from moving.
@@ -474,6 +484,7 @@ mc.cursorsEnabled()                               *multicursor-cursorsEnabled*
       • |multicursor-disableCursors|
       • |multicursor-enableCursors|
 
+
 mc.feedkeys({keys}, {opts})                             *multicursor-feedkeys*
     Use instead of `vim.fn.feedkeys()` or `vim.api.nvim_feedkeys()` in
     multicursor mappings to avoid bugs.
@@ -483,6 +494,7 @@ mc.feedkeys({keys}, {opts})                             *multicursor-feedkeys*
       • {opts} (`table`) options
         • {opts.remap} (`boolean?`) if true use remapped keys
         • {opts.keycodes} (`boolean?`) if true translate keycodes
+
 
 mc.action(func)                                           *multicursor-action*
     Perform a complex action using the |multicursor-api|.
@@ -599,6 +611,7 @@ ctx:setCursorsEnabled({value})             *multicursor-ctx-setCursorsEnabled*
     Parameters: ~
       • {value} (`boolean`)
 
+
 ctx:getCursors({opts?})                           *multicursor-ctx-getCursors*
     Returns a list of cursors, sorted by their position.
 
@@ -612,6 +625,7 @@ ctx:getCursors({opts?})                           *multicursor-ctx-getCursors*
       • |multicursor-api-Cursor|
       • |multicursor-types-CursorQuery|
 
+
 ctx:addCursor()                                    *multicursor-ctx-addCursor*
     Creates a new virtual cursor, returning it.
 
@@ -620,6 +634,7 @@ ctx:addCursor()                                    *multicursor-ctx-addCursor*
 
     See also: ~
       • |multicursor-api-Cursor|
+
 
 ctx:forEachCursor({callback}, {opts?})         *multicursor-ctx-forEachCursor*
     Util which executes callback for each cursor, sorted by their position.
@@ -632,6 +647,7 @@ ctx:forEachCursor({callback}, {opts?})         *multicursor-ctx-forEachCursor*
     See also: ~
       • |multicursor-api-Cursor|
       • |multicursor-types-CursorQuery|
+
 
 ctx:mapCursors({callback}, {opts?})               *multicursor-ctx-mapCursors*
     Util method which maps each cursor to a value.
@@ -648,6 +664,7 @@ ctx:mapCursors({callback}, {opts?})               *multicursor-ctx-mapCursors*
       • |multicursor-api-Cursor|
       • |multicursor-types-CursorQuery|
 
+
 ctx:findLastCursor({predicate}, {opts?})      *multicursor-ctx-findLastCursor*
     Util method which returns the last cursor matching the predicate.
 
@@ -663,6 +680,7 @@ ctx:findLastCursor({predicate}, {opts?})      *multicursor-ctx-findLastCursor*
       • |multicursor-api-Cursor|
       • |multicursor-types-CursorQuery|
 
+
 ctx:findCursor({predicate}, {opts?})              *multicursor-ctx-findCursor*
     Util method which returns the first cursor matching the predicate.
 
@@ -677,6 +695,7 @@ ctx:findCursor({predicate}, {opts?})              *multicursor-ctx-findCursor*
     See also: ~
       • |multicursor-api-Cursor|
       • |multicursor-types-CursorQuery|
+
 
 ctx:nextCursor({pos}, {opts?})                    *multicursor-ctx-nextCursor*
     Returns the closest cursor which appears AFTER pos. A cursor exactly at
@@ -698,6 +717,7 @@ ctx:nextCursor({pos}, {opts?})                    *multicursor-ctx-nextCursor*
       • |multicursor-types-SimplePos|
       • |multicursor-types-Pos|
 
+
 ctx:prevCursor({pos}, {opts?})                    *multicursor-ctx-prevCursor*
     Returns the closest cursor which appears BEFORE pos. A cursor exactly at
     pos will not be returned. It does not wrap, so if none are found, then nil
@@ -718,6 +738,7 @@ ctx:prevCursor({pos}, {opts?})                    *multicursor-ctx-prevCursor*
       • |multicursor-types-SimplePos|
       • |multicursor-types-Pos|
 
+
 ctx:nearestCursor({pos}, {opts?})              *multicursor-ctx-nearestCursor*
     Returns the nearest cursor to pos, and accepts a cursor exactly at pos.
 
@@ -733,6 +754,7 @@ ctx:nearestCursor({pos}, {opts?})              *multicursor-ctx-nearestCursor*
       • |multicursor-types-CursorQuery|
       • |multicursor-types-SimplePos|
       • |multicursor-types-Pos|
+
 
 ctx:getCursorAtPos({pos}, {opts?})            *multicursor-ctx-getCursorAtPos*
     Returns the exact cursor at pos.
@@ -751,6 +773,7 @@ ctx:getCursorAtPos({pos}, {opts?})            *multicursor-ctx-getCursorAtPos*
       • |multicursor-types-SimplePos|
       • |multicursor-types-Pos|
 
+
 ctx:overlappedCursor()                      *multicursor-ctx-overlappedCursor*
     Returns the cursor under the main cursor.
 
@@ -760,6 +783,7 @@ ctx:overlappedCursor()                      *multicursor-ctx-overlappedCursor*
     See also: ~
       • |multicursor-api-Cursor|
     
+
 ctx:mainCursor()                                  *multicursor-ctx-mainCursor*
     Returns the main cursor.
 
@@ -768,6 +792,7 @@ ctx:mainCursor()                                  *multicursor-ctx-mainCursor*
 
     See also: ~
       • |multicursor-api-Cursor|
+
 
 ctx:firstCursor({opts?})                         *multicursor-ctx-firstCursor*
     Returns the cursor closest to the start of the document.
@@ -783,6 +808,7 @@ ctx:firstCursor({opts?})                         *multicursor-ctx-firstCursor*
       • |multicursor-api-Cursor|
       • |multicursor-types-CursorQuery|
 
+
 ctx:lastCursor({opts?})                           *multicursor-ctx-lastCursor*
     Returns the cursor closest to the end of the document.
 
@@ -797,17 +823,20 @@ ctx:lastCursor({opts?})                           *multicursor-ctx-lastCursor*
       • |multicursor-api-Cursor|
       • |multicursor-types-CursorQuery|
 
+
 ctx:cursorsEnabled()                          *multicursor-ctx-cursorsEnabled*
     Returns whether all cursors are enabled.
 
     Return: ~
       • (`boolean`) true if ALL cursors are enabled.
 
+
 ctx:hasCursors()                                  *multicursor-ctx-hasCursors*
     Returns whether there are cursors.
 
     Return: ~
       • (`boolean`) true if there are any virtual cursors.
+
 
 ctx:clear()                                            *multicursor-ctx-clear*
     Removes all cursors.
@@ -854,11 +883,13 @@ Cursor:line()                                        *multicursor-cursor-line*
     Return: ~
       • (`integer`) line number.
 
+
 Cursor:col()                                          *multicursor-cursor-col*
     Returns this cursors current column number, 1 indexed.
 
     Return: ~
       • (`integer`) column number.
+
 
 Cursor:getLine()                                  *multicursor-cursor-getLine*
     Returns the full line text of where this cursor is located.
@@ -866,10 +897,12 @@ Cursor:getLine()                                  *multicursor-cursor-getLine*
     Return: ~
       • (`string`) line text.
 
+
 Cursor:delete()                                    *multicursor-cursor-delete*
     Deletes this cursor. If this is the main cursor then the closest cursor to
     it is set as the new main cursor. If this is the last remaining cursor, a
     new cursor is created at its position.
+
 
 Cursor:overlappedCursor()                *multicursor-cursor-overlappedCursor*
     Returns the disabled cursor underneath this one, if it exists.
@@ -880,17 +913,20 @@ Cursor:overlappedCursor()                *multicursor-cursor-overlappedCursor*
     See also: ~
       • |multicursor-api-Cursor|
 
+
 Cursor:select()                                    *multicursor-cursor-select*
     Sets this cursor as the main cursor.
 
     Return: ~
       • (`self`)
 
+
 Cursor:isMainCursor()                        *multicursor-cursor-isMainCursor*
     Returns whether this cursor is the main cursor.
 
     Return: ~
       • (`boolean`) true if it is the main cursor.
+
 
 Cursor:atVisualStart()                      *multicursor-cursor-atVisualStart*
     A cursor can either be at the start or end of a visual selection. For
@@ -900,6 +936,7 @@ Cursor:atVisualStart()                      *multicursor-cursor-atVisualStart*
     Return: ~
       • (`boolean`) true if the cursor is at the beginning of its selection.
 
+
 Cursor:splitVisualLines()                *multicursor-cursor-splitVisualLines*
     For each line of the cursor's visual selection, a new cursor is created,
     visually selecting only the single line. This method deletes the original
@@ -907,6 +944,7 @@ Cursor:splitVisualLines()                *multicursor-cursor-splitVisualLines*
 
     Return: ~
       • (`Cursor[]`) table of Cursors
+
 
 Cursor:getPos()                                    *multicursor-Cursor-getPos*
     Returns the position of a cursor.
@@ -916,6 +954,7 @@ Cursor:getPos()                                    *multicursor-Cursor-getPos*
 
     See also: ~
       • |multicursor-types-Pos|
+
 
 Cursor:setPos({pos})                               *multicursor-Cursor-setPos*
     Sets the position of the cursor.
@@ -929,6 +968,7 @@ Cursor:setPos({pos})                               *multicursor-Cursor-setPos*
     See also: ~
       • |multicursor-types-SimplePos|
       • |multicursor-types-Pos|
+
 
 Cursor:setVisualAnchor({pos})             *multicursor-Cursor-setVisualAnchor*
     Sets the position of the visual anchor equivalent of `setpos()` on `'v'`
@@ -946,6 +986,7 @@ Cursor:setVisualAnchor({pos})             *multicursor-Cursor-setVisualAnchor*
       • |Visual|
       • |setpos()|
 
+
 Cursor:getVisualAnchor()                  *multicursor-Cursor-getVisualAnchor*
     Returns the position of cursor's visual anchor same as `getpos('v')`.
 
@@ -958,6 +999,7 @@ Cursor:getVisualAnchor()                  *multicursor-Cursor-getVisualAnchor*
       • |Visual|
       • |getpos()|
 
+
 Cursor:setRedoChangePos({pos})           *multicursor-cursor-setRedoChangePos*
     Sets the position of the redo position marker.
 
@@ -967,6 +1009,7 @@ Cursor:setRedoChangePos({pos})           *multicursor-cursor-setRedoChangePos*
     See also: ~
       • |multicursor-types-SimplePos|
       • |multicursor-types-Pos|
+
 
 Cursor:clone()                                      *multicursor-cursor-clone*
     Returns a new cursor with the same position, registers, visual selection,
@@ -978,17 +1021,20 @@ Cursor:clone()                                      *multicursor-cursor-clone*
     See also: ~
       • |multicursor-api-Cursor|
 
+
 Cursor:getVisualLines()                    *multicursor-Cursor-getVisualLines*
     Returns only the text contained in each line of the visual selection.
 
     Return: ~
       • (`string[]`) the lines.
 
+
 Cursor:getFullVisualLines()            *multicursor-Cursor-getFullVisualLines*
     Returns the full line for each line of the visual selection.
 
     Return: ~
       • (`string[]`) the lines.
+
 
 Cursor:getVisual()                              *multicursor-cursor-getVisual*
     Returns start and end positions of visual selection start position is
@@ -1001,6 +1047,7 @@ Cursor:getVisual()                              *multicursor-cursor-getVisual*
     See also: ~
       • |multicursor-types-Pos|
 
+
 Cursor:mode()                                        *multicursor-cursor-mode*
     Returns this cursor's current mode. It should only ever be in normal,
     visual, or select modes.
@@ -1011,6 +1058,7 @@ Cursor:mode()                                        *multicursor-cursor-mode*
 
     See also: ~
       • |mode()|
+
 
 Cursor:setMode({mode})                            *multicursor-cursor-setMode*
     Sets this cursor's mode. It should only ever be in normal, visual, or
@@ -1026,11 +1074,14 @@ Cursor:setMode({mode})                            *multicursor-cursor-setMode*
     See also: ~
       • |mode()|
 
+
 Cursor:disable()                                  *multicursor-cursor-disable*
     Disable the cursor.
 
+
 Cursor:enable()                                    *multicursor-cursor-enable*
     Enable the cursor.
+
 
 Cursor:feedkeys({keys}, {opts?})                 *multicursor-cursor-feedkeys*
     Makes the cursor perform a command/commands. For example,
@@ -1043,6 +1094,7 @@ Cursor:feedkeys({keys}, {opts?})                 *multicursor-cursor-feedkeys*
         • {opts.remap} (`boolean?`) if true use remapped keys
         • {opts.keycodes} (`boolean?`) if true translate keycodes
 
+
 Cursor:perform({callback})                        *multicursor-cursor-perform*
     Call callback with cursor.
 
@@ -1053,6 +1105,7 @@ Cursor:perform({callback})                        *multicursor-cursor-perform*
     See also: ~
       • |multicursor-api-cursor|
 
+
 Cursor:getCursorWord()                      *multicursor-cursor-getCursorWord*
     Return the <cword> for this cursor.
 
@@ -1062,6 +1115,7 @@ Cursor:getCursorWord()                      *multicursor-cursor-getCursorWord*
     See also: ~
       • |<cword>|
 
+
 Cursor:setSearch({search})                      *multicursor-cursor-setSearch*
     Set the search register of this cursor.
 
@@ -1070,6 +1124,7 @@ Cursor:setSearch({search})                      *multicursor-cursor-setSearch*
 
     See also: ~
       • |"/|
+
 
 Cursor:setVisual({visualStart}, {visualEnd})    *multicursor-cursor-setVisual*
     Sets the visual selection and sets the cursor position to `visualEnd`.
@@ -1084,6 +1139,7 @@ Cursor:setVisual({visualStart}, {visualEnd})    *multicursor-cursor-setVisual*
       • |multicursor-types-Pos|
       • |Visual|
 
+
 Cursor:inVisualMode()                        *multicursor-cursor-inVisualMode*
     Returns true if cursor is in visual mode.
 
@@ -1092,6 +1148,7 @@ Cursor:inVisualMode()                        *multicursor-cursor-inVisualMode*
 
     See also: ~
       • |Visual|
+
 
 Cursor:inSelectMode()                        *multicursor-cursor-inSelectMode*
     Returns true if cursor is in select mode.
@@ -1102,6 +1159,7 @@ Cursor:inSelectMode()                        *multicursor-cursor-inSelectMode*
     See also: ~
       • |Select|
 
+
 Cursor:hasSelection()                        *multicursor-cursor-hasSelection*
     Returns true if cursor is in visual or select mode.
 
@@ -1111,6 +1169,7 @@ Cursor:hasSelection()                        *multicursor-cursor-hasSelection*
     See also: ~
       • |Visual|
       • |Select|
+
 
 Thanks to Cathyprime for writing these help pages.
 
