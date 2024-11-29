@@ -839,7 +839,7 @@ end
 --- @return Cursor[]
 function CursorContext:getCursors(opts)
     local enabledCursors = default(opts and opts.enabledCursors, true)
-    local disabledCursors = default(opts and opts.enabledCursors, false)
+    local disabledCursors = default(opts and opts.disabledCursors, false)
     local cursors = tbl.filter(state.cursors, function(cursor)
         return cursor._state ~= CursorState.deleted
             and (cursor._enabled == enabledCursors or (not cursor._enabled) == disabledCursors)
