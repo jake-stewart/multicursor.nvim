@@ -380,16 +380,41 @@ function examples.appendVisual()
     mc.feedkeys(mode == TERM_CODES.CTRL_V and "a" or "A")
 end
 
-
 function examples.firstCursor()
     mc.action(function(ctx)
-        ctx:firstCursor():select()
+        if ctx:numEnabledCursors() > 1 then
+            ctx:firstCursor():select()
+        else
+            local mainCursor = ctx:mainCursor()
+            local cursor = ctx:firstCursor({
+                disabledCursors = true,
+                enabledCursors = false,
+            })
+            if cursor then
+                cursor:select()
+                mainCursor:delete()
+                cursor:clone():disable()
+            end
+        end
     end)
 end
 
 function examples.lastCursor()
     mc.action(function(ctx)
-        ctx:lastCursor():select()
+        if ctx:numEnabledCursors() > 1 then
+            ctx:lastCursor():select()
+        else
+            local mainCursor = ctx:mainCursor()
+            local cursor = ctx:lastCursor({
+                disabledCursors = true,
+                enabledCursors = false,
+            })
+            if cursor then
+                cursor:select()
+                mainCursor:delete()
+                cursor:clone():disable()
+            end
+        end
     end)
 end
 
