@@ -861,6 +861,7 @@ Cursor Methods                                        *multicursor-api-Cursor*
  • Cursor:setRedoChangePos               |multicursor-cursor-setRedoChangePos|
  • Cursor:clone                                     |multicursor-cursor-clone|
  • Cursor:getVisualLines                   |multicursor-Cursor-getVisualLines|
+ • Cursor:setVisualLines                   |multicursor-Cursor-setVisualLines|
  • Cursor:getFullVisualLines           |multicursor-Cursor-getFullVisualLines|
  • Cursor:getVisual                             |multicursor-cursor-getVisual|
  • Cursor:mode                                       |multicursor-cursor-mode|
@@ -1022,11 +1023,31 @@ Cursor:clone()                                      *multicursor-cursor-clone*
       • |multicursor-api-Cursor|
 
 
+Cursor:setVisualLines(lines)               *multicursor-Cursor-getVisualLines*
+    Replace only the text contained in each line of the visual selection.
+    If lines is longer than the visual selection, new lines are created.
+    For visual block mode, the number of lines has to match the size of the
+    visual selection.
+
+    Parameters: ~
+      • {lines} (`string[]`) lines to replace visual selection with
+
+    Return: ~
+      • (`self`)
+
+    See also: ~
+      • |multicursor-Cursor-getVisualLines|
+
+
 Cursor:getVisualLines()                    *multicursor-Cursor-getVisualLines*
     Returns only the text contained in each line of the visual selection.
 
     Return: ~
       • (`string[]`) the lines.
+
+    See also: ~
+      • |multicursor-Cursor-setVisualLines|
+      • |multicursor-Cursor-setFullVisualLines|
 
 
 Cursor:getFullVisualLines()            *multicursor-Cursor-getFullVisualLines*
@@ -1035,6 +1056,8 @@ Cursor:getFullVisualLines()            *multicursor-Cursor-getFullVisualLines*
     Return: ~
       • (`string[]`) the lines.
 
+    See also: ~
+      • |multicursor-Cursor-getVisualLines|
 
 Cursor:getVisual()                              *multicursor-cursor-getVisual*
     Returns start and end positions of visual selection start position is
@@ -1065,7 +1088,7 @@ Cursor:setMode({mode})                            *multicursor-cursor-setMode*
     select modes.
 
     Parameters: ~
-      • (`string`) new mode of the cursor
+      • {mode} (`string`) new mode of the cursor
         One of: "n" | "v" | "V" | <c-v> | "s" | "S" | <c-s>
 
     Return: ~

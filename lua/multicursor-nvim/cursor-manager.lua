@@ -9,6 +9,9 @@ local clear_namespace = vim.api.nvim_buf_clear_namespace
 local replace_termcodes = vim.api.nvim_replace_termcodes
 local get_extmark = vim.api.nvim_buf_get_extmark_by_id
 local get_lines = vim.api.nvim_buf_get_lines
+local set_lines = vim.api.nvim_buf_set_lines
+
+local INT_MAX = 2147483647
 
 local OPTIONS_OVERRIDE = {
     timeout = false,
@@ -424,7 +427,7 @@ local function cursorDrawVisualBlock(cursor, lines, start, hl)
         endVirtCol = endCol + cursor._vPos[4]
     end
     local col = startCol < #lines[1] and startCol or startVirtCol
-    local atEndOfLine = cursor._pos[5] == 2147483647
+    local atEndOfLine = cursor._pos[5] == INT_MAX
 
     local maxCol = 0
     if atEndOfLine and state.virtualEditBlock then
@@ -544,7 +547,7 @@ local function cursorSplitVisualBlock(cursor)
     local newCursors = {}
     local atVisualStart = cursor:atVisualStart()
     local visualStart, visualEnd = cursor:getVisual()
-    local atEndOfLine = cursor._pos[5] == 2147483647
+    local atEndOfLine = cursor._pos[5] == INT_MAX
     for i = visualStart[1], visualEnd[1] do
         local newCursor = cursor:clone()
         newCursors[#newCursors + 1] = newCursor
@@ -570,36 +573,42 @@ end
 
 local VISUAL_LOOKUP = {
     v = {
+        type = "char",
         enterVisualKey = "v",
         enterSelectKey = "",
         draw = cursorDrawVisualChar,
         split = cursorSplitVisualChar,
     },
     V = {
+        type = "line",
         enterVisualKey = "V",
         enterSelectKey = "",
         draw = cursorDrawVisualLine,
         split = cursorSplitVisualLine,
     },
     [TERM_CODES.CTRL_V] = {
+        type = "block",
         enterVisualKey = TERM_CODES.CTRL_V,
         enterSelectKey = "",
         draw = cursorDrawVisualBlock,
         split = cursorSplitVisualBlock,
     },
     s = {
+        type = "char",
         enterVisualKey = "v",
         enterSelectKey = TERM_CODES.CTRL_G,
         draw = cursorDrawVisualChar,
         split = cursorSplitVisualChar,
     },
     S = {
+        type = "line",
         enterVisualKey = "V",
         enterSelectKey = TERM_CODES.CTRL_G,
         draw = cursorDrawVisualLine,
         split = cursorSplitVisualLine,
     },
     [TERM_CODES.CTRL_S] = {
+        type = "block",
         enterVisualKey = TERM_CODES.CTRL_V,
         enterSelectKey = TERM_CODES.CTRL_G,
         draw = cursorDrawVisualBlock,
@@ -756,7 +765,7 @@ local function cursorWrite(cursor)
         feedkeys("o")
         vim.fn.setpos(".", cursor._pos)
         local buffer = {}
-        if cursor._pos[5] == 2147483647 then
+        if cursor._pos[5] == INT_MAX then
             buffer[#buffer + 1] = "$"
         end
         if #visualInfo.enterSelectKey > 0 then
@@ -1316,9 +1325,66 @@ function Cursor:getVisualLines()
         pos[3] = 1
     end
     return vim.fn.getregion(vPos, pos, {
-        type = VISUAL_LOOKUP[self._mode].visual,
+        type = VISUAL_LOOKUP[self._mode].enterVisualKey,
         exclusive = false
     })
+end
+
+--- Replace only the text contained in each line of the visual selection.
+--- If lines is longer than the visual selection, new lines are created
+--- @param lines string[]
+--- @return self
+function Cursor:setVisualLines(lines)
+    cursorCheckUpdate(self)
+    local info = VISUAL_LOOKUP[self._mode]
+    if not info then
+        return self
+    end
+    self._state = CursorState.dirty
+    local vs, ve = self:getVisual()
+    if info.type == "line" then
+        state.modifiedId = state.modifiedId + 1
+        set_lines(0, vs[1] - 1, ve[1], true, lines)
+        self:setVisual(
+            {vs[1], 1},
+            {vs[1] + #lines - 1, INT_MAX}
+        )
+    elseif info.type == "char" then
+        state.modifiedId = state.modifiedId + 1
+        local visualEndCol = #lines[#lines]
+        local oldLines = get_lines(0, vs[1] - 1, ve[1], true)
+        local numOldLines = #oldLines
+        local prefix = oldLines[1]:sub(1, vs[2] - 1)
+        local postfix = oldLines[numOldLines]:sub(ve[2] + 1, #oldLines[numOldLines])
+        lines[1] = prefix .. lines[1]
+        lines[#lines] = lines[#lines] .. postfix
+        if #lines == 1 then
+            visualEndCol = visualEndCol + #prefix
+        end
+        set_lines(0, vs[1] - 1, ve[1], true, lines)
+        self:setVisual(
+            {vs[1], vs[2]},
+            {vs[1] + #lines - 1, visualEndCol}
+        )
+    elseif info.type == "block" then
+        if ve[1] - vs[1] ~= #lines - 1 then
+            local message =
+                "cannot set cursor visual lines since line ranges differ"
+            util.echoerr("ERROR: " .. message, true)
+            return self
+        end
+        local reg = vim.fn.getreginfo("z")
+        vim.fn.setreg("z", table.concat(lines, "\n"), "b")
+        local keys = '"zP' .. TERM_CODES.CTRL_V .. '`]' .. info.enterSelectKey
+        cursorWrite(self)
+        feedkeys(keys, {
+            remap = false,
+            replace_termcodes = false,
+        })
+        cursorRead(self)
+        vim.fn.setreg("z", reg)
+    end
+    return self
 end
 
 --- Returns the full line for each line of the visual selection.
