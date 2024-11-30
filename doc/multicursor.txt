@@ -602,6 +602,9 @@ Context Methods                                      *multicursor-api-Context*
  • lastCursor                                     |multicursor-ctx-lastCursor|
  • cursorsEnabled                             |multicursor-ctx-cursorsEnabled|
  • hasCursors                                     |multicursor-ctx-hasCursors|
+ • numCursors                                     |multicursor-ctx-numCursors|
+ • numEnabledCursors                       |multicursor-ctx-numEnabledCursors|
+ • numDisabledCursors                     |multicursor-ctx-numDisabledCursors|
  • clear                                               |multicursor-ctx-clear|
 
 
@@ -832,10 +835,33 @@ ctx:cursorsEnabled()                          *multicursor-ctx-cursorsEnabled*
 
 
 ctx:hasCursors()                                  *multicursor-ctx-hasCursors*
-    Returns whether there are cursors.
+    Returns whether there are virtual cursors.
 
     Return: ~
       • (`boolean`) true if there are any virtual cursors.
+
+
+ctx:numCursors()                                  *multicursor-ctx-numCursors*
+    Returns the total number of cursors.
+    There is always at least one cursor (the main cursor).
+
+    Return: ~
+      • (`integer`) the number of cursors.
+
+
+ctx:numEnabledCursors()                    *multicursor-ctx-numEnabledCursors*
+    Returns number of enabled cursors.
+    There is always at least one enabled cursor (the main cursor).
+
+    Return: ~
+      • (`integer`) the number of enabled cursors.
+
+
+ctx:numDisabledCursors()                 *multicursor-ctx-numDisabledCursors*
+    Returns the number of disabled cursors.
+
+    Return: ~
+      • (`integer`) the number of disabled cursors.
 
 
 ctx:clear()                                            *multicursor-ctx-clear*

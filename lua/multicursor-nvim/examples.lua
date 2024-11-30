@@ -395,17 +395,45 @@ end
 
 function examples.nextCursor()
     mc.action(function(ctx)
-        local cursor = ctx:nextCursor(ctx:mainCursor():getPos())
-            or ctx:firstCursor()
-        cursor:select() --- @diagnostic disable-line
+        local mainCursor = ctx:mainCursor()
+        if ctx:numEnabledCursors() > 1 then
+            local cursor = ctx:nextCursor(mainCursor:getPos())
+                or ctx:firstCursor()
+            if cursor then
+                cursor:select()
+            end
+        else
+            local opts = { disabledCursors = true }
+            local cursor = ctx:nextCursor(mainCursor:getPos(), opts)
+                or ctx:firstCursor(opts)
+            if cursor then
+                cursor:select()
+                mainCursor:delete()
+                cursor:clone():disable()
+            end
+        end
     end)
 end
 
 function examples.prevCursor()
     mc.action(function(ctx)
-        local cursor = ctx:prevCursor(ctx:mainCursor():getPos())
-            or ctx:lastCursor()
-        cursor:select() --- @diagnostic disable-line
+        local mainCursor = ctx:mainCursor()
+        if ctx:numEnabledCursors() > 1 then
+            local cursor = ctx:prevCursor(mainCursor:getPos())
+                or ctx:lastCursor()
+            if cursor then
+                cursor:select()
+            end
+        else
+            local opts = { disabledCursors = true }
+            local cursor = ctx:prevCursor(mainCursor:getPos(), opts)
+                or ctx:lastCursor(opts)
+            if cursor then
+                cursor:select()
+                mainCursor:delete()
+                cursor:clone():disable()
+            end
+        end
     end)
 end
 

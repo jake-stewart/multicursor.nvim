@@ -1545,6 +1545,21 @@ function CursorContext:cursorsEnabled()
     return state.numDisabledCursors == 0
 end
 
+--- @return integer
+function CursorContext:numCursors()
+    return state.numEnabledCursors + state.numDisabledCursors + 1
+end
+
+--- @return integer
+function CursorContext:numEnabledCursors()
+    return state.numEnabledCursors + 1
+end
+
+--- @return integer
+function CursorContext:numDisabledCursors()
+    return state.numDisabledCursors
+end
+
 local function cursorContextMergeCursors()
     --- @type Cursor[]
     local newCursors = {}
@@ -2249,17 +2264,17 @@ end
 
 --- @return integer
 function CursorManager:numCursors()
-    return state.numEnabledCursors + state.numDisabledCursors + 1
+    return CursorContext:numCursors()
 end
 
 --- @return integer
 function CursorManager:numEnabledCursors()
-    return state.numEnabledCursors + 1
+    return CursorContext:numEnabledCursors()
 end
 
 --- @return integer
 function CursorManager:numDisabledCursors()
-    return state.numDisabledCursors
+    return CursorContext:numDisabledCursors()
 end
 
 return CursorManager
