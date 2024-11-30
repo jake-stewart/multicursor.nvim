@@ -1023,7 +1023,7 @@ Cursor:clone()                                      *multicursor-cursor-clone*
       • |multicursor-api-Cursor|
 
 
-Cursor:setVisualLines(lines)               *multicursor-Cursor-getVisualLines*
+Cursor:setVisualLines(lines)               *multicursor-Cursor-setVisualLines*
     Replace only the text contained in each line of the visual selection.
     If lines is longer than the visual selection, new lines are created.
     For visual block mode, the number of lines has to match the size of the
