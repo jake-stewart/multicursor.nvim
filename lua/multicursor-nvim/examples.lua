@@ -96,6 +96,7 @@ function examples.matchCursors(pattern)
     end)
 end
 
+--- @param direction -1 | 1
 function examples.transposeCursors(direction)
     mc.action(function(ctx)
         ctx:forEachCursor(function(cursor)
@@ -109,11 +110,24 @@ function examples.transposeCursors(direction)
             local idx = ((i - direction - 1) % #values) + 1
             cursor:feedkeys('"_c' .. values[idx] .. TERM_CODES.ESC .. "v`<o")
         end
-        local pos = ctx:mainCursor():getPos()
-        local cursor = direction == -1
-            and (ctx:prevCursor(pos) or ctx:lastCursor())
-            or (ctx:nextCursor(pos) or ctx:firstCursor())
-        cursor:select() --- @diagnostic disable-line
+        ctx:seekCursor(ctx:mainCursor():getPos(), direction, true):select()
+    end)
+end
+
+--- @param direction -1 | 1
+--- @param wrap? boolean
+function examples.swapCursors(direction, wrap)
+    mc.action(function(ctx)
+        local mainCursor = ctx:mainCursor()
+        local otherCursor = ctx:seekCursor(
+            mainCursor:getPos(), direction, wrap)
+        if otherCursor and otherCursor ~= mainCursor then
+            local mainLines = mainCursor:getVisualLines()
+            local otherLines = otherCursor:getVisualLines()
+            mainCursor:setVisualLines(otherLines)
+            otherCursor:setVisualLines(mainLines)
+            otherCursor:select()
+        end
     end)
 end
 
@@ -380,13 +394,14 @@ function examples.appendVisual()
     mc.feedkeys(mode == TERM_CODES.CTRL_V and "a" or "A")
 end
 
-function examples.firstCursor()
+--- @param direction -1 | 1
+local function selectBoundaryCursor(direction)
     mc.action(function(ctx)
         if ctx:numEnabledCursors() > 1 then
-            ctx:firstCursor():select()
+            ctx:seekBoundaryCursor(direction):select()
         else
             local mainCursor = ctx:mainCursor()
-            local cursor = ctx:firstCursor({
+            local cursor = ctx:seekBoundaryCursor(direction, {
                 disabledCursors = true,
                 enabledCursors = false,
             })
@@ -399,16 +414,26 @@ function examples.firstCursor()
     end)
 end
 
+function examples.firstCursor()
+    selectBoundaryCursor(-1)
+end
+
 function examples.lastCursor()
+    selectBoundaryCursor(1)
+end
+
+--- @param direction -1 | 1
+local function selectRelativeCursor(direction)
     mc.action(function(ctx)
+        local mainCursor = ctx:mainCursor()
         if ctx:numEnabledCursors() > 1 then
-            ctx:lastCursor():select()
+            local cursor = ctx:seekCursor(mainCursor:getPos(), direction, true)
+            if cursor then
+                cursor:select()
+            end
         else
-            local mainCursor = ctx:mainCursor()
-            local cursor = ctx:lastCursor({
-                disabledCursors = true,
-                enabledCursors = false,
-            })
+            local opts = { disabledCursors = true }
+            local cursor = ctx:seekCursor(mainCursor:getPos(), direction, true, opts)
             if cursor then
                 cursor:select()
                 mainCursor:delete()
@@ -419,47 +444,11 @@ function examples.lastCursor()
 end
 
 function examples.nextCursor()
-    mc.action(function(ctx)
-        local mainCursor = ctx:mainCursor()
-        if ctx:numEnabledCursors() > 1 then
-            local cursor = ctx:nextCursor(mainCursor:getPos())
-                or ctx:firstCursor()
-            if cursor then
-                cursor:select()
-            end
-        else
-            local opts = { disabledCursors = true }
-            local cursor = ctx:nextCursor(mainCursor:getPos(), opts)
-                or ctx:firstCursor(opts)
-            if cursor then
-                cursor:select()
-                mainCursor:delete()
-                cursor:clone():disable()
-            end
-        end
-    end)
+    selectRelativeCursor(1)
 end
 
 function examples.prevCursor()
-    mc.action(function(ctx)
-        local mainCursor = ctx:mainCursor()
-        if ctx:numEnabledCursors() > 1 then
-            local cursor = ctx:prevCursor(mainCursor:getPos())
-                or ctx:lastCursor()
-            if cursor then
-                cursor:select()
-            end
-        else
-            local opts = { disabledCursors = true }
-            local cursor = ctx:prevCursor(mainCursor:getPos(), opts)
-                or ctx:lastCursor(opts)
-            if cursor then
-                cursor:select()
-                mainCursor:delete()
-                cursor:clone():disable()
-            end
-        end
-    end)
+    selectRelativeCursor(-1)
 end
 
 function examples.deleteCursor()

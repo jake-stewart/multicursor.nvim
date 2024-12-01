@@ -30,6 +30,7 @@ return {
     alignCursors = examples.alignCursors,
     matchCursors = examples.matchCursors,
     transposeCursors = examples.transposeCursors,
+    swapCursors = examples.swapCursors,
     addCursor = examples.addCursor,
     addCursorOperator = examples.addCursorOperator,
     skipCursor = examples.skipCursor,

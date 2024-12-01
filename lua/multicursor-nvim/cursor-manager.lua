@@ -946,6 +946,40 @@ function CursorContext:prevCursor(pos, opts)
     end, opts)
 end
 
+--- Returns the closest cursor in the specified direction
+--- @param pos SimplePos | Pos
+--- @param direction -1 | 1
+--- @param wrap? boolean
+--- @param opts? CursorQuery
+--- @return Cursor | nil
+function CursorContext:seekCursor(pos, direction, wrap, opts)
+    local cursor
+    if direction == -1 then
+        cursor = self:prevCursor(pos, opts)
+        if not cursor and wrap then
+            cursor = self:lastCursor(opts)
+        end
+    else
+        cursor = self:nextCursor(pos, opts)
+        if not cursor and wrap then
+            cursor = self:firstCursor(opts)
+        end
+    end
+    return cursor
+end
+
+--- Returns the first/last cursor in the specified direction
+--- @param direction -1 | 1
+--- @param opts? CursorQuery
+--- @return Cursor | nil
+function CursorContext:seekBoundaryCursor(direction, opts)
+    if direction == -1 then
+        return self:firstCursor(opts)
+    else
+        return self:lastCursor(opts)
+    end
+end
+
 --- Returns the nearest cursor to pos, and accepts a cursor exactly at pos.
 --- @param pos SimplePos | Pos
 --- @param opts? CursorQuery

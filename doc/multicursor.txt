@@ -218,6 +218,7 @@ want to create your own complex action, see the |multicursor-api|.
  • mc.splitCursors                                  |multicursor-splitCursors|
  • mc.matchCursors                                  |multicursor-matchCursors|
  • mc.transposeCursors                          |multicursor-transposeCursors|
+ • mc.swapCursors                                    |multicursor-swapCursors|
  • mc.insertVisual                                  |multicursor-insertVisual|
  • mc.appendVisual                                  |multicursor-appendVisual|
  • mc.disableCursors                              |multicursor-disableCursors|
@@ -414,6 +415,25 @@ mc.matchCursors()                                   *multicursor-matchCursors*
 
     Usage example: >lua
         vim.keymap.set("v", "M", mc.matchCursors)
+
+
+mc.swapCursors(direction)                            *multicursor-swapCursors*
+    Swaps the visual selection of the current cursor with that of the
+    next/previous cursor, specified by direction.
+
+    Usage example: >lua
+        vim.keymap.set("v", "<leader>h", function()
+            mc.swapCursors(-1)
+        end)
+        vim.keymap.set("v", "<leader>l", function()
+            mc.swapCursors(1)
+        end)
+<
+    Parameters: ~
+      • {direction} (`-1 | 1`) With `1` for clockwise rotation and `-1` for
+	anti-clockwise.
+      • {wrap} (`boolean`) Whether the search for the target cursor wrap if
+	not found.
 <
 
 mc.transposeCursors(direction)                  *multicursor-transposeCursors*
@@ -594,6 +614,8 @@ Context Methods                                      *multicursor-api-Context*
  • findCursor                                     |multicursor-ctx-findCursor|
  • nextCursor                                     |multicursor-ctx-nextCursor|
  • prevCursor                                     |multicursor-ctx-prevCursor|
+ • seekCursor                                     |multicursor-ctx-seekCursor|
+ • seekBoundaryCursor                     |multicursor-ctx-seekBoundaryCursor|
  • nearestCursor                               |multicursor-ctx-nearestCursor|
  • getCursorAtPos                             |multicursor-ctx-getCursorAtPos|
  • overlappedCursor                         |multicursor-ctx-overlappedCursor|
@@ -734,6 +756,46 @@ ctx:prevCursor({pos}, {opts?})                    *multicursor-ctx-prevCursor*
     Return: ~
       • (`Cursor | nil`) returns the closest cursor before the pos or nil if
 	none are found.
+
+    See also: ~
+      • |multicursor-api-Cursor|
+      • |multicursor-types-CursorQuery|
+      • |multicursor-types-SimplePos|
+      • |multicursor-types-Pos|
+
+                                                  *multicursor-ctx-nextCursor*
+ctx:seekCursor({pos}, {direction}, {wrap}, {opts?})
+    Returns the closest cursor in the specified direction, which can
+    optionally wrap.
+
+    Parameters: ~
+      • {pos} (`SimplePos | Pos`) position to search from.
+      • {direction} (`-1 | 1`) With `1` for clockwise rotation and `-1` for
+	anti-clockwise.
+      • {wrap} (`boolean`) Whether the seach should wrap around the document.
+      • {opts?} (`CursorQuery`) type of cursor to search for.
+
+    Return: ~
+      • (`Cursor | nil`) the matched cursor or nil if none are found.
+
+    See also: ~
+      • |multicursor-api-Cursor|
+      • |multicursor-types-CursorQuery|
+      • |multicursor-types-SimplePos|
+      • |multicursor-types-Pos|
+
+                                          *multicursor-ctx-seekBoundaryCursor*
+ctx:seekBoundaryCursor({direction}, {opts?})
+    Returns the first/last cursor, specified by direction.
+
+    Parameters: ~
+      • {direction} (`-1 | 1`) With `-1` for the first and `1` for the last
+	cursor.
+      • {wrap} (`boolean`) Whether the seach should wrap around the document.
+      • {opts?} (`CursorQuery`) type of cursor to search for.
+
+    Return: ~
+      • (`Cursor | nil`) the matched cursor or nil if none are found.
 
     See also: ~
       • |multicursor-api-Cursor|
