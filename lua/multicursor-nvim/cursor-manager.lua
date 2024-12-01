@@ -1317,7 +1317,11 @@ end
 --- @return string[]
 function Cursor:getVisualLines()
     cursorCheckUpdate(self)
-    if self._mode == "V" or self._mode == "S" then
+    local info = VISUAL_LOOKUP[self._mode]
+    if not info then
+        return {}
+    end
+    if info.type == "l" then
         return get_lines(
             0,
             math.min(self._pos[2], self._vPos[2]) - 1,
@@ -1335,10 +1339,18 @@ function Cursor:getVisualLines()
         pos = { table.unpack(pos) }
         pos[3] = 1
     end
-    return vim.fn.getregion(vPos, pos, {
-        type = VISUAL_LOOKUP[self._mode].enterVisualKey,
+    local lines = vim.fn.getregion(vPos, pos, {
+        type = info.enterVisualKey,
         exclusive = false
     })
+    if info.type == "c" then
+        local lastPos = compareMarkPos(pos, vPos) and vPos or pos
+        local lastCol = vim.fn.col({lastPos[2], "$"})
+        if lastCol == lastPos[3] then
+            table.insert(lines, "")
+        end
+    end
+    return lines
 end
 
 --- Registers this cursor so that its original position is restored upon undo.
@@ -1358,8 +1370,8 @@ function Cursor:setVisualLines(lines)
         if not info then
             return
         end
-        local vs, ve = self:getVisual()
         self:registerUndo()
+        local vs, ve = self:getVisual()
         if info.type == "b" then
             local numSelectedLines = ve[1] - vs[1] + 1
             if numSelectedLines > #lines then
@@ -1372,10 +1384,14 @@ function Cursor:setVisualLines(lines)
         end
         local reg = vim.fn.getreginfo("z")
         vim.fn.setreg("z", table.concat(lines, "\n"), info.type)
-        feedkeys('"zP`[' .. info.enterVisualKey .. '`]' .. info.enterSelectKey, {
-            remap = false,
-            replace_termcodes = false,
-        })
+        feedkeys('"zP' .. info.enterVisualKey)
+        vim.fn.setpos(".", compareMarkPos(self._pos, self._vPos) and self._pos or self._vPos)
+        feedkeys('o'
+            .. (info.type == "l" and "'" or '`')
+            .. ']'
+            .. ((info.type == "c" and lines[#lines] == "") and TERM_CODES.BACKSPACE or "")
+            .. info.enterSelectKey
+        )
         vim.fn.setreg("z", reg)
     end)
     return self
