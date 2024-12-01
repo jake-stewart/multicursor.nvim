@@ -768,7 +768,7 @@ ctx:prevCursor({pos}, {opts?})                    *multicursor-ctx-prevCursor*
       • |multicursor-types-SimplePos|
       • |multicursor-types-Pos|
 
-                                                  *multicursor-ctx-nextCursor*
+                                                  *multicursor-ctx-seekCursor*
 ctx:seekCursor({pos}, {direction}, {wrap}, {opts?})
     Returns the closest cursor in the specified direction, which can
     optionally wrap.
