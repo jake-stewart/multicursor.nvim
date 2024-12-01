@@ -417,6 +417,24 @@ mc.matchCursors()                                   *multicursor-matchCursors*
         vim.keymap.set("v", "M", mc.matchCursors)
 
 
+mc.transposeCursors(direction)                  *multicursor-transposeCursors*
+    Rotate the contents of each visual selection for each cursor.
+
+    Usage example: >lua
+        vim.keymap.set("v", "<leader>t", function()
+            mc.transposeCursors(1)
+        end)
+        vim.keymap.set("v", "<leader>T", function()
+            mc.transposeCursors(-1)
+        end)
+<
+    Parameters: ~
+      • {direction} (`-1 | 1`) With `1` for clockwise rotation and `-1` for
+        anti-clockwise.
+
+    See also: ~
+      • |multicursor-swapCursors|
+
 mc.swapCursors(direction)                            *multicursor-swapCursors*
     Swaps the visual selection of the current cursor with that of the
     next/previous cursor, specified by direction.
@@ -434,22 +452,9 @@ mc.swapCursors(direction)                            *multicursor-swapCursors*
 	anti-clockwise.
       • {wrap} (`boolean`) Whether the search for the target cursor wrap if
 	not found.
-<
 
-mc.transposeCursors(direction)                  *multicursor-transposeCursors*
-    Rotate the contents of each visual selection for each cursor.
-
-    Usage example: >lua
-        vim.keymap.set("v", "<leader>t", function()
-            mc.transposeCursors(1)
-        end)
-        vim.keymap.set("v", "<leader>T", function()
-            mc.transposeCursors(-1)
-        end)
-<
-    Parameters: ~
-      • {direction} (`-1 | 1`) With `1` for clockwise rotation and `-1` for
-        anti-clockwise.
+    See also: ~
+      • |multicursor-transposeCursors|
 
 
 mc.insertVisual()                                   *multicursor-insertVisual*
