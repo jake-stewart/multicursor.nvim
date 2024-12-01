@@ -9,7 +9,6 @@ local clear_namespace = vim.api.nvim_buf_clear_namespace
 local replace_termcodes = vim.api.nvim_replace_termcodes
 local get_extmark = vim.api.nvim_buf_get_extmark_by_id
 local get_lines = vim.api.nvim_buf_get_lines
-local set_lines = vim.api.nvim_buf_set_lines
 
 local INT_MAX = 2147483647
 
@@ -35,17 +34,24 @@ local function feedkeys(keys, opts)
     feedkeysManager:keepjumpsFeedkeys(keys, mode)
 end
 
+--- @param a MarkPos
+--- @param b MarkPos
+--- @return boolean
+local function compareMarkPos(a, b)
+    if a[2] == b[2] then
+        if a[3] == b[3] then
+            return a[4] < b[4]
+        end
+        return a[3] < b[3]
+    end
+    return a[2] < b[2]
+end
+
 --- @param a Cursor
 --- @param b Cursor
 --- @return boolean
 local function compareCursorsPosition(a, b)
-    if a._pos[2] == b._pos[2] then
-        if a._pos[3] == b._pos[3] then
-            return a._pos[4] < b._pos[4]
-        end
-        return a._pos[3] < b._pos[3]
-    end
-    return a._pos[2] < b._pos[2]
+    return compareMarkPos(a._pos, b._pos)
 end
 
 --- @param a Pos
@@ -84,7 +90,9 @@ local CursorState = {
 --- @field package _changePos       MarkPos
 --- @field package _redoChangePos   MarkPos
 --- @field package _origChangePos   MarkPos
+--- @field package _undoRegistered  boolean | nil
 --- @field package _origPos         CursorPos
+--- @field package _origVPos        MarkPos
 --- @field package _drift           [integer, integer]
 --- @field package _pos             CursorPos
 --- @field package _register        table
@@ -203,9 +211,12 @@ local function safeGetExtmark(id)
     return nil
 end
 
+--- @param cursor Cursor
 local function cursorReset(cursor)
     cursor._origPos = cursor._pos
+    cursor._origVPos = cursor._vPos
     cursor._origChangePos = cursor._changePos
+    cursor._undoRegistered = false
     cursor._changePos = nil
     cursor._state = CursorState.none
     cursor._drift = { 0, 0 }
@@ -573,42 +584,42 @@ end
 
 local VISUAL_LOOKUP = {
     v = {
-        type = "char",
+        type = "c",
         enterVisualKey = "v",
         enterSelectKey = "",
         draw = cursorDrawVisualChar,
         split = cursorSplitVisualChar,
     },
     V = {
-        type = "line",
+        type = "l",
         enterVisualKey = "V",
         enterSelectKey = "",
         draw = cursorDrawVisualLine,
         split = cursorSplitVisualLine,
     },
     [TERM_CODES.CTRL_V] = {
-        type = "block",
+        type = "b",
         enterVisualKey = TERM_CODES.CTRL_V,
         enterSelectKey = "",
         draw = cursorDrawVisualBlock,
         split = cursorSplitVisualBlock,
     },
     s = {
-        type = "char",
+        type = "c",
         enterVisualKey = "v",
         enterSelectKey = TERM_CODES.CTRL_G,
         draw = cursorDrawVisualChar,
         split = cursorSplitVisualChar,
     },
     S = {
-        type = "line",
+        type = "l",
         enterVisualKey = "V",
         enterSelectKey = TERM_CODES.CTRL_G,
         draw = cursorDrawVisualLine,
         split = cursorSplitVisualLine,
     },
     [TERM_CODES.CTRL_S] = {
-        type = "block",
+        type = "b",
         enterVisualKey = TERM_CODES.CTRL_V,
         enterSelectKey = TERM_CODES.CTRL_G,
         draw = cursorDrawVisualBlock,
@@ -1330,60 +1341,43 @@ function Cursor:getVisualLines()
     })
 end
 
+--- Registers this cursor so that its original position is restored upon undo.
+--- @return self
+function Cursor:registerUndo()
+    self._undoRegistered = true
+    return self
+end
+
 --- Replace only the text contained in each line of the visual selection.
 --- If lines is longer than the visual selection, new lines are created
 --- @param lines string[]
 --- @return self
 function Cursor:setVisualLines(lines)
-    cursorCheckUpdate(self)
-    local info = VISUAL_LOOKUP[self._mode]
-    if not info then
-        return self
-    end
-    self._state = CursorState.dirty
-    local vs, ve = self:getVisual()
-    if info.type == "line" then
-        state.modifiedId = state.modifiedId + 1
-        set_lines(0, vs[1] - 1, ve[1], true, lines)
-        self:setVisual(
-            {vs[1], 1},
-            {vs[1] + #lines - 1, INT_MAX}
-        )
-    elseif info.type == "char" then
-        state.modifiedId = state.modifiedId + 1
-        local visualEndCol = #lines[#lines]
-        local oldLines = get_lines(0, vs[1] - 1, ve[1], true)
-        local numOldLines = #oldLines
-        local prefix = oldLines[1]:sub(1, vs[2] - 1)
-        local postfix = oldLines[numOldLines]:sub(ve[2] + 1, #oldLines[numOldLines])
-        lines[1] = prefix .. lines[1]
-        lines[#lines] = lines[#lines] .. postfix
-        if #lines == 1 then
-            visualEndCol = visualEndCol + #prefix
+    self:perform(function()
+        local info = VISUAL_LOOKUP[self._mode]
+        if not info then
+            return
         end
-        set_lines(0, vs[1] - 1, ve[1], true, lines)
-        self:setVisual(
-            {vs[1], vs[2]},
-            {vs[1] + #lines - 1, visualEndCol}
-        )
-    elseif info.type == "block" then
-        if ve[1] - vs[1] ~= #lines - 1 then
-            local message =
-                "cannot set cursor visual lines since line ranges differ"
-            util.echoerr("ERROR: " .. message, true)
-            return self
+        local vs, ve = self:getVisual()
+        self:registerUndo()
+        if info.type == "b" then
+            local numSelectedLines = ve[1] - vs[1] + 1
+            if numSelectedLines > #lines then
+                for _ = #lines + 1, numSelectedLines do
+                    table.insert(lines, string.rep(" ", #lines[1]))
+                end
+            elseif numSelectedLines < #lines then
+                lines = tbl.slice(lines, 1, numSelectedLines)
+            end
         end
         local reg = vim.fn.getreginfo("z")
-        vim.fn.setreg("z", table.concat(lines, "\n"), "b")
-        local keys = '"zP' .. TERM_CODES.CTRL_V .. '`]' .. info.enterSelectKey
-        cursorWrite(self)
-        feedkeys(keys, {
+        vim.fn.setreg("z", table.concat(lines, "\n"), info.type)
+        feedkeys('"zP`[' .. info.enterVisualKey .. '`]' .. info.enterSelectKey, {
             remap = false,
             replace_termcodes = false,
         })
-        cursorRead(self)
         vim.fn.setreg("z", reg)
-    end
+    end)
     return self
 end
 
@@ -1655,7 +1649,15 @@ local function cursorApplyDrift(cursor)
     if not cursor._redoChangePos then
         cursor._redoChangePos = cursor._pos
     end
-    if not cursor._changePos then
+    if cursor._undoRegistered then
+        if VISUAL_LOOKUP[cursor._mode]
+            and compareMarkPos(cursor._origVPos, cursor._origPos)
+        then
+            cursor._changePos = cursor._origVPos
+        else
+            cursor._changePos = cursor._origPos
+        end
+    elseif not cursor._changePos then
         cursor._changePos = cursor._pos
     else
         cursor._changePos = { table.unpack(cursor._changePos) }

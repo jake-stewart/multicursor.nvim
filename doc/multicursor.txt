@@ -885,6 +885,7 @@ Cursor Methods                                        *multicursor-api-Cursor*
  • Cursor:setVisualAnchor                 |multicursor-Cursor-setVisualAnchor|
  • Cursor:getVisualAnchor                 |multicursor-Cursor-getVisualAnchor|
  • Cursor:setRedoChangePos               |multicursor-cursor-setRedoChangePos|
+ • Cursor:registerUndo                       |multicursor-cursor-registerUndo|
  • Cursor:clone                                     |multicursor-cursor-clone|
  • Cursor:getVisualLines                   |multicursor-Cursor-getVisualLines|
  • Cursor:setVisualLines                   |multicursor-Cursor-setVisualLines|
@@ -1036,6 +1037,10 @@ Cursor:setRedoChangePos({pos})           *multicursor-cursor-setRedoChangePos*
     See also: ~
       • |multicursor-types-SimplePos|
       • |multicursor-types-Pos|
+
+
+Cursor:registerUndo()                        *multicursor-cursor-registerUndo*
+    Registers this cursor so that its original position is restored upon undo.
 
 
 Cursor:clone()                                      *multicursor-cursor-clone*
