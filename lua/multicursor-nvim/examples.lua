@@ -423,17 +423,21 @@ function examples.lastCursor()
 end
 
 --- @param direction -1 | 1
-local function selectRelativeCursor(direction)
+--- @param wrap? boolean
+local function selectRelativeCursor(direction, wrap)
+    if wrap == nil then
+        wrap = true
+    end
     mc.action(function(ctx)
         local mainCursor = ctx:mainCursor()
         if ctx:numEnabledCursors() > 1 then
-            local cursor = ctx:seekCursor(mainCursor:getPos(), direction, true)
+            local cursor = ctx:seekCursor(mainCursor:getPos(), direction, wrap)
             if cursor then
                 cursor:select()
             end
         else
             local opts = { disabledCursors = true }
-            local cursor = ctx:seekCursor(mainCursor:getPos(), direction, true, opts)
+            local cursor = ctx:seekCursor(mainCursor:getPos(), direction, wrap, opts)
             if cursor then
                 cursor:select()
                 mainCursor:delete()
@@ -443,12 +447,14 @@ local function selectRelativeCursor(direction)
     end)
 end
 
-function examples.nextCursor()
-    selectRelativeCursor(1)
+--- @param wrap? boolean default true
+function examples.nextCursor(wrap)
+    selectRelativeCursor(1, wrap)
 end
 
-function examples.prevCursor()
-    selectRelativeCursor(-1)
+--- @param wrap? boolean default true
+function examples.prevCursor(wrap)
+    selectRelativeCursor(-1, wrap)
 end
 
 function examples.deleteCursor()

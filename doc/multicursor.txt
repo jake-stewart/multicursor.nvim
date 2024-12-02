@@ -325,19 +325,26 @@ mc.matchAllAddCursors()                       *multicursor-matchAllAddCursors*
         vim.keymap.set({"n", "v"}, "<leader>A", mc.matchAllAddCursors)
 <
 
-mc.nextCursor()                                       *multicursor-nextCursor*
+mc.nextCursor({wrap?})                                *multicursor-nextCursor*
     Select the cursor after the main cursor.
 
     Usage example: >lua
         vim.keymap.set({"n", "v"}, "<left>", mc.nextCursor)
 <
+    Parameters: ~
+      • {wrap?} (`boolean?`) wrap to the start of the file if no cursors are
+	found after the main cursor. Defaults to `true`.
+<
 
-mc.prevCursor()                                       *multicursor-prevCursor*
+mc.prevCursor({wrap?})                                *multicursor-prevCursor*
     Select the cursor before the main cursor.
 
     Usage example: >lua
         vim.keymap.set({"n", "v"}, "<right>", mc.prevCursor)
 <
+    Parameters: ~
+      • {wrap?} (`boolean?`) wrap to the end of the file if no cursors are
+	found before the main cursor. Defaults to `true`.
 
 mc.firstCursor()                                     *multicursor-firstCursor*
     Select the first cursor.
@@ -450,8 +457,8 @@ mc.swapCursors(direction)                            *multicursor-swapCursors*
     Parameters: ~
       • {direction} (`-1 | 1`) With `1` for clockwise rotation and `-1` for
 	anti-clockwise.
-      • {wrap} (`boolean`) Whether the search for the target cursor wrap if
-	not found.
+      • {wrap?} (`boolean?`) Whether the search for the target cursor wrap
+	if not found.
 
     See also: ~
       • |multicursor-transposeCursors|
@@ -510,15 +517,15 @@ mc.cursorsEnabled()                               *multicursor-cursorsEnabled*
       • |multicursor-enableCursors|
 
 
-mc.feedkeys({keys}, {opts})                             *multicursor-feedkeys*
+mc.feedkeys({keys}, {opts?})                            *multicursor-feedkeys*
     Use instead of `vim.fn.feedkeys()` or `vim.api.nvim_feedkeys()` in
     multicursor mappings to avoid bugs.
 
     Parameters: ~
       • {keys} (`string`) string representing a command
-      • {opts} (`table`) options
-        • {opts.remap} (`boolean?`) if true use remapped keys
-        • {opts.keycodes} (`boolean?`) if true translate keycodes
+      • {opts?} (`table?`) options
+        • {opts.remap?} (`boolean?`) if true use remapped keys
+        • {opts.keycodes?} (`boolean?`) if true translate keycodes
 
 
 mc.action(func)                                           *multicursor-action*
@@ -646,7 +653,7 @@ ctx:getCursors({opts?})                           *multicursor-ctx-getCursors*
     Returns a list of cursors, sorted by their position.
 
     Parameters: ~
-      • {opts?} (`CursorQuery`) type of cursors to get.
+      • {opts?} (`CursorQuery?`) type of cursors to get.
 
     Return: ~
       • (`Cursor[]`) table of `Cursor` objects.
@@ -672,7 +679,7 @@ ctx:forEachCursor({callback}, {opts?})         *multicursor-ctx-forEachCursor*
     Parameters: ~
       • {callback} (`function`) a function that will be executed on each
         cursor.
-      • {opts?} (`CursorQuery`) type of cursor iterate over.
+      • {opts?} (`CursorQuery?`) type of cursor iterate over.
 
     See also: ~
       • |multicursor-api-Cursor|
@@ -685,7 +692,7 @@ ctx:mapCursors({callback}, {opts?})               *multicursor-ctx-mapCursors*
     Parameters: ~
       • {callback} (`function`) a function that will be executed on each
         cursor.
-      • {opts?} (`CursorQuery`) type of cursor to map over.
+      • {opts?} (`CursorQuery?`) type of cursor to map over.
 
     Return: ~
       • (`Cursor[]`) table with mapped results.
@@ -700,7 +707,7 @@ ctx:findLastCursor({predicate}, {opts?})      *multicursor-ctx-findLastCursor*
 
     Parameters: ~
       • {predicate} (`function`)
-      • {opts?} (`CursorQuery`) type of cursor to search for.
+      • {opts?} (`CursorQuery?`) type of cursor to search for.
 
     Return: ~
       • (`Cursor | nil`) returns the last cursor matching predicate or nil if
@@ -716,7 +723,7 @@ ctx:findCursor({predicate}, {opts?})              *multicursor-ctx-findCursor*
 
     Parameters: ~
       • {predicate} (`function`)
-      • {opts?} (`CursorQuery`) type of cursor to search for.
+      • {opts?} (`CursorQuery?`) type of cursor to search for.
 
     Return: ~
       • (`Cursor | nil`) returns the first cursor matching predicate or nil if
@@ -735,7 +742,7 @@ ctx:nextCursor({pos}, {opts?})                    *multicursor-ctx-nextCursor*
 
     Parameters: ~
       • {pos} (`SimplePos | Pos`) position to search from.
-      • {opts?} (`CursorQuery`) type of cursor to search for.
+      • {opts?} (`CursorQuery?`) type of cursor to search for.
 
     Return: ~
       • (`Cursor | nil`) returns the closest cursor after the pos or nil if
@@ -756,7 +763,7 @@ ctx:prevCursor({pos}, {opts?})                    *multicursor-ctx-prevCursor*
 
     Parameters: ~
       • {pos} (`SimplePos | Pos`) position to search from.
-      • {opts?} (`CursorQuery`) type of cursor to search for.
+      • {opts?} (`CursorQuery?`) type of cursor to search for.
 
     Return: ~
       • (`Cursor | nil`) returns the closest cursor before the pos or nil if
@@ -769,7 +776,7 @@ ctx:prevCursor({pos}, {opts?})                    *multicursor-ctx-prevCursor*
       • |multicursor-types-Pos|
 
                                                   *multicursor-ctx-seekCursor*
-ctx:seekCursor({pos}, {direction}, {wrap}, {opts?})
+ctx:seekCursor({pos}, {direction}, {wrap?}, {opts?})
     Returns the closest cursor in the specified direction, which can
     optionally wrap.
 
@@ -777,8 +784,9 @@ ctx:seekCursor({pos}, {direction}, {wrap}, {opts?})
       • {pos} (`SimplePos | Pos`) position to search from.
       • {direction} (`-1 | 1`) With `1` for clockwise rotation and `-1` for
 	anti-clockwise.
-      • {wrap} (`boolean`) Whether the seach should wrap around the document.
-      • {opts?} (`CursorQuery`) type of cursor to search for.
+      • {wrap?} (`boolean?`) Whether the seach should wrap around the
+	document.
+      • {opts?} (`CursorQuery?`) type of cursor to search for.
 
     Return: ~
       • (`Cursor | nil`) the matched cursor or nil if none are found.
@@ -796,8 +804,9 @@ ctx:seekBoundaryCursor({direction}, {opts?})
     Parameters: ~
       • {direction} (`-1 | 1`) With `-1` for the first and `1` for the last
 	cursor.
-      • {wrap} (`boolean`) Whether the seach should wrap around the document.
-      • {opts?} (`CursorQuery`) type of cursor to search for.
+      • {wrap?} (`boolean?`) Whether the seach should wrap around the
+	document.
+      • {opts?} (`CursorQuery?`) type of cursor to search for.
 
     Return: ~
       • (`Cursor | nil`) the matched cursor or nil if none are found.
@@ -814,7 +823,7 @@ ctx:nearestCursor({pos}, {opts?})              *multicursor-ctx-nearestCursor*
 
     Parameters: ~
       • {pos} (`SimplePos | Pos`) position to search from.
-      • {opts?} (`CursorQuery`) type of cursor to search for.
+      • {opts?} (`CursorQuery?`) type of cursor to search for.
 
     Return: ~
       • (`Cursor | nil`) returns closest cursor or nil if none found.
@@ -831,7 +840,7 @@ ctx:getCursorAtPos({pos}, {opts?})            *multicursor-ctx-getCursorAtPos*
 
     Parameters: ~
       • {pos} (`SimplePos | Pos`) position to search at.
-      • {opts?} (`CursorQuery`) type of cursor to search for.
+      • {opts?} (`CursorQuery?`) type of cursor to search for.
 
     Return: ~
       • (`Cursor | nil`) returns the cursor or nil if there are no cursors at
@@ -868,7 +877,7 @@ ctx:firstCursor({opts?})                         *multicursor-ctx-firstCursor*
     Returns the cursor closest to the start of the document.
 
     Parameters: ~
-      • {opts?} (`CursorQuery`) type of cursor to search for.
+      • {opts?} (`CursorQuery?`) type of cursor to search for.
 
     Return: ~
       • (`Cursor | nil`) returns the first cursor in the document or nil if
@@ -883,7 +892,7 @@ ctx:lastCursor({opts?})                           *multicursor-ctx-lastCursor*
     Returns the cursor closest to the end of the document.
 
     Parameters: ~
-      • {opts?} (`CursorQuery`) type of cursor to search for.
+      • {opts?} (`CursorQuery?`) type of cursor to search for.
 
     Return: ~
       • (`Cursor | nil`) returns the last cursor in the document or nil if
@@ -1211,9 +1220,9 @@ Cursor:feedkeys({keys}, {opts?})                 *multicursor-cursor-feedkeys*
 
     Parameters: ~
       • {keys} (`string`) string representing a command
-      • {opts} (`table`) options
-        • {opts.remap} (`boolean?`) if true use remapped keys
-        • {opts.keycodes} (`boolean?`) if true translate keycodes
+      • {opts?} (`table?`) options
+        • {opts.remap?} (`boolean?`) if true use remapped keys
+        • {opts.keycodes?} (`boolean?`) if true translate keycodes
 
 
 Cursor:perform({callback})                        *multicursor-cursor-perform*
