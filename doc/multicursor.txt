@@ -1,7 +1,7 @@
 *multicursor.txt*                                             multicursor.nvim
 
 Multiple cursors in Neovim.                                      *multicursor*
-					                    *multicursor.nvim*
+                                                            *multicursor.nvim*
                                                                           *mc*
 
 ==============================================================================
@@ -201,6 +201,7 @@ want to create your own complex action, see the |multicursor-api|.
 
  • mc.addCursor                                        |multicursor-addCursor|
  • mc.skipCursor                                      |multicursor-skipCursor|
+ • mc.toggleCursor                                  |multicursor-toggleCursor|
  • mc.lineAddCursor                                |multicursor-lineAddCursor|
  • mc.lineSkipCursor                              |multicursor-lineSkipCursor|
  • mc.matchAddCursor                              |multicursor-matchAddCursor|
@@ -252,6 +253,17 @@ mc.skipCursor({motion})                               *multicursor-skipCursor*
     Parameters: ~
       • {motion} (`string`) motion to execute on the main cursor without
         adding a new cursor
+
+
+mc.toggleCursor()                                   *multicursor-toggleCursor*
+    Add or remove a cursor under the main cursor. This action disables all
+    cursors. You can use `mc.enableCursors` to enable cursors again.
+
+    Usage example: >lua
+        vim.keymap.set("n", "<c-q>", mc.toggleCursor)
+
+    See also: ~
+      • |multicursor-enableCursors|
 
 
 mc.lineAddCursor({direction})                      *multicursor-lineAddCursor*
