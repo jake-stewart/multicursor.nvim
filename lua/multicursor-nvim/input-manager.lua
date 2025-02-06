@@ -41,6 +41,8 @@ function InputManager:setup(nsid)
     self._keys = ""
     self._typed = ""
     self._fromSelectMode = false
+    self._didUndo = false
+    self._didRedo = false
 
     local originalGetChar = vim.fn.getchar
     function vim.fn.getchar(...)
@@ -48,6 +50,32 @@ function InputManager:setup(nsid)
             return 0
         end
         return originalGetChar(...)
+     end
+
+    local originalUndo = vim.cmd.undo
+    function vim.cmd.undo(...)
+        local result = originalUndo(...)
+        self._didUndo = true
+        return result
+     end
+
+    local originalRedo = vim.cmd.redo
+    function vim.cmd.redo(...)
+        local result = originalRedo(...)
+        self._didRedo = true
+        return result
+     end
+
+    local cmdMetatable = getmetatable(vim.cmd)
+    local originalCmd = cmdMetatable.__call
+    function cmdMetatable.__call(...)
+        local cmd = select(2, ...)
+        if cmd == "undo" then
+            self._didUndo = true
+        elseif cmd == "redo" then
+            self._didRedo = true
+        end
+        return originalCmd(...)
      end
 
     util.au("SafeState", "*", function()
@@ -237,6 +265,10 @@ function InputManager:_onSafeState()
         and string.sub(self._typed, #self._typed, #self._typed) == TERM_CODES.ESC
     then
         -- for some reason escape doesn't cancel search when feedkeys
+    elseif self._didUndo then
+        cursorManager:loadUndoItem(-1)
+    elseif self._didRedo then
+        cursorManager:loadUndoItem(1)
     elseif snippetManager:hasSnippet() then
         self:_handleSnippet(wasFromSelectMode)
     elseif isInsertOrReplaceMode(self._wasMode) then
@@ -263,6 +295,8 @@ function InputManager:_onSafeState()
             end
         end
     end
+    self._didUndo = false
+    self._didRedo = false
     self._wasMode = vim.fn.mode()
     self._fromSelectMode = isSelectMode(self._wasMode)
     self._cmdType = nil
