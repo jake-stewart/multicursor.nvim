@@ -549,21 +549,16 @@ function examples.matchAllAddCursors()
         local mainCursor = ctx:mainCursor()
         local regex
         local hasSelection = mainCursor:hasSelection()
-        local atVisualStart = mainCursor:atVisualStart()
         if hasSelection then
             regex = "\\C\\V" .. escapeRegex(table.concat(mainCursor:getVisualLines(), "\n"))
-            if mainCursor:mode() == "V" or mainCursor:mode() == "S" then
-                mainCursor:feedkeys(atVisualStart and "0" or "o0")
-            elseif not atVisualStart then
-                mainCursor:feedkeys("o")
-            end
         else
             local word = mainCursor:getCursorWord()
             regex = "\\v<\\C\\V" .. escapeRegex(word) .. "\\v>"
-            mainCursor:feedkeys('"_yiw')
         end
 
-        local origPos = mainCursor:getPos()
+        local startPos = mainCursor:getPos()
+        local firstMatchPos = nil
+
         while true do
             addCursor(ctx, function(cursor)
                 cursor:perform(function()
@@ -572,14 +567,17 @@ function examples.matchAllAddCursors()
                 if hasSelection then
                     cursor:feedkeys(TERM_CODES.ESC)
                 end
-            end, { addCursor = true })
+            end, { addCursor = firstMatchPos ~= nil })
             local newPos = mainCursor:getPos()
-            if origPos[1] == newPos[1]
-                and origPos[2] == newPos[2]
+            if not firstMatchPos then
+                firstMatchPos = newPos
+            elseif firstMatchPos[1] == newPos[1]
+                and firstMatchPos[2] == newPos[2]
             then
                 break
             end
         end
+        mainCursor:setPos(startPos)
         mainCursor:delete()
     end)
 end
