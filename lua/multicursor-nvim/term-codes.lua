@@ -8,5 +8,7 @@ return {
     CTRL_E = vim.api.nvim_replace_termcodes("<c-e>", true, true, true),
     CTRL_Y = vim.api.nvim_replace_termcodes("<c-y>", true, true, true),
     CTRL_I = vim.api.nvim_replace_termcodes("<c-i>", true, true, true),
-    CTRL_O = vim.api.nvim_replace_termcodes("<c-o>", true, true, true)
+    CTRL_O = vim.api.nvim_replace_termcodes("<c-o>", true, true, true),
+    LEFT = vim.api.nvim_replace_termcodes("<left>", true, true, true),
+    RIGHT = vim.api.nvim_replace_termcodes("<right>", true, true, true)
 }

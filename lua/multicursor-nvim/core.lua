@@ -37,6 +37,13 @@ function core.setup(opts)
         vim.keymap.set("n", TERM_CODES.CTRL_O, core.jumpBackward)
     end
 
+    if vim.fn.mapcheck(TERM_CODES.LEFT, "i") == ""
+        and vim.fn.mapcheck(TERM_CODES.RIGHT, "i") == ""
+    then
+        vim.keymap.set("i", "<left>", "<C-g>U<Left>")
+        vim.keymap.set("i", "<right>", "<C-g>U<Right>")
+    end
+
     vim.api.nvim_create_autocmd({ "WinLeave" }, {
         pattern = "*",
         callback = function()
