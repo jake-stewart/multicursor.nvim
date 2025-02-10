@@ -58,6 +58,54 @@ function examples.splitCursors(pattern)
     end)
 end
 
+function examples.matchCursorsRange(pattern, range, visual)
+    mc.action(function(ctx)
+        if not pattern or pattern == "" then
+            return
+        end
+        --- @type Cursor[]
+        local newCursors = {}
+        ctx:forEachCursor(function(cursor)
+            if cursor:hasSelection() then
+                newCursors = tbl.concat(newCursors, cursor:splitVisualLines())
+            else
+                newCursors[#newCursors + 1] = cursor
+                cursor:setMode("v")
+            end
+        end)
+        for _, cursor in ipairs(newCursors) do
+            local selection = vim.api.nvim_buf_get_text(
+                0,
+                range.startRow - 1,
+                range.startCol,
+                range.endRow - 1,
+                range.endCol + 1,
+                {}
+            )
+            local matches = util.matchlist(selection, pattern, {
+                userConfig = true,
+            })
+            local vs = cursor:getVisual()
+            for _, match in ipairs(matches) do
+                if #match.text > 0 then
+                    local newCursor = cursor:clone()
+                    newCursor:setVisual({
+                        range.startRow + match.idx,
+                        (match.idx == 0 and range.startCol or 0) + match.byteidx + #match.text,
+                    }, {
+                        range.startRow + match.idx,
+                        (match.idx == 0 and range.startCol or 0) + match.byteidx + 1,
+                    })
+                    if not visual then
+                        newCursor:setMode("n")
+                    end
+                end
+            end
+            cursor:delete()
+        end
+    end)
+end
+
 function examples.matchCursors(pattern)
     mc.action(function(ctx)
         pattern = pattern or vim.fn.input("Match: ")
