@@ -800,7 +800,7 @@ function examples.operator(opts)
             -- If called from visual mode, opts.pattern and opts.motion are ignored,
             -- we get pattern from previous visual selection.
             state.pattern = string.format(
-                state.wordBoundary and "\\<%s\\>" or "%s",
+                state.wordBoundary and "\\M\\<%s\\>" or "\\M%s",
                 getSelection(getRange(true), vMode)[1]
             )
         elseif state.pattern == "" then
@@ -811,6 +811,16 @@ function examples.operator(opts)
                 getSelection(getRange(false), opMode)[1]
             )
         end
+        local id = vim.fn.matchadd("MultiCursorMatchPreview", state.pattern, 2)
+        vim.schedule(function()
+            -- Press any key will clear the match.
+            vim.api.nvim_create_autocmd("SafeState", {
+                once = true,
+                callback = function()
+                    pcall(vim.fn.matchdelete, id)
+                end,
+            })
+        end)
         setOpfunc(function(mode)
             -- Second stage to get range, only '[ and '] markers make sense
             -- here, we get selection by mode (one of "char", "line", or "block").

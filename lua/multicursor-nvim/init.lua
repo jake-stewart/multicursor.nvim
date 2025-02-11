@@ -10,6 +10,7 @@ end
 setDefaultHighlight("MultiCursorCursor", "Cursor")
 setDefaultHighlight("MultiCursorVisual", "Visual")
 setDefaultHighlight("MultiCursorSign", "SignColumn")
+setDefaultHighlight("MultiCursorMatchPreview", "Search")
 setDefaultHighlight("MultiCursorDisabledCursor", "Visual")
 setDefaultHighlight("MultiCursorDisabledVisual", "Visual")
 setDefaultHighlight("MultiCursorDisabledSign", "SignColumn")
