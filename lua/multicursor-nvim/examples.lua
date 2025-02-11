@@ -3,6 +3,14 @@ local tbl = require("multicursor-nvim.tbl")
 local util = require("multicursor-nvim.util")
 local TERM_CODES = require("multicursor-nvim.term-codes")
 
+local setOpfunc = vim.fn[vim.api.nvim_exec([[
+  func s:setOpfunc(val)
+    let &opfunc = a:val
+  endfunc
+  echon get(function('s:setOpfunc'), 'name')
+]], true)]
+
+
 -- All of the default actions like match, select, transpose
 -- are implemented using the same api provided to users.
 --
@@ -52,54 +60,6 @@ function examples.splitCursors(pattern)
             end
             if nextIdx < #selection[1] then
                 pushCursor(cursor, nextIdx, #selection[1] - 1)
-            end
-            cursor:delete()
-        end
-    end)
-end
-
-function examples.matchCursorsRange(pattern, range, visual)
-    mc.action(function(ctx)
-        if not pattern or pattern == "" then
-            return
-        end
-        --- @type Cursor[]
-        local newCursors = {}
-        ctx:forEachCursor(function(cursor)
-            if cursor:hasSelection() then
-                newCursors = tbl.concat(newCursors, cursor:splitVisualLines())
-            else
-                newCursors[#newCursors + 1] = cursor
-                cursor:setMode("v")
-            end
-        end)
-        for _, cursor in ipairs(newCursors) do
-            local selection = vim.api.nvim_buf_get_text(
-                0,
-                range.startRow - 1,
-                range.startCol,
-                range.endRow - 1,
-                range.endCol + 1,
-                {}
-            )
-            local matches = util.matchlist(selection, pattern, {
-                userConfig = true,
-            })
-            local vs = cursor:getVisual()
-            for _, match in ipairs(matches) do
-                if #match.text > 0 then
-                    local newCursor = cursor:clone()
-                    newCursor:setVisual({
-                        range.startRow + match.idx,
-                        (match.idx == 0 and range.startCol or 0) + match.byteidx + #match.text,
-                    }, {
-                        range.startRow + match.idx,
-                        (match.idx == 0 and range.startCol or 0) + match.byteidx + 1,
-                    })
-                    if not visual then
-                        newCursor:setMode("n")
-                    end
-                end
             end
             cursor:delete()
         end
@@ -680,13 +640,6 @@ function examples.lineSkipCursor(direction)
     lineAddCursor(direction, false)
 end
 
-local setOpfunc = vim.fn[vim.api.nvim_exec([[
-  func s:setOpfunc(val)
-    let &opfunc = a:val
-  endfunc
-  echon get(function('s:setOpfunc'), 'name')
-]], true)]
-
 function examples.addCursorOperator()
     local mode = vim.fn.mode()
     local curPos = vim.fn.getpos(".")
@@ -737,6 +690,95 @@ function examples.addCursorOperator()
         end)
     end)
     vim.fn.feedkeys("g@", "nt")
+end
+
+local function matchCursorsRange(pattern, range, visual)
+    mc.action(function(ctx)
+        if not pattern or pattern == "" then
+            return
+        end
+        --- @type Cursor[]
+        local newCursors = {}
+        ctx:forEachCursor(function(cursor)
+            if cursor:hasSelection() then
+                newCursors = tbl.concat(newCursors, cursor:splitVisualLines())
+            else
+                newCursors[#newCursors + 1] = cursor
+                cursor:setMode("v")
+            end
+        end)
+        for _, cursor in ipairs(newCursors) do
+            local selection = vim.api.nvim_buf_get_text(
+                0,
+                range.startRow - 1,
+                range.startCol,
+                math.min(range.endRow, vim.fn.line("$") - 1),
+                range.endCol + 1,
+                {}
+            )
+            local matches = util.matchlist(selection, pattern, {
+                userConfig = true,
+            })
+            -- local vs = cursor:getVisual()
+            for _, match in ipairs(matches) do
+                if #match.text > 0 then
+                    local newCursor = cursor:clone()
+                    newCursor:setVisual({
+                        range.startRow + match.idx,
+                        (match.idx == 0 and range.startCol or 0) + match.byteidx + #match.text,
+                    }, {
+                        range.startRow + match.idx,
+                        (match.idx == 0 and range.startCol or 0) + match.byteidx + 1,
+                    })
+                    if not visual then
+                        newCursor:setMode("n")
+                    end
+                end
+            end
+            cursor:delete()
+        end
+    end)
+end
+
+---@param opts? { pattern: string, motion: string, visual: boolean, wordBoundary: boolean }
+function examples.operator(opts)
+    local state = vim.tbl_extend("force", {
+        pattern = "",
+        visual = false,
+        motion = "",
+        wordBoundary = true,
+    }, opts or {})
+
+    local function getMarks()
+        local s = vim.api.nvim_buf_get_mark(0, "[")
+        local e = vim.api.nvim_buf_get_mark(0, "]")
+        return { startRow = s[1], startCol = s[2], endRow = e[1], endCol = e[2] }
+    end
+
+    setOpfunc(function()
+        if state.pattern == "" then
+            local marks = getMarks()
+            state.pattern = string.format(
+                state.wordBoundary and "\\<%s\\>" or "%s",
+                vim.api.nvim_buf_get_text(
+                    0,
+                    marks.startRow - 1,
+                    marks.startCol,
+                    marks.endRow - 1,
+                    marks.endCol + 1, {}
+                )[1]
+            )
+        end
+        setOpfunc(function()
+            matchCursorsRange(state.pattern, getMarks(), state.visual)
+        end)
+        vim.api.nvim_feedkeys(string.format("g@"), "mi", false)
+    end)
+    if state.pattern == "" then
+        vim.api.nvim_feedkeys(string.format("g@%s", state.motion or ""), "mi", false)
+    else
+        vim.api.nvim_feedkeys(string.format("g@l"), "mi", false)
+    end
 end
 
 return examples
