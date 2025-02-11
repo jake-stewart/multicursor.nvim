@@ -587,12 +587,14 @@ it.
     end)
 >
 
-And that's it. You can view the types below to see all the default features
-implemented using the Cursor API.
+And that's it. See the |multicursor-api-Context| and |multicursor-api-Cursor|
+sections for an API overview. Also look at the `examples.lua` file in the
+GitHub repo for example usage.
 
 See also: ~
   • |multicursor-action|
   • |multicursor-api-Context|
+  • |multicursor-api-Cursor|
 
 
 ------------------------------------------------------------------------------
@@ -1238,7 +1240,10 @@ Cursor:feedkeys({keys}, {opts?})                 *multicursor-cursor-feedkeys*
 
 
 Cursor:perform({callback})                        *multicursor-cursor-perform*
-    Call callback with cursor.
+    Activates this cursor by setting its registers, visual selection, mode,
+    position, etc. Then, it calls the provided callback where you can perform
+    some lower level operations. Once the callback is finished, the new cursor
+    state is read and the previously selected cursor is restored.
 
     Parameters: ~
       • {callback} (`function`) function to execute on a cursor
