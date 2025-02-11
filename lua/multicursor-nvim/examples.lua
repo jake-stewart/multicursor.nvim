@@ -692,7 +692,7 @@ function examples.addCursorOperator()
     vim.fn.feedkeys("g@", "nt")
 end
 
-local function matchCursorsRange(pattern, range, visual)
+local function matchCursorsRange(pattern, range, selection, visual)
     mc.action(function(ctx)
         if not pattern or pattern == "" then
             return
@@ -708,27 +708,22 @@ local function matchCursorsRange(pattern, range, visual)
             end
         end)
         for _, cursor in ipairs(newCursors) do
-            local selection = vim.api.nvim_buf_get_text(
-                0,
-                range.startRow - 1,
-                range.startCol,
-                math.min(range.endRow, vim.fn.line("$") - 1),
-                range.endCol + 1,
-                {}
-            )
             local matches = util.matchlist(selection, pattern, {
                 userConfig = true,
             })
-            -- local vs = cursor:getVisual()
             for _, match in ipairs(matches) do
                 if #match.text > 0 then
                     local newCursor = cursor:clone()
                     newCursor:setVisual({
                         range.startRow + match.idx,
-                        (match.idx == 0 and range.startCol or 0) + match.byteidx + #match.text,
+                        (match.idx == 0 and range.startCol or 0)
+                            + match.byteidx
+                            + #match.text,
                     }, {
                         range.startRow + match.idx,
-                        (match.idx == 0 and range.startCol or 0) + match.byteidx + 1,
+                        (match.idx == 0 and range.startCol or 0)
+                            + match.byteidx
+                            + 1,
                     })
                     if not visual then
                         newCursor:setMode("n")
@@ -740,37 +735,92 @@ local function matchCursorsRange(pattern, range, visual)
     end)
 end
 
+-- Works both in visual and normal mode, if called from visual mode, pattern
+-- and motion are ignored, wordBoundary defaults to false, the selected range
+-- will be used to determine the pattern. You can either pass a motion or a
+-- pattern in normal mode, which will be used to create cursors within the
+-- range without you explicitly type the motion (e.g. iw) to capture the pattern.
 ---@param opts? { pattern: string, motion: string, visual: boolean, wordBoundary: boolean }
 function examples.operator(opts)
+    local function is_visual(mode)
+        return mode == "v" or mode == "V" or mode == "\22"
+    end
+
+    local vMode
+    if is_visual(vim.fn.mode()) then
+        vim.cmd([[execute "normal! \<esc>"]])
+        vMode = vim.fn.visualmode()
+    end
+
     local state = vim.tbl_extend("force", {
         pattern = "",
         visual = false,
         motion = "",
-        wordBoundary = true,
+        -- boundary makes no sense when calling from visual mode, also this
+        -- default matches visual/normal mode "*".
+        wordBoundary = vMode == nil,
     }, opts or {})
 
-    local function getMarks()
-        local s = vim.api.nvim_buf_get_mark(0, "[")
-        local e = vim.api.nvim_buf_get_mark(0, "]")
+    local function getRange(visual)
+        local s = vim.api.nvim_buf_get_mark(0, visual and "<" or "[")
+        local e = vim.api.nvim_buf_get_mark(0, visual and ">" or "]")
         return { startRow = s[1], startCol = s[2], endRow = e[1], endCol = e[2] }
     end
 
-    setOpfunc(function()
-        if state.pattern == "" then
-            local marks = getMarks()
-            state.pattern = string.format(
-                state.wordBoundary and "\\<%s\\>" or "%s",
-                vim.api.nvim_buf_get_text(
-                    0,
-                    marks.startRow - 1,
-                    marks.startCol,
-                    marks.endRow - 1,
-                    marks.endCol + 1, {}
-                )[1]
+    local function getSelection(range, vmode)
+        if vmode == "char" or vmode == "v" then
+            -- If we want to get selection inside an operatorfunc callback,
+            -- vmode is one of "line", "char", or "block"; if we want to get
+            -- visual mode selection, vmode is one of "v", "V", or "<CTRL-V>",
+            -- in both cases, only if vmode is "char" or "v" we need to use
+            -- nvim_buf_get_text.
+            return vim.api.nvim_buf_get_text(
+                0,
+                range.startRow - 1,
+                range.startCol,
+                math.min(range.endRow - 1, vim.fn.line("$") - 1),
+                range.endCol + 1,
+                {}
+            )
+        else
+            -- motion is linewise, col position doesn't matter,
+            -- return entire lines.
+            return vim.api.nvim_buf_get_lines(
+                0,
+                range.startRow - 1,
+                range.endRow,
+                false
             )
         end
-        setOpfunc(function()
-            matchCursorsRange(state.pattern, getMarks(), state.visual)
+    end
+
+    setOpfunc(function(opMode)
+        -- First stage to get pattern.
+        if vMode ~= nil then
+            -- If called from visual mode, opts.pattern and opts.motion are ignored,
+            -- we get pattern from previous visual selection.
+            state.pattern = string.format(
+                state.wordBoundary and "\\<%s\\>" or "%s",
+                getSelection(getRange(true), vMode)[1]
+            )
+        elseif state.pattern == "" then
+            -- If user doesn't provide a pattern, we get pattern specified by '[
+            -- and '] marker.
+            state.pattern = string.format(
+                state.wordBoundary and "\\<%s\\>" or "%s",
+                getSelection(getRange(false), opMode)[1]
+            )
+        end
+        setOpfunc(function(mode)
+            -- Second stage to get range, only '[ and '] markers make sense
+            -- here, we get selection by mode (one of "char", "line", or "block").
+            local range = getRange(false)
+            matchCursorsRange(
+                state.pattern,
+                range,
+                getSelection(range, mode),
+                state.visual
+            )
         end)
         vim.api.nvim_feedkeys(string.format("g@"), "mi", false)
     end)

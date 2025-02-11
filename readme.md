@@ -33,27 +33,40 @@ https://github.com/user-attachments/assets/a8c136dc-4786-447b-95c0-8e2a48f5776f
         local set = vim.keymap.set
 
         -- Add or skip cursor above/below the main cursor.
-        set({"n", "v"}, "<up>",
+        set({"n", "x"}, "<up>",
             function() mc.lineAddCursor(-1) end)
-        set({"n", "v"}, "<down>",
+        set({"n", "x"}, "<down>",
             function() mc.lineAddCursor(1) end)
-        set({"n", "v"}, "<leader><up>",
+        set({"n", "x"}, "<leader><up>",
             function() mc.lineSkipCursor(-1) end)
-        set({"n", "v"}, "<leader><down>",
+        set({"n", "x"}, "<leader><down>",
             function() mc.lineSkipCursor(1) end)
 
         -- Add or skip adding a new cursor by matching word/selection
-        set({"n", "v"}, "<leader>n",
+        set({"n", "x"}, "<leader>n",
             function() mc.matchAddCursor(1) end)
-        set({"n", "v"}, "<leader>s",
+        set({"n", "x"}, "<leader>s",
             function() mc.matchSkipCursor(1) end)
-        set({"n", "v"}, "<leader>N",
+        set({"n", "x"}, "<leader>N",
             function() mc.matchAddCursor(-1) end)
-        set({"n", "v"}, "<leader>S",
+        set({"n", "x"}, "<leader>S",
             function() mc.matchSkipCursor(-1) end)
 
+        -- In normal/visual mode, press `mwap` will create a cursor in every match of
+        -- the word captured by `iw` (or visually selected range) inside the bigger
+        -- range specified by `ap`. Useful to replace a word inside a function, e.g. mwif.
+        set({"n", "x"}, "mw", function()
+            mc.operator({ motion = "iw", visual = true })
+			-- Or you can pass a pattern, press `mwi{` will select every \w,
+		    -- basically every char in a `{ a, b, c, d }`.
+			-- mc.operator({ pattern = [[\<\w]] })
+        end)
+
+        -- Press `mWi"ap` will create a cursor in every match of string captured by `i"` inside range `ap`.
+        set("n", "mW", mc.operator)
+
         -- Add all matches in the document
-        set({"n", "v"}, "<leader>A", mc.matchAllAddCursors)
+        set({"n", "x"}, "<leader>A", mc.matchAllAddCursors)
 
         -- You can also add cursors with any motion you prefer:
         -- set("n", "<right>", function()
@@ -64,20 +77,20 @@ https://github.com/user-attachments/assets/a8c136dc-4786-447b-95c0-8e2a48f5776f
         -- end)
 
         -- Rotate the main cursor.
-        set({"n", "v"}, "<left>", mc.nextCursor)
-        set({"n", "v"}, "<right>", mc.prevCursor)
+        set({"n", "x"}, "<left>", mc.nextCursor)
+        set({"n", "x"}, "<right>", mc.prevCursor)
 
         -- Delete the main cursor.
-        set({"n", "v"}, "<leader>x", mc.deleteCursor)
+        set({"n", "x"}, "<leader>x", mc.deleteCursor)
 
         -- Add and remove cursors with control + left click.
         set("n", "<c-leftmouse>", mc.handleMouse)
 
         -- Easy way to add and remove cursors using the main cursor.
-        set({"n", "v"}, "<c-q>", mc.toggleCursor)
+        set({"n", "x"}, "<c-q>", mc.toggleCursor)
 
         -- Clone every cursor and disable the originals.
-        set({"n", "v"}, "<leader><c-q>", mc.duplicateCursors)
+        set({"n", "x"}, "<leader><c-q>", mc.duplicateCursors)
 
         set("n", "<esc>", function()
             if not mc.cursorsEnabled() then
@@ -96,24 +109,24 @@ https://github.com/user-attachments/assets/a8c136dc-4786-447b-95c0-8e2a48f5776f
         set("n", "<leader>a", mc.alignCursors)
 
         -- Split visual selections by regex.
-        set("v", "S", mc.splitCursors)
+        set("x", "S", mc.splitCursors)
 
         -- Append/insert for each line of visual selections.
-        set("v", "I", mc.insertVisual)
-        set("v", "A", mc.appendVisual)
+        set("x", "I", mc.insertVisual)
+        set("x", "A", mc.appendVisual)
 
         -- match new cursors within visual selections by regex.
-        set("v", "M", mc.matchCursors)
+        set("x", "M", mc.matchCursors)
 
         -- Rotate visual selection contents.
-        set("v", "<leader>t",
+        set("x", "<leader>t",
             function() mc.transposeCursors(1) end)
-        set("v", "<leader>T",
+        set("x", "<leader>T",
             function() mc.transposeCursors(-1) end)
 
         -- Jumplist support
-        set({"v", "n"}, "<c-i>", mc.jumpForward)
-        set({"v", "n"}, "<c-o>", mc.jumpBackward)
+        set({"x", "n"}, "<c-i>", mc.jumpForward)
+        set({"x", "n"}, "<c-o>", mc.jumpBackward)
 
         -- Customize how cursors look.
         local hl = vim.api.nvim_set_hl
