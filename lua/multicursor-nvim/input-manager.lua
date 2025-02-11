@@ -50,21 +50,21 @@ function InputManager:setup(nsid)
             return 0
         end
         return originalGetChar(...)
-     end
+    end
 
     local originalUndo = vim.cmd.undo
     function vim.cmd.undo(...)
         local result = originalUndo(...)
         self._didUndo = true
         return result
-     end
+    end
 
     local originalRedo = vim.cmd.redo
     function vim.cmd.redo(...)
         local result = originalRedo(...)
         self._didRedo = true
         return result
-     end
+    end
 
     local cmdMetatable = getmetatable(vim.cmd)
     local originalCmd = cmdMetatable.__call
@@ -76,7 +76,7 @@ function InputManager:setup(nsid)
             self._didRedo = true
         end
         return originalCmd(...)
-     end
+    end
 
     util.au("SafeState", "*", function()
         self:_onSafeState()
