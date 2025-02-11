@@ -29,6 +29,7 @@ return {
     splitCursors = examples.splitCursors,
     alignCursors = examples.alignCursors,
     matchCursors = examples.matchCursors,
+    matchCursorsRange = examples.matchCursorsRange,
     transposeCursors = examples.transposeCursors,
     swapCursors = examples.swapCursors,
     addCursor = examples.addCursor,
