@@ -825,6 +825,9 @@ function examples.operator(opts)
             -- Second stage to get range, only '[ and '] markers make sense
             -- here, we get selection by mode (one of "char", "line", or "block").
             local range = getRange(false)
+            if mode ~= "char" then
+                range.startCol = 0
+            end
             matchCursorsRange(
                 state.pattern,
                 range,
@@ -834,10 +837,10 @@ function examples.operator(opts)
         end)
         vim.api.nvim_feedkeys(string.format("g@"), "mi", false)
     end)
-    if state.pattern == "" then
-        vim.api.nvim_feedkeys(string.format("g@%s", state.motion or ""), "mi", false)
-    else
+    if state.pattern ~= "" or vMode ~= nil then
         vim.api.nvim_feedkeys(string.format("g@l"), "mi", false)
+    else
+        vim.api.nvim_feedkeys(string.format("g@%s", state.motion or ""), "mi", false)
     end
 end
 
