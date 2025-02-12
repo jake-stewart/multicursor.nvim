@@ -57,9 +57,9 @@ https://github.com/user-attachments/assets/a8c136dc-4786-447b-95c0-8e2a48f5776f
         -- range specified by `ap`. Useful to replace a word inside a function, e.g. mwif.
         set({"n", "x"}, "mw", function()
             mc.operator({ motion = "iw", visual = true })
-			-- Or you can pass a pattern, press `mwi{` will select every \w,
-		    -- basically every char in a `{ a, b, c, d }`.
-			-- mc.operator({ pattern = [[\<\w]] })
+            -- Or you can pass a pattern, press `mwi{` will select every \w,
+            -- basically every char in a `{ a, b, c, d }`.
+            -- mc.operator({ pattern = [[\<\w]] })
         end)
 
         -- Press `mWi"ap` will create a cursor in every match of string captured by `i"` inside range `ap`.
