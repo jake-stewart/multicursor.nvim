@@ -285,23 +285,55 @@ function examples.skipCursor(motion, opts)
     end)
 end
 
+local mouseDragAdd = true
+
+--- @return SimplePos
+local function getMousePos()
+    local mousePos = vim.fn.getmousepos()
+    return {
+        mousePos.line,
+        mousePos.column,
+        vim.o.virtualedit == "all"
+            --- @diagnostic disable
+            and mousePos.coladd
+            or nil
+    }
+end
+
 function examples.handleMouse()
     mc.action(function(ctx)
-        local mousePos = vim.fn.getmousepos()
-        local pos = {
-            mousePos.line,
-            mousePos.column,
-            vim.o.virtualedit == "all"
-                and mousePos.coladd
-                or nil
-        }
+        local pos = getMousePos()
         local existingCursor = ctx:getCursorAtPos(pos)
         if existingCursor then
-            existingCursor:delete()
+            if ctx:numCursors() == 1 then
+                mouseDragAdd = true
+            else
+                existingCursor:delete()
+                mouseDragAdd = false
+            end
         else
+            mouseDragAdd = true
             local mainCursor = ctx:mainCursor()
                 mainCursor:clone()
             mainCursor:setPos(pos):setVisualAnchor(pos)
+        end
+    end)
+end
+
+function examples.handleMouseDrag()
+    mc.action(function(ctx)
+        local pos = getMousePos()
+        local existingCursor = ctx:getCursorAtPos(pos)
+        if mouseDragAdd then
+            if not existingCursor then
+                local mainCursor = ctx:mainCursor()
+                    mainCursor:clone()
+                mainCursor:setPos(pos):setVisualAnchor(pos)
+            end
+        else
+            if existingCursor then
+                existingCursor:delete()
+            end
         end
     end)
 end

@@ -106,6 +106,7 @@ Continue reading for a guide of how to use the default config.
 
             -- Add and remove cursors with control + left click.
             set("n", "<c-leftmouse>", mc.handleMouse)
+            set("n", "<c-leftdrag>", mc.handleMouseDrag)
 
             -- Easy way to add and remove cursors using the main cursor.
             set({"n", "x"}, "<c-q>", mc.toggleCursor)
@@ -229,6 +230,7 @@ want to create your own complex action, see the |multicursor-api|.
  • mc.deleteCursor                                  |multicursor-deleteCursor|
  • mc.clearCursors                                  |multicursor-clearCursors|
  • mc.handleMouse                                    |multicursor-handleMouse|
+ • mc.handleMouseDrag                            |multicursor-handleMouseDrag|
  • mc.alignCursors                                  |multicursor-alignCursors|
  • mc.splitCursors                                  |multicursor-splitCursors|
  • mc.matchCursors                                  |multicursor-matchCursors|
@@ -419,10 +421,19 @@ mc.clearCursors()                                   *multicursor-clearCursors*
 <
 
 mc.handleMouse()                                     *multicursor-handleMouse*
-    Use in a mouse mapping to handle mouse input.
+    Use in a mouse mapping to handle adding and removing cursors with mouse
+    click.
 
     Usage example: >lua
         vim.keymap.set("n", "<c-leftmouse>", mc.handleMouse)
+
+
+mc.handleMouseDrag()                             *multicursor-handleMouseDrag*
+    Use in a mouse mapping to handle adding and removing cursors with mouse
+    drag.
+
+    Usage example: >lua
+        vim.keymap.set("n", "<c-leftdrag>", mc.handleMouseDrag)
 <
 
 mc.alignCursors()                                   *multicursor-alignCursors*

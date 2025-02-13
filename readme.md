@@ -85,6 +85,7 @@ https://github.com/user-attachments/assets/a8c136dc-4786-447b-95c0-8e2a48f5776f
 
         -- Add and remove cursors with control + left click.
         set("n", "<c-leftmouse>", mc.handleMouse)
+        set("n", "<c-leftdrag>", mc.handleMouseDrag)
 
         -- Easy way to add and remove cursors using the main cursor.
         set({"n", "x"}, "<c-q>", mc.toggleCursor)

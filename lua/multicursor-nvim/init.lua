@@ -41,6 +41,7 @@ return {
     lineAddCursor = examples.lineAddCursor,
     lineSkipCursor = examples.lineSkipCursor,
     handleMouse = examples.handleMouse,
+    handleMouseDrag = examples.handleMouseDrag,
     clearCursors = core.clearCursors,
     restoreCursors = examples.restoreCursors,
     disableCursors = examples.disableCursors,
