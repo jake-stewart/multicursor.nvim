@@ -835,10 +835,10 @@ function examples.operator(opts)
                 state.visual
             )
         end)
-        vim.api.nvim_feedkeys(string.format("g@"), "mi", false)
+        vim.api.nvim_feedkeys(string.format("g@"), "ni", false)
     end)
     if state.pattern ~= "" or vMode ~= nil then
-        vim.api.nvim_feedkeys(string.format("g@l"), "mi", false)
+        vim.api.nvim_feedkeys(string.format("g@l"), "ni", false)
     else
         vim.api.nvim_feedkeys(string.format("g@%s", state.motion or ""), "mi", false)
     end
