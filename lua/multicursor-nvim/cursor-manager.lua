@@ -793,6 +793,14 @@ local function cursorWrite(cursor)
     else
         error("unexpected mode:" .. mode)
     end
+    if not cursor._changePos then
+        if cursor:atVisualStart() then
+            cursor._changePos = cursor._pos
+        else
+            cursor._changePos = cursor._vPos
+        end
+        vim.fn.setpos("'[", cursor._changePos)
+    end
 end
 
 --- @param cursor Cursor
