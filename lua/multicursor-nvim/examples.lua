@@ -330,6 +330,9 @@ function examples.handleMouseDrag()
         local pos = getMousePos()
         pos[2] = mouseDragPos[2]
         local endRow = pos[1]
+        if endRow == 0 then
+            return
+        end
         local direction = mouseDragPos[1] < endRow and 1 or -1
         for i = mouseDragPos[1], endRow, direction do
             pos[1] = i
@@ -338,9 +341,11 @@ function examples.handleMouseDrag()
                 if existingCursor then
                     existingCursor:select()
                 else
-                    local mainCursor = ctx:mainCursor()
-                        mainCursor:clone()
-                    mainCursor:setPos(pos):setVisualAnchor(pos)
+                    if pos[2] < vim.fn.col({pos[1], "$"}) then
+                        local mainCursor = ctx:mainCursor()
+                            mainCursor:clone()
+                        mainCursor:setPos(pos):setVisualAnchor(pos)
+                    end
                 end
             else
                 local existingCursor = ctx:getCursorAtPos(pos)
