@@ -285,8 +285,6 @@ function examples.skipCursor(motion, opts)
     end)
 end
 
-local mouseDragAdd = true
-
 --- @return SimplePos
 local function getMousePos()
     local mousePos = vim.fn.getmousepos()
@@ -300,10 +298,13 @@ local function getMousePos()
     }
 end
 
+local mouseDragAdd = true
+local mouseDragPos = nil
+
 function examples.handleMouse()
     mc.action(function(ctx)
-        local pos = getMousePos()
-        local existingCursor = ctx:getCursorAtPos(pos)
+        mouseDragPos = getMousePos()
+        local existingCursor = ctx:getCursorAtPos(mouseDragPos)
         if existingCursor then
             if ctx:numCursors() == 1 then
                 mouseDragAdd = true
@@ -315,24 +316,37 @@ function examples.handleMouse()
             mouseDragAdd = true
             local mainCursor = ctx:mainCursor()
                 mainCursor:clone()
-            mainCursor:setPos(pos):setVisualAnchor(pos)
+            mainCursor:setPos(mouseDragPos)
+                :setVisualAnchor(mouseDragPos)
         end
     end)
 end
 
 function examples.handleMouseDrag()
+    if mouseDragPos == nil then
+        return
+    end
     mc.action(function(ctx)
         local pos = getMousePos()
-        local existingCursor = ctx:getCursorAtPos(pos)
-        if mouseDragAdd then
-            if not existingCursor then
-                local mainCursor = ctx:mainCursor()
-                    mainCursor:clone()
-                mainCursor:setPos(pos):setVisualAnchor(pos)
-            end
-        else
-            if existingCursor then
-                existingCursor:delete()
+        pos[2] = mouseDragPos[2]
+        local endRow = pos[1]
+        local direction = mouseDragPos[1] < endRow and 1 or -1
+        for i = mouseDragPos[1], endRow, direction do
+            pos[1] = i
+            local existingCursor = ctx:getCursorAtPos(pos)
+            if mouseDragAdd then
+                if existingCursor then
+                    existingCursor:select()
+                else
+                    local mainCursor = ctx:mainCursor()
+                        mainCursor:clone()
+                    mainCursor:setPos(pos):setVisualAnchor(pos)
+                end
+            else
+                local existingCursor = ctx:getCursorAtPos(pos)
+                if existingCursor then
+                    existingCursor:delete()
+                end
             end
         end
     end)
