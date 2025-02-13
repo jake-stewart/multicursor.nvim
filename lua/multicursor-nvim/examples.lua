@@ -835,7 +835,9 @@ function examples.operator(opts)
                 state.visual
             )
         end)
-        vim.api.nvim_feedkeys(string.format("g@"), "ni", false)
+        vim.schedule(function()
+            vim.api.nvim_feedkeys(string.format("g@"), "ni", false)
+        end)
     end)
     if state.pattern ~= "" or vMode ~= nil then
         vim.api.nvim_feedkeys(string.format("g@l"), "ni", false)
