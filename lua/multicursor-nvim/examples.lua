@@ -324,7 +324,8 @@ end
 
 function examples.handleMouseDrag()
     if mouseDragPos == nil then
-        return
+        mouseDragPos = getMousePos()
+        mouseDragAdd = true
     end
     mc.action(function(ctx)
         local pos = getMousePos()
@@ -355,6 +356,11 @@ function examples.handleMouseDrag()
             end
         end
     end)
+end
+
+function examples.handleMouseRelease()
+    mouseDragAdd = true
+    mouseDragPos = nil
 end
 
 function examples.restoreCursors()
