@@ -323,11 +323,13 @@ function examples.handleMouse()
 end
 
 function examples.handleMouseDrag()
-    if mouseDragPos == nil then
-        mouseDragPos = getMousePos()
-        mouseDragAdd = true
-    end
     mc.action(function(ctx)
+        if mouseDragPos == nil then
+            mouseDragPos = ctx:numCursors() == 1
+                and ctx:mainCursor():getPos()
+                or getMousePos()
+            mouseDragAdd = true
+        end
         local pos = getMousePos()
         pos[2] = mouseDragPos[2]
         local endRow = pos[1]
