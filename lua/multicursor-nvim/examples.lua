@@ -466,7 +466,7 @@ local function selectBoundaryCursor(direction)
     mc.action(function(ctx)
         if ctx:numEnabledCursors() > 1 then
             ctx:seekBoundaryCursor(direction):select()
-        else
+        elseif ctx:numCursors() > 1 then
             local mainCursor = ctx:mainCursor()
             local cursor = ctx:seekBoundaryCursor(direction, {
                 disabledCursors = true,
@@ -502,7 +502,7 @@ local function selectRelativeCursor(direction, wrap)
             if cursor then
                 cursor:select()
             end
-        else
+        elseif ctx:numCursors() > 1 then
             local opts = { disabledCursors = true }
             local cursor = ctx:seekCursor(mainCursor:getPos(), direction, wrap, opts)
             if cursor then
