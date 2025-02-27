@@ -82,6 +82,19 @@ function InputManager:setup(nsid)
         self:_onSafeState()
     end)
 
+    util.au("WinEnter", "*", function()
+        if self._applying then
+            return
+        end
+        self._didBufEnter = true
+    end)
+    util.au("BufEnter", "*", function()
+        if self._applying then
+            return
+        end
+        self._didBufEnter = true
+    end)
+
     vim.on_key(
         function (key, typed)
             self:_onKey(key, typed)
@@ -259,7 +272,9 @@ function InputManager:_onSafeState()
 
     self._applying = true
 
-    if self._cmdType == ":" then
+    if self._didBufEnter then
+        cursorManager:bufEnter()
+    elseif self._cmdType == ":" then
         self:_handleLeaveCommandlineMode()
     elseif self._cmdType
         and string.sub(self._typed, #self._typed, #self._typed) == TERM_CODES.ESC
@@ -297,6 +312,7 @@ function InputManager:_onSafeState()
     end
     self._didUndo = false
     self._didRedo = false
+    self._didBufEnter = false
     self._wasMode = vim.fn.mode()
     self._fromSelectMode = isSelectMode(self._wasMode)
     self._cmdType = nil
