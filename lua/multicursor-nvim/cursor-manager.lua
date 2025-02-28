@@ -1296,15 +1296,17 @@ end
 --- @return number[]
 local function packRedoCursors(cursors)
     local data = {}
-    data[1] = state.mainCursor._id
-    data[2] = state.mainCursor._redoChangePos[2]
-    data[3] = state.mainCursor._redoChangePos[3]
-    local i = 4
+    data[1] = state.mainCursor._buffer
+    data[2] = state.mainCursor._id
+    data[3] = state.mainCursor._redoChangePos[2]
+    data[4] = state.mainCursor._redoChangePos[3]
+    local i = 5
     for _, cursor in ipairs(cursors) do
-        data[i] = cursor._enabled and cursor._id or -cursor._id
-        data[i + 1] = cursor._redoChangePos[2]
-        data[i + 2] = cursor._redoChangePos[3]
-        i = i + 3
+        data[i] = cursor._buffer
+        data[i + 1] = cursor._enabled and cursor._id or -cursor._id
+        data[i + 2] = cursor._redoChangePos[2]
+        data[i + 3] = cursor._redoChangePos[3]
+        i = i + 4
     end
     return data
 end
@@ -1313,21 +1315,24 @@ end
 --- @return number[]
 local function packUndoCursors(cursors)
     local data = {}
-    data[1] = state.mainCursor._id
-    data[2] = state.mainCursor._changePos[2]
-    data[3] = state.mainCursor._changePos[3]
-    local i = 4
+    data[1] = state.mainCursor._buffer
+    data[2] = state.mainCursor._id
+    data[3] = state.mainCursor._changePos[2]
+    data[4] = state.mainCursor._changePos[3]
+    local i = 5
     for _, cursor in ipairs(cursors) do
         if cursor._enabled then
-            data[i] = cursor._id
-            data[i + 1] = cursor._changePos[2]
-            data[i + 2] = cursor._changePos[3]
+            data[i] = cursor._buffer
+            data[i + 1] = cursor._id
+            data[i + 2] = cursor._changePos[2]
+            data[i + 3] = cursor._changePos[3]
         else
-            data[i] = -cursor._id
-            data[i + 1] = cursor._origPos[2]
-            data[i + 2] = cursor._origPos[3]
+            data[i] = cursor._buffer
+            data[i + 1] = -cursor._id
+            data[i + 2] = cursor._origPos[2]
+            data[i + 3] = cursor._origPos[3]
         end
-        i = i + 3
+        i = i + 4
     end
     return data
 end
@@ -1343,22 +1348,24 @@ local function unpackCursors(data)
     state.numDisabledCursors = 0
     state.numEnabledCursors = 0
     state.numLines = vim.fn.line("$")
-    for i = 1, #data, 3 do
+    for i = 1, #data, 4 do
         if data[i + 1] >= 1 and data[i + 1] <= state.numLines then
-            local cursor = cursorLookup[math.abs(data[i])] or cursorCopy(state.mainCursor)
+            local bufnr = data[i]
+            local cursor = cursorLookup[math.abs(data[i + 1])] or cursorCopy(state.mainCursor)
             local col = math.max(1,
                 math.min(
-                    data[i + 2],
-                    #get_lines(cursor._buffer, data[i + 1] - 1, data[i + 1], true)[1]
+                    data[i + 3],
+                    #get_lines(bufnr, data[i + 2] - 1, data[i + 2], true)[1]
                 )
             )
-            local curswantVirtcol = vim.fn.virtcol({ data[i + 1], data[i + 2] })
-            cursor._pos = { 0, data[i + 1], col, 0, curswantVirtcol }
+            local curswantVirtcol = vim.fn.virtcol({ data[i + 2], data[i + 3] })
+            cursor._buffer = bufnr
+            cursor._pos = { 0, data[i + 2], col, 0, curswantVirtcol }
             cursor._mode = "n"
             cursor._vPos = cursor._pos
             cursor._changePos = cursor._pos
             cursor._modifiedId = state.modifiedId
-            cursor._enabled = data[i] > 0
+            cursor._enabled = data[i + 1] > 0
             if cursor._enabled then
                 state.numEnabledCursors = state.numEnabledCursors + 1
             else
@@ -1705,7 +1712,7 @@ function CursorContext:hasCursors()
 end
 
 local function clearNamespaces()
-    for bufnr in ipairs(state.buffers) do
+    for bufnr in pairs(state.buffers) do
         clear_namespace(bufnr, state.nsid, 0, -1)
     end
 end
@@ -2123,6 +2130,24 @@ function CursorManager:action(callback, opts)
     state.leftcol = vim.fn.winsaveview().leftcol
     state.textoffset = vim.fn.getwininfo(vim.fn.win_getid())[1].textoff
 
+    local bufsExist = {}
+    local newCursors = {}
+    for _, cursor in ipairs(state.cursors) do
+        local exists = bufsExist[cursor._buffer]
+        if exists == nil then
+            exists = vim.fn.bufexists(cursor._buffer) == 1
+            bufsExist[cursor._buffer] = exists
+            if not exists then
+                state.buffers[cursor._buffer] = nil
+            end
+        end
+        if exists then
+            newCursors[#newCursors + 1] = cursor
+        end
+    end
+    state.cursors = newCursors
+
+
     tryUndo(opts)
     state.errors = {}
 
@@ -2170,9 +2195,6 @@ function CursorManager:action(callback, opts)
 
     state.mainCursor = CursorContext:mainCursor()
     -- cursorRead(state.mainCursor)
-
-    -- i need to check for buffer change event
-    -- so we can differentiate between explicit buffer change
 
     if not state.mainCursor:hasSelection() then
         state.mainCursor._mode = "n"
@@ -2372,6 +2394,7 @@ function CursorManager:bufEnter()
     state.buffers[bufnr] = true
     state.buffer = bufnr
     if state.mainCursor and bufnr == state.mainCursor._buffer then
+        redrawSigns()
         return
     end
 
@@ -2382,6 +2405,7 @@ function CursorManager:bufEnter()
     else
         newCursor = cursorRead(CursorContext:mainCursor():clone())
         newCursor._buffer = state.buffer
+        state.buffers[newCursor._buffer] = true
     end
     local oldCursor = state.mainCursor
     state.mainCursor = newCursor
@@ -2389,7 +2413,11 @@ function CursorManager:bufEnter()
         oldCursor:delete()
     end
     cursorContextMergeCursors()
-    cursorContextRedraw()
+    if #state.cursors == 0 then
+        clearCursorContext()
+    else
+        redrawSigns()
+    end
 end
 
 function CursorManager:dirty()

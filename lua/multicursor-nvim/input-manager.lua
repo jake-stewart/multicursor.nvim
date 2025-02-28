@@ -41,6 +41,7 @@ function InputManager:setup(nsid)
     self._keys = ""
     self._typed = ""
     self._fromSelectMode = false
+    self._bufnr = vim.fn.bufnr()
     self._didUndo = false
     self._didRedo = false
 
@@ -80,19 +81,6 @@ function InputManager:setup(nsid)
 
     util.au("SafeState", "*", function()
         self:_onSafeState()
-    end)
-
-    util.au("WinEnter", "*", function()
-        if self._applying then
-            return
-        end
-        self._didBufEnter = true
-    end)
-    util.au("BufEnter", "*", function()
-        if self._applying then
-            return
-        end
-        self._didBufEnter = true
     end)
 
     vim.on_key(
@@ -272,7 +260,8 @@ function InputManager:_onSafeState()
 
     self._applying = true
 
-    if self._didBufEnter then
+    if self._bufnr ~= vim.fn.bufnr() then
+        self._bufnr = vim.fn.bufnr()
         cursorManager:bufEnter()
     elseif self._cmdType == ":" then
         self:_handleLeaveCommandlineMode()

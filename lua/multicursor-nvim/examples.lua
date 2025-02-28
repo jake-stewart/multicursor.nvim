@@ -304,7 +304,7 @@ local mouseDragPos = nil
 function examples.handleMouse()
     mc.action(function(ctx)
         mouseDragPos = getMousePos()
-        local existingCursor = ctx:getCursorAtPos(mouseDragPos, vim.fn.bufnr())
+        local existingCursor = ctx:getCursorAtPos(mouseDragPos)
         if existingCursor then
             if ctx:numCursors() == 1 then
                 mouseDragAdd = true
@@ -339,7 +339,7 @@ function examples.handleMouseDrag()
         local direction = mouseDragPos[1] < endRow and 1 or -1
         for i = mouseDragPos[1], endRow, direction do
             pos[1] = i
-            local existingCursor = ctx:getCursorAtPos(pos, vim.fn.bufnr())
+            local existingCursor = ctx:getCursorAtPos(pos)
             if mouseDragAdd then
                 if existingCursor then
                     existingCursor:select()
@@ -351,7 +351,7 @@ function examples.handleMouseDrag()
                     end
                 end
             else
-                local existingCursor = ctx:getCursorAtPos(pos, vim.fn.bufnr())
+                local existingCursor = ctx:getCursorAtPos(pos)
                 if existingCursor then
                     existingCursor:delete()
                 end
