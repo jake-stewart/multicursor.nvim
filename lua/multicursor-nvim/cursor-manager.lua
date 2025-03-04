@@ -1184,7 +1184,7 @@ end
 --- @return self
 function Cursor:setPos(pos)
     cursorCheckUpdate(self)
-    self._pos = { self._pos[0], pos[1], pos[2], pos[3] or 0 }
+    self._pos = { 0, pos[1], pos[2], pos[3] or 0 }
     cursorSetMarks(self)
     return self
 end
@@ -1556,12 +1556,14 @@ function Cursor:setVisual(visualStart, visualEnd)
     if self:hasSelection() then
         local nvs = self._visualStart
         local nve = self._visualEnd
+        local virtcolVs = vim.fn.virtcol({ nvs[2], nvs[3] })
+        local virtcolVe = vim.fn.virtcol({ nvs[2], nvs[3] })
         if atVisualEnd then
-            self._pos = { self._pos[1], nvs[2], nvs[3], nvs[4], nvs[3]  }
-            self._vPos = { self._pos[1], nve[2], nve[3], nve[4], nve[3]  }
+            self._pos = { self._pos[1], nvs[2], nvs[3], nvs[4], virtcolVs  }
+            self._vPos = { self._pos[1], nve[2], nve[3], nve[4], virtcolVe  }
         else
-            self._vPos = { self._pos[1], nvs[2], nvs[3], nvs[4], nvs[3]  }
-            self._pos = { self._pos[1], nve[2], nve[3], nve[4], nve[3]  }
+            self._vPos = { self._pos[1], nvs[2], nvs[3], nvs[4], virtcolVs  }
+            self._pos = { self._pos[1], nve[2], nve[3], nve[4], virtcolVe  }
         end
     end
     self._state = CursorState.dirty
