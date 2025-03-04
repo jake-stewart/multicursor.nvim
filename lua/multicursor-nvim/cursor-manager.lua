@@ -8,7 +8,16 @@ local del_extmark = vim.api.nvim_buf_del_extmark
 local clear_namespace = vim.api.nvim_buf_clear_namespace
 local replace_termcodes = vim.api.nvim_replace_termcodes
 local get_extmark = vim.api.nvim_buf_get_extmark_by_id
-local get_lines = vim.api.nvim_buf_get_lines
+
+local function get_lines(buffer, startLine, endLine, strict)
+    local lines = vim.api.nvim_buf_get_lines(buffer, startLine, endLine, strict)
+    for i, line in ipairs(lines) do
+        if vim.fn.type(line) == vim.v.t_blob then
+            lines[i] = vim.fn.string(line)
+        end
+    end
+    return lines
+end
 
 local INT_MAX = 2147483647
 
