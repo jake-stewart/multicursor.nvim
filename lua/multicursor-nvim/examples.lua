@@ -905,4 +905,50 @@ function examples.operator(opts)
     end
 end
 
+--- @param direction -1 | 1
+local function sequenceIncrement(direction)
+    local key = direction == 1 and TERM_CODES.CTRL_A or TERM_CODES.CTRL_X
+    if mc.hasCursors() then
+        mc.action(function(ctx)
+            local count = vim.v.count1
+            local inc = count
+            ctx:forEachCursor(function(cursor)
+                if cursor:hasSelection() then
+                    local vs = cursor:getVisual()
+                    local keys = ""
+                    if not cursor:atVisualStart() then
+                        keys = "o"
+                    end
+                    vs[2] = 1
+                    local line = vs[1]
+                    local lines = cursor:getVisualLines()
+                    cursor:feedkeys(keys .. TERM_CODES.ESC)
+                    for i = 1, #lines do
+                        if lines[i]:find("%d+") then
+                            vim.fn.cursor(line + i - 1, 1)
+                            vim.fn.feedkeys(inc .. key, "nx")
+                            inc = inc + count
+                        end
+                    end
+                else
+                    local restOfLine = cursor:getLine():sub(cursor:col())
+                    if restOfLine:find("%d+") then
+                        cursor:feedkeys(inc .. key)
+                        inc = inc + count
+                    end
+                end
+            end)
+        end)
+    else
+        vim.api.nvim_feedkeys(vim.v.count1 .. "g" .. key, "nt")
+    end
+end
+
+function examples.sequenceIncrement()
+    sequenceIncrement(1)
+end
+function examples.sequenceDecrement()
+    sequenceIncrement(-1)
+end
+
 return examples

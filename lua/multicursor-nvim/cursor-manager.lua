@@ -1439,6 +1439,18 @@ function Cursor:setVisualLines(lines)
     return self
 end
 
+--- Replace text contained in the line of the cursor.
+--- @param line string
+--- @return self
+function Cursor:setLine(line)
+    self:perform(function()
+        self:registerUndo()
+        vim.api.nvim_buf_set_lines(
+            0, self:line() - 1, self:line(), true, {line})
+    end)
+    return self
+end
+
 --- Returns the full line for each line of the visual selection.
 --- @return string[]
 function Cursor:getFullVisualLines()

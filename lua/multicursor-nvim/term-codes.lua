@@ -1,6 +1,8 @@
 return {
     ESC = vim.api.nvim_replace_termcodes("<esc>", true, true, true),
     BACKSPACE = vim.api.nvim_replace_termcodes("<bs>", true, true, true),
+    CTRL_A = vim.api.nvim_replace_termcodes("<c-a>", true, true, true),
+    CTRL_X = vim.api.nvim_replace_termcodes("<c-x>", true, true, true),
     CTRL_V = vim.api.nvim_replace_termcodes("<c-v>", true, true, true),
     CTRL_S = vim.api.nvim_replace_termcodes("<c-s>", true, true, true),
     CTRL_R = vim.api.nvim_replace_termcodes("<c-r>", true, true, true),

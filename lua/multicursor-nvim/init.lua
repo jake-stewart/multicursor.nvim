@@ -57,5 +57,7 @@ return {
     nextCursor = examples.nextCursor,
     prevCursor = examples.prevCursor,
     deleteCursor = examples.deleteCursor,
-    operator = examples.operator
+    operator = examples.operator,
+    sequenceIncrement = examples.sequenceIncrement,
+    sequenceDecrement = examples.sequenceDecrement
 }
