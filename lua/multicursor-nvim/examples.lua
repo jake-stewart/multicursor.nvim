@@ -878,9 +878,8 @@ function examples.addCursorDiagnostics(opts)
     local diagnostics = vim.diagnostic.get(0, opts)
 
     if vMode == nil then
+        local last_typed
         setOpfunc(function()
-            local inputManager = require("multicursor-nvim.input-manager")
-            local textobj = inputManager._keys
             mc.action(function(ctx)
                 ctx:forEachCursor(function(cursor)
                     setOpfunc(function(mode)
@@ -895,12 +894,25 @@ function examples.addCursorDiagnostics(opts)
                         end
                         cursor:delete()
                     end)
-                    cursor:feedkeys("g@" .. textobj, opts)
+                    cursor:feedkeys("g@" .. last_typed, { remap = true })
                 end)
             end)
         end)
         mc.action(function()
-        	vim.api.nvim_feedkeys(string.format("g@"), "ni", false)
+            vim.api.nvim_feedkeys(string.format("g@"), "ni", false)
+            local key_ns = vim.api.nvim_create_namespace("exp")
+            vim.on_key(function(key, typed)
+                if typed ~= "" then
+                    last_typed = typed
+                end
+            end, key_ns)
+            vim.api.nvim_create_autocmd("SafeState", {
+                once = true,
+                callback = function()
+                    local key_ns = vim.api.nvim_create_namespace("exp")
+                    vim.on_key(nil, key_ns)
+                end,
+            })
         end)
     else
         mc.action(function(ctx)
