@@ -842,15 +842,6 @@ local function matchCursorsRange(pattern, range, selection, visual)
 end
 
 function examples.matchCursorDiagnostics(opts)
-    local function is_visual(mode)
-        return mode == "v" or mode == "V" or mode == "\22"
-    end
-
-    local vMode
-    if is_visual(vim.fn.mode()) then
-        vMode = vim.fn.visualmode()
-    end
-
     local function getRange(mode)
         local s = vim.api.nvim_buf_get_mark(0, "[")
         local e = vim.api.nvim_buf_get_mark(0, "]")
@@ -862,14 +853,13 @@ function examples.matchCursorDiagnostics(opts)
     end
 
     local function posInRange(row, col, range)
-        local s_row, s_col, e_row, e_col = range.startRow, range.startCol, range.endRow, range.endCol
-        if row < s_row or row > e_row then
+        if row < range.startRow or row > range.endRow then
             return false
         end
-        if row == s_row and col < s_col then
+        if row == range.startRow and col < range.startCol then
             return false
         end
-        if row == e_row and col > e_col then
+        if row == range.endRow and col > range.endCol then
             return false
         end
         return true
@@ -877,51 +867,15 @@ function examples.matchCursorDiagnostics(opts)
 
     local diagnostics = vim.diagnostic.get(0, opts)
 
-    if vMode == nil then
-        local last_typed
-        setOpfunc(function()
-            mc.action(function(ctx)
-                ctx:forEachCursor(function(cursor)
-                    setOpfunc(function(mode)
-                        local range = getRange(mode)
-                        for _, d in ipairs(diagnostics) do
-                            -- diagnostic is 0-based line and col
-                            if posInRange(d.lnum + 1, d.col, range) then
-                                local newCursor = cursor:clone()
-                                newCursor:setPos({ d.lnum + 1, d.col + 1 })
-                                newCursor:setMode("n")
-                            end
-                        end
-                        cursor:delete()
-                    end)
-                    cursor:feedkeys("g@" .. last_typed, { remap = true })
-                end)
-            end)
-        end)
-        mc.action(function()
-            vim.api.nvim_feedkeys(string.format("g@"), "ni", false)
-            local key_ns = vim.api.nvim_create_namespace("exp")
-            vim.on_key(function(key, typed)
-                if typed ~= "" then
-                    last_typed = typed
-                end
-            end, key_ns)
-            vim.api.nvim_create_autocmd("SafeState", {
-                once = true,
-                callback = function()
-                    local key_ns = vim.api.nvim_create_namespace("exp")
-                    vim.on_key(nil, key_ns)
-                end,
-            })
-        end)
-    else
+    local mode = vim.fn.mode()
+    if mode == "v" or mode == "V" or mode == "\22" then
         mc.action(function(ctx)
             --- @type Cursor[]
             ctx:forEachCursor(function(cursor)
                 if cursor:hasSelection() then
                     local vs, ve = cursor:getVisual()
                     local range
-                    if vMode == "V" then
+                    if mode == "V" then
                         range = { startRow = vs[1], startCol = 0, endRow = ve[1], endCol = math.huge }
                     else
                         range = { startRow = vs[1], startCol = vs[2] - 1, endRow = ve[1], endCol = ve[2] - 1 }
@@ -937,6 +891,73 @@ function examples.matchCursorDiagnostics(opts)
                     cursor:delete()
                 end
             end)
+        end)
+    else
+        local lastTyped
+        setOpfunc(function(vmode)
+            mc.action(function(ctx)
+                local mainCursor = ctx:mainCursor()
+                local otherCursors = {}
+                ctx:forEachCursor(function(cursor)
+                    if cursor ~= mainCursor then
+                        table.insert(otherCursors, cursor)
+                    end
+                end)
+
+                -- Update main cursor, use correct mark range.
+                for _, d in ipairs(diagnostics) do
+                    -- diagnostic is 0-based line and col
+                    if posInRange(d.lnum + 1, d.col, getRange(vmode)) then
+                        local newCursor = mainCursor:clone()
+                        newCursor:setPos({ d.lnum + 1, d.col + 1 })
+                        newCursor:setMode("n")
+                    end
+                end
+                mainCursor:delete()
+
+                if lastTyped ~= nil then
+                    -- Best effort to update other cursors, this may not work for
+                    -- example flash.nvim treesitter labels, but most common cases
+                    -- would work.
+                    for _, cursor in ipairs(otherCursors) do
+                        setOpfunc(function(mode)
+                            local range = getRange(mode)
+                            for _, d in ipairs(diagnostics) do
+                                -- diagnostic is 0-based line and col
+                                if posInRange(d.lnum + 1, d.col, range) then
+                                    local newCursor = cursor:clone()
+                                    newCursor:setPos({ d.lnum + 1, d.col + 1 })
+                                    newCursor:setMode("n")
+                                end
+                            end
+                        end)
+                        cursor:feedkeys("g@" .. lastTyped, { remap = true })
+                    end
+                end
+
+                for _, cursor in ipairs(otherCursors) do
+                    cursor:delete()
+                end
+            end)
+        end)
+
+        mc.action(function()
+            vim.api.nvim_feedkeys(string.format("g@"), "ni", false)
+
+            -- Record what user had typed after g@, we replay it for every cursors except main cursor.
+            local key_ns = vim.api.nvim_create_namespace("multicursor-nvim-obj")
+            vim.on_key(function(key, typed)
+                if typed ~= "" then
+                    lastTyped = typed
+                end
+            end, key_ns)
+            vim.api.nvim_create_autocmd("SafeState", {
+                once = true,
+                callback = function()
+                    local key_ns = vim.api.nvim_create_namespace("multicursor-nvim-obj")
+                    vim.on_key(nil, key_ns)
+                end,
+            })
         end)
     end
 end

@@ -90,7 +90,7 @@ Continue reading for a guide of how to use the default config.
 	    -- as `vapme` in visual mode.
 	    set({"n", "x"}, "me", function()
 		-- The param is the same as `:h vim.diagnostic.GetOpts`.
-		mc.matchCursorDiagnostics({ severity = vim.diagnostic.severity.ERROR})
+		mc.matchCursorDiagnostics({ severity = vim.diagnostic.severity.ERROR })
 	    end)
 
             -- Add all matches in the document

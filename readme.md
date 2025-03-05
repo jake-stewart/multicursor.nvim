@@ -69,7 +69,7 @@ https://github.com/user-attachments/assets/a8c136dc-4786-447b-95c0-8e2a48f5776f
         -- as `vapme` in visual mode.
         set({"n", "x"}, "me", function()
             -- The param is the same as `:h vim.diagnostic.GetOpts`.
-            mc.matchCursorDiagnostics({ severity = vim.diagnostic.severity.ERROR})
+            mc.matchCursorDiagnostics({ severity = vim.diagnostic.severity.ERROR })
         end)
 
         -- Add all matches in the document
