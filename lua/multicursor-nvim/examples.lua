@@ -841,7 +841,36 @@ local function matchCursorsRange(pattern, range, selection, visual)
     end)
 end
 
-function examples.matchCursorDiagnostics(opts)
+--- @param direction? -1 | 1
+--- @param add boolean
+--- @param opts? vim.diagnostic.GotoOpts
+local function diagnosticAddCursor(direction, add, opts)
+    mc.action(function(ctx)
+        local mainCursor = ctx:mainCursor()
+        local d = direction == 1 and vim.diagnostic.get_next(opts) or vim.diagnostic.get_prev(opts)
+        if d == nil then
+            return
+        end
+        addCursor(ctx, function(cursor)
+            cursor:setPos({ d.lnum + 1, d.col + 1 })
+        end, { addCursor = add })
+    end)
+end
+
+--- @param direction? -1 | 1
+--- @param opts? vim.diagnostic.GotoOpts
+function examples.diagnosticAddCursor(direction, opts)
+    diagnosticAddCursor(direction, true, opts)
+end
+
+--- @param direction? -1 | 1
+--- @param opts? vim.diagnostic.GotoOpts
+function examples.diagnosticSkipCursor(direction, opts)
+    diagnosticAddCursor(direction, false, opts)
+end
+
+--- @param opts? vim.diagnostic.GetOpts
+function examples.diagnosticMatchCursors(opts)
     local function getRange(mode)
         local s = vim.api.nvim_buf_get_mark(0, "[")
         local e = vim.api.nvim_buf_get_mark(0, "]")
@@ -941,24 +970,22 @@ function examples.matchCursorDiagnostics(opts)
             end)
         end)
 
-        mc.action(function()
-            vim.api.nvim_feedkeys(string.format("g@"), "ni", false)
+        vim.api.nvim_feedkeys(string.format("g@"), "ni", false)
 
-            -- Record what user had typed after g@, we replay it for every cursors except main cursor.
-            local key_ns = vim.api.nvim_create_namespace("multicursor-nvim-obj")
-            vim.on_key(function(key, typed)
-                if typed ~= "" then
-                    lastTyped = typed
-                end
-            end, key_ns)
-            vim.api.nvim_create_autocmd("SafeState", {
-                once = true,
-                callback = function()
-                    local key_ns = vim.api.nvim_create_namespace("multicursor-nvim-obj")
-                    vim.on_key(nil, key_ns)
-                end,
-            })
-        end)
+        -- Record what user had typed after g@, we replay it for every cursors except main cursor.
+        local key_ns = vim.api.nvim_create_namespace("multicursor-nvim-obj")
+        vim.on_key(function(key, typed)
+            if typed ~= "" then
+                lastTyped = typed
+            end
+        end, key_ns)
+        vim.api.nvim_create_autocmd("SafeState", {
+            once = true,
+            callback = function()
+                local key_ns = vim.api.nvim_create_namespace("multicursor-nvim-obj")
+                vim.on_key(nil, key_ns)
+            end,
+        })
     end
 end
 

@@ -52,6 +52,23 @@ https://github.com/user-attachments/assets/a8c136dc-4786-447b-95c0-8e2a48f5776f
         set({"n", "x"}, "<leader>S",
             function() mc.matchSkipCursor(-1) end)
 
+        -- Add or skip adding a new cursor by matching diagnostics.
+        set({"n", "x"}, "]D",
+            function() mc.diagnosticAddCursor(1) end)
+        set({"n", "x"}, "[D",
+            function() mc.diagnosticAddCursor(-1) end)
+        set({"n", "x"}, "<leader>d",
+            function() mc.diagnosticSkipCursor(1) end)
+        set({"n", "x"}, "<leader>D",
+            function() mc.diagnosticSkipCursor(-1) end)
+
+        -- In normal mode, `meap` match all diagnostics in range `ap`, this is the same
+        -- as `vapme` in visual mode.
+        set({"n", "x"}, "me", function()
+            -- The param is the same as `:h vim.diagnostic.GetOpts`.
+            mc.diagnosticMatchCursors({ severity = vim.diagnostic.severity.ERROR })
+        end)
+
         -- In normal/visual mode, press `mwap` will create a cursor in every match of
         -- the word captured by `iw` (or visually selected range) inside the bigger
         -- range specified by `ap`. Useful to replace a word inside a function, e.g. mwif.
@@ -64,13 +81,6 @@ https://github.com/user-attachments/assets/a8c136dc-4786-447b-95c0-8e2a48f5776f
 
         -- Press `mWi"ap` will create a cursor in every match of string captured by `i"` inside range `ap`.
         set("n", "mW", mc.operator)
-
-        -- In normal mode, `meap` match all diagnostics in range `ap`, this is the same
-        -- as `vapme` in visual mode.
-        set({"n", "x"}, "me", function()
-            -- The param is the same as `:h vim.diagnostic.GetOpts`.
-            mc.matchCursorDiagnostics({ severity = vim.diagnostic.severity.ERROR })
-        end)
 
         -- Add all matches in the document
         set({"n", "x"}, "<leader>A", mc.matchAllAddCursors)

@@ -63,5 +63,7 @@ return {
     operator = examples.operator,
     sequenceIncrement = examples.sequenceIncrement,
     sequenceDecrement = examples.sequenceDecrement,
-    matchCursorDiagnostics = examples.matchCursorDiagnostics
+    diagnosticMatchCursors = examples.diagnosticMatchCursors,
+    diagnosticAddCursor = examples.diagnosticAddCursor,
+    diagnosticSkipCursor = examples.diagnosticSkipCursor,
 }
