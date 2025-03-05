@@ -841,7 +841,7 @@ local function matchCursorsRange(pattern, range, selection, visual)
     end)
 end
 
-function examples.addCursorDiagnostics(opts)
+function examples.matchCursorDiagnostics(opts)
     local function is_visual(mode)
         return mode == "v" or mode == "V" or mode == "\22"
     end

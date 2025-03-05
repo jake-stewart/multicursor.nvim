@@ -62,5 +62,6 @@ return {
     deleteCursor = examples.deleteCursor,
     operator = examples.operator,
     sequenceIncrement = examples.sequenceIncrement,
-    sequenceDecrement = examples.sequenceDecrement
+    sequenceDecrement = examples.sequenceDecrement,
+    matchCursorDiagnostics = examples.matchCursorDiagnostics
 }

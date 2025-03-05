@@ -65,6 +65,13 @@ https://github.com/user-attachments/assets/a8c136dc-4786-447b-95c0-8e2a48f5776f
         -- Press `mWi"ap` will create a cursor in every match of string captured by `i"` inside range `ap`.
         set("n", "mW", mc.operator)
 
+        -- In normal mode, `meap` match all diagnostics in range `ap`, this is the same
+        -- as `vapme` in visual mode.
+        set({"n", "x"}, "me", function()
+            -- The param is the same as `:h vim.diagnostic.GetOpts`.
+            mc.matchCursorDiagnostics({ severity = vim.diagnostic.severity.ERROR})
+        end)
+
         -- Add all matches in the document
         set({"n", "x"}, "<leader>A", mc.matchAllAddCursors)
 
