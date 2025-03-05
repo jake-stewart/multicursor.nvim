@@ -611,41 +611,88 @@ function examples.matchSkipCursor(direction)
     matchAddCursor(direction, false)
 end
 
+--- @param direction? -1 | 1
+--- @param add boolean
+local function searchAddCursor(direction, add)
+    local regex = vim.fn.getreg("/")
+    if not regex or regex == "" then
+        return
+    end
+    mc.action(function(ctx)
+        local mainCursor = ctx:mainCursor()
+        if mainCursor:hasSelection() then
+            mainCursor:feedkeys(
+                (mainCursor:atVisualStart() and "" or "o")
+                .. TERM_CODES.ESC
+            )
+        end
+        addCursor(ctx, function(cursor)
+            cursor:perform(function()
+                vim.fn.search(regex, (direction == -1 and "b" or ""))
+            end)
+        end, { addCursor = add })
+    end)
+end
+
+--- @param direction? -1 | 1
+function examples.searchAddCursor(direction)
+    searchAddCursor(direction, true)
+end
+
+--- @param direction? -1 | 1
+function examples.searchSkipCursor(direction)
+    searchAddCursor(direction, false)
+end
+
+--- @param ctx CursorContext
+--- @param regex string
+local function regexAddAllCursors(ctx, regex)
+    local mainCursor = ctx:mainCursor()
+    local hasSelection = mainCursor:hasSelection()
+    local startPos = mainCursor:getPos()
+    local firstMatchPos = nil
+    while true do
+        addCursor(ctx, function(cursor)
+            cursor:perform(function()
+                vim.fn.search(regex)
+            end)
+            if hasSelection then
+                cursor:feedkeys(TERM_CODES.ESC)
+            end
+        end, { addCursor = firstMatchPos ~= nil })
+        local newPos = mainCursor:getPos()
+        if not firstMatchPos then
+            firstMatchPos = newPos
+        elseif firstMatchPos[1] == newPos[1]
+            and firstMatchPos[2] == newPos[2]
+        then
+            break
+        end
+    end
+    mainCursor:setPos(startPos)
+    mainCursor:delete()
+end
+
 function examples.matchAllAddCursors()
     mc.action(function(ctx)
         local mainCursor = ctx:mainCursor()
-        local regex
-        local hasSelection = mainCursor:hasSelection()
-        if hasSelection then
-            regex = "\\C\\V" .. escapeRegex(table.concat(mainCursor:getVisualLines(), "\n"))
-        else
-            local word = mainCursor:getCursorWord()
-            regex = "\\v<\\C\\V" .. escapeRegex(word) .. "\\v>"
-        end
+        local regex = mainCursor:hasSelection()
+            and ("\\C\\V" .. escapeRegex(table.concat(mainCursor:getVisualLines(), "\n")))
+            or ("\\v<\\C\\V" .. escapeRegex(mainCursor:getCursorWord()) .. "\\v>")
+        regexAddAllCursors(ctx, regex)
+    end)
+end
 
-        local startPos = mainCursor:getPos()
-        local firstMatchPos = nil
-
-        while true do
-            addCursor(ctx, function(cursor)
-                cursor:perform(function()
-                    vim.fn.search(regex)
-                end)
-                if hasSelection then
-                    cursor:feedkeys(TERM_CODES.ESC)
-                end
-            end, { addCursor = firstMatchPos ~= nil })
-            local newPos = mainCursor:getPos()
-            if not firstMatchPos then
-                firstMatchPos = newPos
-            elseif firstMatchPos[1] == newPos[1]
-                and firstMatchPos[2] == newPos[2]
-            then
-                break
-            end
+function examples.searchAllAddCursors()
+    local regex = vim.fn.getreg("/")
+    if not regex or regex == "" then
+        return
+    end
+    mc.action(function(ctx)
+        if ctx:mainCursor():hasSelection() then
+            ctx:mainCursor():feedkeys(TERM_CODES.ESC)
         end
-        mainCursor:setPos(startPos)
-        mainCursor:delete()
+        regexAddAllCursors(ctx, regex)
     end)
 end
 
