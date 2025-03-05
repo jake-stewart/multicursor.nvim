@@ -841,6 +841,94 @@ local function matchCursorsRange(pattern, range, selection, visual)
     end)
 end
 
+function examples.addCursorDiagnostics(opts)
+    local function is_visual(mode)
+        return mode == "v" or mode == "V" or mode == "\22"
+    end
+
+    local vMode
+    if is_visual(vim.fn.mode()) then
+        vMode = vim.fn.visualmode()
+    end
+
+    local function getRange(mode)
+        local s = vim.api.nvim_buf_get_mark(0, "[")
+        local e = vim.api.nvim_buf_get_mark(0, "]")
+        if mode == "char" then
+            return { startRow = s[1], startCol = s[2], endRow = e[1], endCol = e[2] }
+        else
+            return { startRow = s[1], startCol = 0, endRow = e[1], endCol = math.huge }
+        end
+    end
+
+    local function posInRange(row, col, range)
+        local s_row, s_col, e_row, e_col = range.startRow, range.startCol, range.endRow, range.endCol
+        if row < s_row or row > e_row then
+            return false
+        end
+        if row == s_row and col < s_col then
+            return false
+        end
+        if row == e_row and col > e_col then
+            return false
+        end
+        return true
+    end
+
+    local diagnostics = vim.diagnostic.get(0, opts)
+
+    if vMode == nil then
+        setOpfunc(function()
+            local inputManager = require("multicursor-nvim.input-manager")
+            local textobj = inputManager._keys
+            mc.action(function(ctx)
+                ctx:forEachCursor(function(cursor)
+                    setOpfunc(function(mode)
+                        local range = getRange(mode)
+                        for _, d in ipairs(diagnostics) do
+                            -- diagnostic is 0-based line and col
+                            if posInRange(d.lnum + 1, d.col, range) then
+                                local newCursor = cursor:clone()
+                                newCursor:setPos({ d.lnum + 1, d.col + 1 })
+                                newCursor:setMode("n")
+                            end
+                        end
+                        cursor:delete()
+                    end)
+                    cursor:feedkeys("g@" .. textobj, opts)
+                end)
+            end)
+        end)
+        mc.action(function()
+        	vim.api.nvim_feedkeys(string.format("g@"), "ni", false)
+        end)
+    else
+        mc.action(function(ctx)
+            --- @type Cursor[]
+            ctx:forEachCursor(function(cursor)
+                if cursor:hasSelection() then
+                    local vs, ve = cursor:getVisual()
+                    local range
+                    if vMode == "V" then
+                        range = { startRow = vs[1], startCol = 0, endRow = ve[1], endCol = math.huge }
+                    else
+                        range = { startRow = vs[1], startCol = vs[2] - 1, endRow = ve[1], endCol = ve[2] - 1 }
+                    end
+                    for _, d in ipairs(diagnostics) do
+                        -- diagnostic is 0-based line and col
+                        if posInRange(d.lnum + 1, d.col, range) then
+                            local newCursor = cursor:clone()
+                            newCursor:setPos({ d.lnum + 1, d.col + 1 })
+                            newCursor:setMode("n")
+                        end
+                    end
+                    cursor:delete()
+                end
+            end)
+        end)
+    end
+end
+
 -- Works both in visual and normal mode, if called from visual mode, pattern
 -- and motion are ignored, wordBoundary defaults to false, the selected range
 -- will be used to determine the pattern. You can either pass a motion or a
