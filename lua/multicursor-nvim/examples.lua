@@ -841,6 +841,154 @@ local function matchCursorsRange(pattern, range, selection, visual)
     end)
 end
 
+--- @param direction? -1 | 1
+--- @param add boolean
+--- @param opts? vim.diagnostic.GotoOpts
+local function diagnosticAddCursor(direction, add, opts)
+    mc.action(function(ctx)
+        local mainCursor = ctx:mainCursor()
+        local d = direction == 1 and vim.diagnostic.get_next(opts) or vim.diagnostic.get_prev(opts)
+        if d == nil then
+            return
+        end
+        addCursor(ctx, function(cursor)
+            cursor:setPos({ d.lnum + 1, d.col + 1 })
+        end, { addCursor = add })
+    end)
+end
+
+--- @param direction? -1 | 1
+--- @param opts? vim.diagnostic.GotoOpts
+function examples.diagnosticAddCursor(direction, opts)
+    diagnosticAddCursor(direction, true, opts)
+end
+
+--- @param direction? -1 | 1
+--- @param opts? vim.diagnostic.GotoOpts
+function examples.diagnosticSkipCursor(direction, opts)
+    diagnosticAddCursor(direction, false, opts)
+end
+
+--- @param opts? vim.diagnostic.GetOpts
+function examples.diagnosticMatchCursors(opts)
+    local function getRange(mode)
+        local s = vim.api.nvim_buf_get_mark(0, "[")
+        local e = vim.api.nvim_buf_get_mark(0, "]")
+        if mode == "char" then
+            return { startRow = s[1], startCol = s[2], endRow = e[1], endCol = e[2] }
+        else
+            return { startRow = s[1], startCol = 0, endRow = e[1], endCol = math.huge }
+        end
+    end
+
+    local function posInRange(row, col, range)
+        if row < range.startRow or row > range.endRow then
+            return false
+        end
+        if row == range.startRow and col < range.startCol then
+            return false
+        end
+        if row == range.endRow and col > range.endCol then
+            return false
+        end
+        return true
+    end
+
+    local diagnostics = vim.diagnostic.get(0, opts)
+
+    local mode = vim.fn.mode()
+    if mode == "v" or mode == "V" or mode == "\22" then
+        mc.action(function(ctx)
+            --- @type Cursor[]
+            ctx:forEachCursor(function(cursor)
+                if cursor:hasSelection() then
+                    local vs, ve = cursor:getVisual()
+                    local range
+                    if mode == "V" then
+                        range = { startRow = vs[1], startCol = 0, endRow = ve[1], endCol = math.huge }
+                    else
+                        range = { startRow = vs[1], startCol = vs[2] - 1, endRow = ve[1], endCol = ve[2] - 1 }
+                    end
+                    for _, d in ipairs(diagnostics) do
+                        -- diagnostic is 0-based line and col
+                        if posInRange(d.lnum + 1, d.col, range) then
+                            local newCursor = cursor:clone()
+                            newCursor:setPos({ d.lnum + 1, d.col + 1 })
+                            newCursor:setMode("n")
+                        end
+                    end
+                    cursor:delete()
+                end
+            end)
+        end)
+    else
+        local lastTyped
+        setOpfunc(function(vmode)
+            mc.action(function(ctx)
+                local mainCursor = ctx:mainCursor()
+                local otherCursors = {}
+                ctx:forEachCursor(function(cursor)
+                    if cursor ~= mainCursor then
+                        table.insert(otherCursors, cursor)
+                    end
+                end)
+
+                -- Update main cursor, use correct mark range.
+                for _, d in ipairs(diagnostics) do
+                    -- diagnostic is 0-based line and col
+                    if posInRange(d.lnum + 1, d.col, getRange(vmode)) then
+                        local newCursor = mainCursor:clone()
+                        newCursor:setPos({ d.lnum + 1, d.col + 1 })
+                        newCursor:setMode("n")
+                    end
+                end
+                mainCursor:delete()
+
+                if lastTyped ~= nil then
+                    -- Best effort to update other cursors, this may not work for
+                    -- example flash.nvim treesitter labels, but most common cases
+                    -- would work.
+                    for _, cursor in ipairs(otherCursors) do
+                        setOpfunc(function(mode)
+                            local range = getRange(mode)
+                            for _, d in ipairs(diagnostics) do
+                                -- diagnostic is 0-based line and col
+                                if posInRange(d.lnum + 1, d.col, range) then
+                                    local newCursor = cursor:clone()
+                                    newCursor:setPos({ d.lnum + 1, d.col + 1 })
+                                    newCursor:setMode("n")
+                                end
+                            end
+                        end)
+                        cursor:feedkeys("g@" .. lastTyped, { remap = true })
+                    end
+                end
+
+                for _, cursor in ipairs(otherCursors) do
+                    cursor:delete()
+                end
+            end)
+        end)
+
+        vim.api.nvim_feedkeys(string.format("g@"), "ni", false)
+
+        -- Record what user had typed after g@, we replay it for every cursors except main cursor.
+        local key_ns = vim.api.nvim_create_namespace("multicursor-nvim-obj")
+        vim.on_key(function(key, typed)
+            if typed ~= "" then
+                lastTyped = typed
+            end
+        end, key_ns)
+        vim.api.nvim_create_autocmd("SafeState", {
+            once = true,
+            callback = function()
+                local key_ns = vim.api.nvim_create_namespace("multicursor-nvim-obj")
+                vim.on_key(nil, key_ns)
+            end,
+        })
+    end
+end
+
 -- Works both in visual and normal mode, if called from visual mode, pattern
 -- and motion are ignored, wordBoundary defaults to false, the selected range
 -- will be used to determine the pattern. You can either pass a motion or a
