@@ -22,8 +22,6 @@ local function get_lines(buffer, startLine, endLine)
     return lines
 end
 
-local INT_MAX = 2147483647
-
 local OPTIONS_OVERRIDE = {
     timeout = false,
     clipboard = "",
@@ -450,7 +448,7 @@ local function cursorDrawVisualBlock(cursor, lines, start, hl)
         endVirtCol = endCol + cursor._vPos[4]
     end
     local col = startCol < #lines[1] and startCol or startVirtCol
-    local atEndOfLine = cursor._pos[5] == INT_MAX
+    local atEndOfLine = cursor._pos[5] == vim.v.maxcol
 
     local maxCol = 0
     if atEndOfLine and state.virtualEditBlock then
@@ -568,7 +566,7 @@ local function cursorSplitVisualBlock(cursor)
     local newCursors = {}
     local atVisualStart = cursor:atVisualStart()
     local visualStart, visualEnd = cursor:getVisual()
-    local atEndOfLine = cursor._pos[5] == INT_MAX
+    local atEndOfLine = cursor._pos[5] == vim.v.maxcol
     for i = visualStart[1], visualEnd[1] do
         local newCursor = cursor:clone()
         newCursors[#newCursors + 1] = newCursor
@@ -786,7 +784,7 @@ local function cursorWrite(cursor)
         feedkeys("o")
         vim.fn.setpos(".", cursor._pos)
         local buffer = {}
-        if cursor._pos[5] == INT_MAX then
+        if cursor._pos[5] == vim.v.maxcol then
             buffer[#buffer + 1] = "$"
         end
         if #visualInfo.enterSelectKey > 0 then
