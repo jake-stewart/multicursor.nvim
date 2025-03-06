@@ -25,6 +25,8 @@ return {
     numCursors = core.numCursors,
     numEnabledCursors = core.numEnabledCursors,
     numDisabledCursors = core.numDisabledCursors,
+    addKeymapLayer = core.addKeymapLayer,
+    removeKeymapLayer = core.removeKeymapLayer,
     jumpForward = core.jumpForward,
     jumpBackward = core.jumpBackward,
     splitCursors = examples.splitCursors,

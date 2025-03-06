@@ -1,6 +1,7 @@
 local TERM_CODES = require("multicursor-nvim.term-codes")
 local feedkeysManager = require("multicursor-nvim.feedkeys-manager")
 local cursorManager = require("multicursor-nvim.cursor-manager")
+local keymapManager = require("multicursor-nvim.keymap-manager")
 local snippetManager = require("multicursor-nvim.snippet-manager")
 local util = require("multicursor-nvim.util")
 local tbl = require("multicursor-nvim.tbl")
@@ -32,6 +33,7 @@ local SPECIAL_NORMAL_KEYS = {
 --- @field private _wasMode string
 --- @field private _fromSelectMode boolean
 --- @field private _modeChangeCallbacks? function[]
+--- @field private _keymapLayerCallbacks? KeymapSetCallback[]
 local InputManager = {}
 
 --- @param nsid number
@@ -43,6 +45,7 @@ function InputManager:setup(nsid)
     self._fromSelectMode = false
     self._didUndo = false
     self._didRedo = false
+    self._keymapLayerCallbacks = {}
 
     local originalGetChar = vim.fn.getchar
     function vim.fn.getchar(...)
@@ -88,6 +91,19 @@ function InputManager:setup(nsid)
         end,
         self._nsid
     )
+end
+
+--- @param callback fun(set: KeymapSetCallback)
+function InputManager:addKeymapLayer(callback)
+    table.insert(self._keymapLayerCallbacks, callback)
+end
+
+--- @param callback fun(set: KeymapSetCallback)
+function InputManager:removeKeymapLayer(callback)
+    self._keymapLayerCallbacks =
+        tbl.filter(self._keymapLayerCallbacks, function(cb)
+            return cb ~= callback
+        end)
 end
 
 --- @param callback function(cursor: Cursor, from: string, to: string)
@@ -235,6 +251,11 @@ end
 function InputManager:_onSafeState()
     if self._applying then
         return
+    end
+    if cursorManager:hasCursors() then
+        keymapManager:apply(self._keymapLayerCallbacks)
+    else
+        keymapManager:restore()
     end
     local mode = vim.fn.mode()
     if isInsertOrReplaceMode(mode) then

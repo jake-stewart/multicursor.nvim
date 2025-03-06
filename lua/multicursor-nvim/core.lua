@@ -15,6 +15,16 @@ function core.onModeChanged(callback)
     return inputManager:onModeChanged(callback)
 end
 
+--- @param callback fun(set: KeymapSetCallback)
+function core.addKeymapLayer(callback)
+    return inputManager:addKeymapLayer(callback)
+end
+
+--- @param callback fun(set: KeymapSetCallback)
+function core.removeKeymapLayer(callback)
+    return inputManager:removeKeymapLayer(callback)
+end
+
 --- @class MultiCursorOpts
 --- @field signs? string[] | nil,
 --- @field shallowUndo? boolean

@@ -15,6 +15,7 @@ local SnippetManager = {}
 function SnippetManager:setup()
     self._snippet = vim.snippet
     vim.snippet = tbl.shallow_copy(self._snippet)
+    --- @diagnostic disable-next-line
     function vim.snippet.expand(snippetText, ...)
         if cursorManager:hasCursors() then
             self._hasSnippet = true
@@ -34,7 +35,7 @@ end
 
 --- @param wasFromSelectMode boolean
 --- @param typed? string
---- @param insertModePos? boolean
+--- @param insertModePos? MarkPos
 function SnippetManager:performSnippet(wasFromSelectMode, typed, insertModePos)
     self._hasSnippet = false
     cursorManager:dirty()
