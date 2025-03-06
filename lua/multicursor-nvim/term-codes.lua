@@ -12,7 +12,6 @@ function mt.__index(t, k)
         :gsub("shift_", "s-")
         :gsub("super_", "d-")
         :gsub("cmd_", "d-")
-        :gsub("backspace", "bs")
         :gsub("_", "-")
     t[k] = vim.api.nvim_replace_termcodes(
         "<" .. key .. ">", true, true, true)
