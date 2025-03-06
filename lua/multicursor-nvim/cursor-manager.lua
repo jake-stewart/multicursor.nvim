@@ -8,7 +8,19 @@ local del_extmark = vim.api.nvim_buf_del_extmark
 local clear_namespace = vim.api.nvim_buf_clear_namespace
 local replace_termcodes = vim.api.nvim_replace_termcodes
 local get_extmark = vim.api.nvim_buf_get_extmark_by_id
-local get_lines = vim.api.nvim_buf_get_lines
+
+--- @param buffer integer
+--- @param startLine integer
+--- @param endLine integer
+local function get_lines(buffer, startLine, endLine)
+    local lines = vim.api.nvim_buf_get_lines(buffer, startLine, endLine, true)
+    for i, line in ipairs(lines) do
+        if vim.fn.type(line) == vim.v.t_blob then
+            lines[i] = vim.fn.string(line)
+        end
+    end
+    return lines
+end
 
 local INT_MAX = 2147483647
 
@@ -512,8 +524,7 @@ local function cursorSplitVisualChar(cursor)
     local newCursors = {}
     local atVisualStart = cursor:atVisualStart()
     local visualStart, visualEnd = cursor:getVisual()
-    local lines = get_lines(
-        0, visualStart[1] - 1, visualEnd[1], false)
+    local lines = get_lines(0, visualStart[1] - 1, visualEnd[1])
     for i = visualStart[1], visualEnd[1] do
         local newCursor = cursor:clone()
         newCursors[#newCursors + 1] = newCursor
@@ -538,8 +549,7 @@ end
 local function cursorSplitVisualLine(cursor)
     local newCursors = {}
     local visualStart, visualEnd = cursor:getVisual()
-    local lines = get_lines(
-        0, visualStart[1] - 1, visualEnd[1], false)
+    local lines = get_lines(0, visualStart[1] - 1, visualEnd[1])
     for i = visualStart[1], visualEnd[1] do
         local newCursor = cursor:clone()
         newCursors[#newCursors + 1] = newCursor
@@ -563,7 +573,7 @@ local function cursorSplitVisualBlock(cursor)
         local newCursor = cursor:clone()
         newCursors[#newCursors + 1] = newCursor
         local visualEndCol = atEndOfLine
-            and #get_lines(0, i - 1, i, true)[1]
+            and #get_lines(0, i - 1, i)[1]
             or visualEnd[2]
         if atVisualStart then
             newCursor:setVisual(
@@ -653,7 +663,7 @@ local function cursorDraw(cursor)
         start = cursor._pos[2] - 1
         _end = cursor._pos[2] - 1
     end
-    local lines = get_lines(0, start, _end + 1, true)
+    local lines = get_lines(0, start, _end + 1)
 
     cursor._visualIds = {}
     if visualInfo then
@@ -1084,8 +1094,7 @@ end
 --- @return string
 function Cursor:getLine()
     cursorCheckUpdate(self)
-    return get_lines(
-        0, self._pos[2] - 1, self._pos[2], true)[1]
+    return get_lines(0, self._pos[2] - 1, self._pos[2])[1]
 end
 
 --- Deletes this cursor.
@@ -1312,7 +1321,7 @@ local function unpackCursors(data)
             local col = math.max(1,
                 math.min(
                     data[i + 2],
-                    #get_lines(0, data[i + 1] - 1, data[i + 1], true)[1]
+                    #get_lines(0, data[i + 1] - 1, data[i + 1])[1]
                 )
             )
             local curswantVirtcol = vim.fn.virtcol({ data[i + 1], data[i + 2] })
@@ -1369,8 +1378,7 @@ function Cursor:getVisualLines()
         return get_lines(
             0,
             math.min(self._pos[2], self._vPos[2]) - 1,
-            math.max(self._pos[2], self._vPos[2]),
-            true
+            math.max(self._pos[2], self._vPos[2])
         )
     end
     local pos = self._pos
@@ -1458,8 +1466,7 @@ end
 function Cursor:getFullVisualLines()
     cursorCheckUpdate(self)
     local visualStart, visualEnd = self:getVisual()
-    return get_lines(
-        0, visualStart[1] - 1, visualEnd[1], true)
+    return get_lines(0, visualStart[1] - 1, visualEnd[1])
 end
 
 --- Returns start and end positions of visual selection start position
