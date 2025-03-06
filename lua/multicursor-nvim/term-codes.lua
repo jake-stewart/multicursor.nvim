@@ -1,20 +1,22 @@
-local function termcode(key)
-    return vim.api.nvim_replace_termcodes(key, true, true, true)
+--- @type {[string]: string}
+local TERM_CODES = {}
+local mt = {}
+
+--- @param k string
+--- @return string
+function mt.__index(t, k)
+    local key = k:lower()
+        :gsub("ctrl_", "c-")
+        :gsub("meta_", "m-")
+        :gsub("alt_", "a-")
+        :gsub("shift_", "s-")
+        :gsub("super_", "d-")
+        :gsub("cmd_", "d-")
+        :gsub("backspace", "bs")
+        :gsub("_", "-")
+    t[k] = vim.api.nvim_replace_termcodes(
+        "<" .. key .. ">", true, true, true)
+    return t[k]
 end
 
-return {
-    ESC = termcode("<esc>"),
-    BACKSPACE = termcode("<bs>"),
-    CTRL_A = termcode("<c-a>"),
-    CTRL_X = termcode("<c-x>"),
-    CTRL_V = termcode("<c-v>"),
-    CTRL_S = termcode("<c-s>"),
-    CTRL_R = termcode("<c-r>"),
-    CTRL_G = termcode("<c-g>"),
-    CTRL_E = termcode("<c-e>"),
-    CTRL_Y = termcode("<c-y>"),
-    CTRL_I = termcode("<c-i>"),
-    CTRL_O = termcode("<c-o>"),
-    LEFT = termcode("<left>"),
-    RIGHT = termcode("<right>"),
-}
+return setmetatable(TERM_CODES, mt)
