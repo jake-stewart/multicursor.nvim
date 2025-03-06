@@ -167,7 +167,7 @@ set("n", "<leader>/A", mc.searchAllAddCursors)
 -- Pressing `<leader>miwap` will create a cursor in every match of the
 -- string captured by `iw` inside range `ap`.
 -- This action is highly customizable, see `:h multicursor-operator`.
-set("n", "<leader>m", mc.operator)
+set({"n", "x"}, "<leader>m", mc.operator)
 
 -- Add or skip adding a new cursor by matching diagnostics.
 set({"n", "x"}, "]d", function() mc.diagnosticAddCursor(1) end)
