@@ -536,17 +536,18 @@ mc.operator(opts?)                                      *multicursor-operator*
     Adds a cursor for every match found in a region. The text to match is
     given by a motion, and the region is given by a second motion. For
     example, if mapped to `<leader>m` then `<leader>miwap` will find every
-    match within the paragraph of the text contained within `iw`.
+    match within the paragraph of the text contained within `iw`. If called
+    from visual mode, the selection becomes the first motion's target text.
 
     Usage example: >lua
-        vim.keymap.set("n", "ga", mc.addCursorOperator)
+        vim.keymap.set({ "x", "n" }, "<leader>m", mc.operator)
 <
     Parameters: ~
       • {opts?} (`table?`) options
         • {opts.pattern?} (`string?`) A predefined pattern to skip having to
           input the first motion.
         • {opts.motion?} (`string?`) A predefined motion to skip having to
-          input the second motion.
+          input the first motion.
         • {opts.visual?} (`boolean?`) Whether the cursors should visually
           select their matches.
         • {opts.wordBoundary?} (`boolean?`) Whether the pattern should
@@ -915,7 +916,7 @@ ctx:prevCursor(pos, opts?)                        *multicursor-ctx-prevCursor*
       • |multicursor-types-SimplePos|
       • |multicursor-types-Pos|
 
-   
+
 ctx:seekCursor(pos, direction, wrap?, opts?)      *multicursor-ctx-seekCursor*
     Returns the closest cursor in the specified `direction`, which can
     optionally wrap.
@@ -937,7 +938,7 @@ ctx:seekCursor(pos, direction, wrap?, opts?)      *multicursor-ctx-seekCursor*
       • |multicursor-types-SimplePos|
       • |multicursor-types-Pos|
 
-                                         
+
 ctx:seekBoundaryCursor(direction, opts?)  *multicursor-ctx-seekBoundaryCursor*
     Returns the first/last cursor, specified by `direction`.
 
