@@ -922,7 +922,6 @@ function examples.diagnosticMatchCursors(opts)
             end)
         end)
     else
-        local lastTyped
         setOpfunc(function(vmode)
             mc.action(function(ctx)
                 local mainCursor = ctx:mainCursor()
@@ -944,24 +943,22 @@ function examples.diagnosticMatchCursors(opts)
                 end
                 mainCursor:delete()
 
-                if lastTyped ~= nil then
-                    -- Best effort to update other cursors, this may not work for
-                    -- example flash.nvim treesitter labels, but most common cases
-                    -- would work.
-                    for _, cursor in ipairs(otherCursors) do
-                        setOpfunc(function(mode)
-                            local range = getRange(mode)
-                            for _, d in ipairs(diagnostics) do
-                                -- diagnostic is 0-based line and col
-                                if posInRange(d.lnum + 1, d.col, range) then
-                                    local newCursor = cursor:clone()
-                                    newCursor:setPos({ d.lnum + 1, d.col + 1 })
-                                    newCursor:setMode("n")
-                                end
+                -- Best effort to update other cursors, this may not work for
+                -- example flash.nvim treesitter labels (it itself can't dot
+                -- repeat), but most common cases would work.
+                for _, cursor in ipairs(otherCursors) do
+                    setOpfunc(function(mode)
+                        local range = getRange(mode)
+                        for _, d in ipairs(diagnostics) do
+                            -- diagnostic is 0-based line and col
+                            if posInRange(d.lnum + 1, d.col, range) then
+                                local newCursor = cursor:clone()
+                                newCursor:setPos({ d.lnum + 1, d.col + 1 })
+                                newCursor:setMode("n")
                             end
-                        end)
-                        cursor:feedkeys("g@" .. lastTyped, { remap = true })
-                    end
+                        end
+                    end)
+                    cursor:feedkeys(".")
                 end
 
                 for _, cursor in ipairs(otherCursors) do
@@ -971,21 +968,6 @@ function examples.diagnosticMatchCursors(opts)
         end)
 
         vim.api.nvim_feedkeys(string.format("g@"), "ni", false)
-
-        -- Record what user had typed after g@, we replay it for every cursors except main cursor.
-        local key_ns = vim.api.nvim_create_namespace("multicursor-nvim-obj")
-        vim.on_key(function(key, typed)
-            if typed ~= "" then
-                lastTyped = typed
-            end
-        end, key_ns)
-        vim.api.nvim_create_autocmd("SafeState", {
-            once = true,
-            callback = function()
-                local key_ns = vim.api.nvim_create_namespace("multicursor-nvim-obj")
-                vim.on_key(nil, key_ns)
-            end,
-        })
     end
 end
 
