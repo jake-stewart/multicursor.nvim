@@ -48,90 +48,38 @@ Continue reading for a guide of how to use the default config.
         branch = "1.0",
         config = function()
             local mc = require("multicursor-nvim")
-
             mc.setup()
 
             local set = vim.keymap.set
 
             -- Add or skip cursor above/below the main cursor.
-            set({"n", "x"}, "<up>",
-                function() mc.lineAddCursor(-1) end)
-            set({"n", "x"}, "<down>",
-                function() mc.lineAddCursor(1) end)
-            set({"n", "x"}, "<leader><up>",
-                function() mc.lineSkipCursor(-1) end)
-            set({"n", "x"}, "<leader><down>",
-                function() mc.lineSkipCursor(1) end)
+            set({"n", "x"}, "<up>", function() mc.lineAddCursor(-1) end)
+            set({"n", "x"}, "<down>", function() mc.lineAddCursor(1) end)
+            set({"n", "x"}, "<leader><up>", function() mc.lineSkipCursor(-1) end)
+            set({"n", "x"}, "<leader><down>", function() mc.lineSkipCursor(1) end)
 
             -- Add or skip adding a new cursor by matching word/selection
-            set({"n", "x"}, "<leader>n",
-                function() mc.matchAddCursor(1) end)
-            set({"n", "x"}, "<leader>s",
-                function() mc.matchSkipCursor(1) end)
-            set({"n", "x"}, "<leader>N",
-                function() mc.matchAddCursor(-1) end)
-            set({"n", "x"}, "<leader>S",
-                function() mc.matchSkipCursor(-1) end)
-
-	    -- Add or skip adding a new cursor by matching diagnostics.
-	    set({"n", "x"}, "]D",
-	    function() mc.diagnosticAddCursor(1) end)
-	    set({"n", "x"}, "[D",
-	    function() mc.diagnosticAddCursor(-1) end)
-	    set({"n", "x"}, "<leader>d",
-		function() mc.diagnosticSkipCursor(1) end)
-	    set({"n", "x"}, "<leader>D",
-		function() mc.diagnosticSkipCursor(-1) end)
-
-	    -- In normal mode, `meap` match all diagnostics in range `ap`, this is the same
-	    -- as `vapme` in visual mode.
-	    set({"n", "x"}, "me", function()
-		-- The param is the same as `:h vim.diagnostic.GetOpts`.
-		mc.matchCursorDiagnostics({ severity = vim.diagnostic.severity.ERROR })
-	    end)
-
-            -- In normal/visual mode, press `mwap` will create a cursor in every match of
-            -- the word captured by `iw` (or visually selected range) inside the bigger
-            -- range specified by `ap`. Useful to replace a word inside a function, e.g. mwif.
-            set({"n", "x"}, "mw", function()
-                mc.operator({ motion = "iw", visual = true })
-                -- Or you can pass a pattern, press `mwi{` will select every \w,
-                -- basically every char in a `{ a, b, c, d }`.
-                -- mc.operator({ pattern = [[\<\w]] })
-            end)
-
-            -- Press `mWi"ap` will create a cursor in every match of string captured by `i"` inside range `ap`.
-            set("n", "mW", mc.operator)
-
-            -- Add all matches in the document
-            set({"n", "x"}, "<leader>A", mc.matchAllAddCursors)
-
-            -- You can also add cursors with any motion you prefer:
-            -- set("n", "<right>", function()
-            --     mc.addCursor("w")
-            -- end)
-            -- set("n", "<leader><right>", function()
-            --     mc.skipCursor("w")
-            -- end)
-
-            -- Rotate the main cursor.
-            set({"n", "x"}, "<left>", mc.nextCursor)
-            set({"n", "x"}, "<right>", mc.prevCursor)
-
-            -- Delete the main cursor.
-            set({"n", "x"}, "<leader>x", mc.deleteCursor)
+            set({"n", "x"}, "<leader>n", function() mc.matchAddCursor(1) end)
+            set({"n", "x"}, "<leader>s", function() mc.matchSkipCursor(1) end)
+            set({"n", "x"}, "<leader>N", function() mc.matchAddCursor(-1) end)
+            set({"n", "x"}, "<leader>S", function() mc.matchSkipCursor(-1) end)
 
             -- Add and remove cursors with control + left click.
             set("n", "<c-leftmouse>", mc.handleMouse)
             set("n", "<c-leftdrag>", mc.handleMouseDrag)
             set("n", "<c-leftrelease>", mc.handleMouseRelease)
 
-            -- Easy way to add and remove cursors using the main cursor.
+            -- Select a different cursor as the main one.
+            set({"n", "x"}, "<left>", mc.nextCursor)
+            set({"n", "x"}, "<right>", mc.prevCursor)
+
+            -- Delete the main cursor.
+            set({"n", "x"}, "<leader>x", mc.deleteCursor)
+
+            -- Disable and enable cursors.
             set({"n", "x"}, "<c-q>", mc.toggleCursor)
 
-            -- Clone every cursor and disable the originals.
-            set({"n", "x"}, "<leader><c-q>", mc.duplicateCursors)
-
+            -- Enable and clear cursors using escape.
             set("n", "<esc>", function()
                 if not mc.cursorsEnabled() then
                     mc.enableCursors()
@@ -141,32 +89,6 @@ Continue reading for a guide of how to use the default config.
                     -- Default <esc> handler.
                 end
             end)
-
-            -- bring back cursors if you accidentally clear them
-            set("n", "<leader>gv", mc.restoreCursors)
-
-            -- Align cursor columns.
-            set("n", "<leader>a", mc.alignCursors)
-
-            -- Split visual selections by regex.
-            set("x", "S", mc.splitCursors)
-
-            -- Append/insert for each line of visual selections.
-            set("x", "I", mc.insertVisual)
-            set("x", "A", mc.appendVisual)
-
-            -- match new cursors within visual selections by regex.
-            set("x", "M", mc.matchCursors)
-
-            -- Rotate visual selection contents.
-            set("x", "<leader>t",
-                function() mc.transposeCursors(1) end)
-            set("x", "<leader>T",
-                function() mc.transposeCursors(-1) end)
-
-            -- Jumplist support
-            set({"x", "n"}, "<c-i>", mc.jumpForward)
-            set({"x", "n"}, "<c-o>", mc.jumpBackward)
 
             -- Customize how cursors look.
             local hl = vim.api.nvim_set_hl
@@ -185,12 +107,10 @@ Continue reading for a guide of how to use the default config.
 ------------------------------------------------------------------------------
 Selecting Cursors                              *multicursor-selecting-cursors*
 
- • You can add cursors above/below the current cursor with `<up>` and
-   `<down>`.
+ • You can add cursors above/below the current cursor with `<up>` and `<down>`.
  • You can skip a line with `<leader><up>` or `<leader><down>`.
  • You can match the word/selection under the cursor forwards or backwards
-   with
-  `<leader>n` and `<leader>N`.
+   with `<leader>n` and `<leader>N`.
  • You can skip a match forwards or backwards using `<leader>s` and
    `<leader>S`.
  • You can add and remove cursors using the mouse with `<c-leftmouse>`.
@@ -202,27 +122,17 @@ Changing Cursors                                *multicursor-changing-cursors*
  • You can rotate through cursors with `<left>` and `<right>`.
  • You can delete the current cursor using `<leader>x`
  • You can disable cursors with `<c-q>`, which means only the main cursor
-   moves.
- • You can also press `<leader><c-q>` to duplicate cursors, disabling the
-   originals.
+  moves.
  • When cursors are disabled, you can press `<c-q>` to add a cursor under the
-   main cursor.
- • You can press `<esc>` to enable cursors again.
+  main cursor.
+ • You can press `<esc>` to enable the cursors again.
 
 
 ------------------------------------------------------------------------------
 Using Cursors                                      *multicursor-using-cursors*
 
- • Once you have your cursors, you use vim normally as you would with a single
-   cursor.
- • You can press `<leader>a` to align cursor columns.
- • You can press `S` to split a visual selection by regex into multiple
-   selections.
- • You can press `M` to run a regex within your visual selection, creating a
-   new cursor for each match.
- • You can press `<leader>t` and `<leader>T` to transpose visual selections,
-   which means the text within each visual selection will be rotated between
-   cursors.
+ • Once you have your cursors, you use vim normally as you would with a
+   single cursor.
  • When you want to collapse your cursors back into one, press `<esc>`.
 
 
@@ -240,6 +150,9 @@ want to create your own complex action, see the |multicursor-api|.
  • mc.matchAddCursor                              |multicursor-matchAddCursor|
  • mc.matchSkipCursor                            |multicursor-matchSkipCursor|
  • mc.matchAllAddCursors                      |multicursor-matchAllAddCursors|
+ • mc.searchAddCursor                            |multicursor-searchAddCursor|
+ • mc.searchSkipCursor                          |multicursor-searchSkipCursor|
+ • mc.searchAllAddCursors                    |multicursor-searchAllAddCursors|
  • mc.nextCursor                                      |multicursor-nextCursor|
  • mc.prevCursor                                      |multicursor-prevCursor|
  • mc.firstCursor                                    |multicursor-firstCursor|
@@ -257,6 +170,15 @@ want to create your own complex action, see the |multicursor-api|.
  • mc.swapCursors                                    |multicursor-swapCursors|
  • mc.insertVisual                                  |multicursor-insertVisual|
  • mc.appendVisual                                  |multicursor-appendVisual|
+ • mc.sequenceIncrement                        |multicursor-sequenceIncrement|
+ • mc.sequenceDecrement                        |multicursor-sequenceDecrement|
+ • mc.addCursorOperator                        |multicursor-addCursorOperator|
+ • mc.operator                                          |multicursor-operator|
+ • mc.diagnosticAddCursor                    |multicursor-diagnosticAddCursor|
+ • mc.diagnosticSkipCursor                  |multicursor-diagnosticSkipCursor|
+ • mc.diagnosticMatchCursors              |multicursor-diagnosticMatchCursors|
+ • mc.jumpForward                                    |multicursor-jumpForward|
+ • mc.jumpBackward                                  |multicursor-jumpBackward|
  • mc.disableCursors                              |multicursor-disableCursors|
  • mc.enableCursors                                |multicursor-enableCursors|
  • mc.cursorsEnabled                              |multicursor-cursorsEnabled|
@@ -264,7 +186,7 @@ want to create your own complex action, see the |multicursor-api|.
  • mc.action                                              |multicursor-action|
 
 
-mc.addCursor({motion})                                 *multicursor-addCursor*
+mc.addCursor(motion)                                   *multicursor-addCursor*
     Add a cursor and move only the main cursor using motion.
 
     Usage example: >lua
@@ -277,7 +199,7 @@ mc.addCursor({motion})                                 *multicursor-addCursor*
         cursor behind
 
 
-mc.skipCursor({motion})                               *multicursor-skipCursor*
+mc.skipCursor(motion)                                 *multicursor-skipCursor*
     Move only the main cursor using motion.
 
     Usage example: >lua
@@ -301,8 +223,9 @@ mc.toggleCursor()                                   *multicursor-toggleCursor*
       • |multicursor-enableCursors|
 
 
-mc.lineAddCursor({direction})                      *multicursor-lineAddCursor*
-    Add a cursor above or below the the main cursor, skipping empty lines.
+mc.lineAddCursor(direction)                        *multicursor-lineAddCursor*
+    Add a cursor above or below the the main cursor, skipping empty lines,
+    specified by `direction`.
 
     Usage example: >lua
         vim.keymap.set({"n", "v"}, "<up>", function()
@@ -314,11 +237,12 @@ mc.lineAddCursor({direction})                      *multicursor-lineAddCursor*
 <
     Parameters: ~
       • {direction} (`-1 | 1`) when passing in `-1` spawn a cursor in the
-	previous line, while `1` spawn in the next line
+        previous line, while `1` spawn in the next line
 
 
-mc.lineSkipCursor({direction})                    *multicursor-lineSkipCursor*
-    Move only the main cursor up or down a line, skipping empty lines.
+mc.lineSkipCursor(direction)                      *multicursor-lineSkipCursor*
+    Move only the main cursor up or down a line, skipping empty lines,
+    specified by `direction`.
 
     Usage example: >lua
         vim.keymap.set({"n", "v"}, "<leader><up>", function()
@@ -330,39 +254,39 @@ mc.lineSkipCursor({direction})                    *multicursor-lineSkipCursor*
 <
     Parameters: ~
       • {direction} (`-1 | 1`) when passing in `-1` spawn a cursor in the
-	previous line, while `1` spawn in the next line
+        previous line, while `1` spawn in the next line
 
 
-mc.matchAddCursor({direction})                    *multicursor-matchAddCursor*
+mc.matchAddCursor(direction)                      *multicursor-matchAddCursor*
     Add a new cursor by matching the current word/selection.
 
     Usage example: >lua
         vim.keymap.set({"n", "v"}, "<leader>n", function()
             mc.matchAddCursor(1)
         end)
-        vim.keymap.set({"n", "v"}, "<leader>s", function()
-            mc.matchSkipCursor(1)
+        vim.keymap.set({"n", "v"}, "<leader>N", function()
+            mc.matchAddCursor(-1)
         end)
 <
     Parameters: ~
-      • {direction} (`-1 | 1`) when passing in `-1` spawn a cursor in the
-	previous line, while `1` spawn in the next line
+      • {direction} (`-1 | 1`) With `1` for clockwise rotation and `-1` for
+        anti-clockwise.
 
 
-mc.matchSkipCursor({direction})                  *multicursor-matchSkipCursor*
+mc.matchSkipCursor(direction)                    *multicursor-matchSkipCursor*
     Move only the main cursor by matching the current word/selection.
 
     Usage example: >lua
-        vim.keymap.set({"n", "v"}, "<leader>N", function()
-            mc.matchAddCursor(-1)
+        vim.keymap.set({"n", "v"}, "<leader>s", function()
+            mc.matchSkipCursor(1)
         end)
         vim.keymap.set({"n", "v"}, "<leader>S", function()
             mc.matchSkipCursor(-1)
         end)
 <
     Parameters: ~
-      • {direction} (`-1 | 1`) when passing in `-1` spawn a cursor in the
-	previous line, while `1` spawn in the next line
+      • {direction} (`-1 | 1`) With `1` for clockwise rotation and `-1` for
+        anti-clockwise.
 
 
 mc.matchAllAddCursors()                       *multicursor-matchAllAddCursors*
@@ -372,7 +296,46 @@ mc.matchAllAddCursors()                       *multicursor-matchAllAddCursors*
         vim.keymap.set({"n", "v"}, "<leader>A", mc.matchAllAddCursors)
 <
 
-mc.nextCursor({wrap?})                                *multicursor-nextCursor*
+mc.searchAddCursor(direction)                    *multicursor-searchAddCursor*
+    Add a cursor and jump to the next/previous search result.
+
+    Usage example: >lua
+        vim.keymap.set("n", "<leader>/n", function()
+            mc.searchAddCursor(1)
+        end)
+        vim.keymap.set("n", "<leader>/N", function()
+            mc.searchAddCursor(-1)
+        end)
+<
+    Parameters: ~
+      • {direction} (`-1 | 1`) With `1` for clockwise rotation and `-1` for
+        anti-clockwise.
+
+
+mc.searchSkipCursor(direction)                  *multicursor-searchSkipCursor*
+    Jump to the next/previous search result without adding a cursor.
+
+    Usage example: >lua
+        vim.keymap.set("n", "<leader>/s", function()
+            mc.searchSkipCursor(-1)
+        end)
+        vim.keymap.set("n", "<leader>/S", function()
+            mc.searchSkipCursor(-1)
+        end)
+<
+    Parameters: ~
+      • {direction} (`-1 | 1`) With `1` for clockwise rotation and `-1` for
+        anti-clockwise.
+
+
+mc.searchAllAddCursors()                     *multicursor-searchAllAddCursors*
+    Add a cursor to every search result in the buffer.
+
+    Usage example: >lua
+        vim.keymap.set("n", "<leader>/A", mc.searchAllAddCursors)
+<
+
+mc.nextCursor(wrap?)                                  *multicursor-nextCursor*
     Select the cursor after the main cursor.
 
     Usage example: >lua
@@ -380,10 +343,10 @@ mc.nextCursor({wrap?})                                *multicursor-nextCursor*
 <
     Parameters: ~
       • {wrap?} (`boolean?`) wrap to the start of the file if no cursors are
-	found after the main cursor. Defaults to `true`.
+        found after the main cursor. Defaults to `true`.
 <
 
-mc.prevCursor({wrap?})                                *multicursor-prevCursor*
+mc.prevCursor(wrap?)                                  *multicursor-prevCursor*
     Select the cursor before the main cursor.
 
     Usage example: >lua
@@ -391,7 +354,7 @@ mc.prevCursor({wrap?})                                *multicursor-prevCursor*
 <
     Parameters: ~
       • {wrap?} (`boolean?`) wrap to the end of the file if no cursors are
-	found before the main cursor. Defaults to `true`.
+        found before the main cursor. Defaults to `true`.
 
 mc.firstCursor()                                     *multicursor-firstCursor*
     Select the first cursor.
@@ -418,7 +381,7 @@ mc.hasCursors()                                       *multicursor-hasCursors*
         end)
 <
     Return: ~
-      • (`boolean`) true if there are more than 1 cursors.
+      • (`boolean`) true if there are more than 1 cursor.
 
 
 mc.deleteCursor()                                   *multicursor-deleteCursor*
@@ -508,7 +471,7 @@ mc.transposeCursors(direction)                  *multicursor-transposeCursors*
 
 mc.swapCursors(direction)                            *multicursor-swapCursors*
     Swaps the visual selection of the current cursor with that of the
-    next/previous cursor, specified by direction.
+    next/previous cursor, specified by `direction`.
 
     Usage example: >lua
         vim.keymap.set("v", "<leader>h", function()
@@ -520,9 +483,9 @@ mc.swapCursors(direction)                            *multicursor-swapCursors*
 <
     Parameters: ~
       • {direction} (`-1 | 1`) With `1` for clockwise rotation and `-1` for
-	anti-clockwise.
+        anti-clockwise.
       • {wrap?} (`boolean?`) Whether the search for the target cursor wrap
-	if not found.
+        if not found.
 
     See also: ~
       • |multicursor-transposeCursors|
@@ -542,6 +505,117 @@ mc.appendVisual()                                   *multicursor-appendVisual*
 
     Usage example: >lua
         vim.keymap.set("v", "A", mc.appendVisual)
+<
+
+mc.sequenceIncrement()                         *multicursor-sequenceIncrement*
+    Behaves like |g_CTRL-a|, except all lines of all cursors are treated as
+    one sequence.
+
+    Usage example: >lua
+        vim.keymap.set({"x", "n"}, "g<c-a>", mc.sequenceIncrement)
+<
+
+mc.sequenceDecrement()                         *multicursor-sequenceDecrement*
+    Behaves like |g_CTRL-x|, except all lines of all cursors are treated as
+    one sequence.
+
+    Usage example: >lua
+        vim.keymap.set({"x", "n"}, "g<c-x>", mc.sequenceDecrement)
+<
+
+mc.addCursorOperator()                         *multicursor-addCursorOperator*
+    Takes a motion and adds a cursor for each line. For example, if it is
+    mapped to `ga`, then typing `gaip` will add a cursor for every line in
+    the current paragraph.
+
+    Usage example: >lua
+        vim.keymap.set("n", "ga", mc.addCursorOperator)
+<
+
+mc.operator(opts?)                                      *multicursor-operator*
+    Adds a cursor for every match found in a region. The text to match is
+    given by a motion, and the region is given by a second motion. For
+    example, if mapped to `<leader>m` then `<leader>miwap` will find every
+    match within the paragraph of the text contained within `iw`.
+
+    Usage example: >lua
+        vim.keymap.set("n", "ga", mc.addCursorOperator)
+<
+    Parameters: ~
+      • {opts?} (`table?`) options
+        • {opts.pattern?} (`string?`) A predefined pattern to skip having to
+          input the first motion.
+        • {opts.motion?} (`string?`) A predefined motion to skip having to
+          input the second motion.
+        • {opts.visual?} (`boolean?`) Whether the cursors should visually
+          select their matches.
+        • {opts.wordBoundary?} (`boolean?`) Whether the pattern should
+          consider word boundaries when matching.
+
+mc.diagnosticAddCursor(direction)            *multicursor-diagnosticAddCursor*
+    Add a cursor at the next diagnostic found in `direction`.
+
+    Usage example: >lua
+        vim.keymap.set({"n", "x"}, "]d", function()
+            mc.diagnosticAddCursor(1)
+        end)
+        vim.keymap.set({"n", "x"}, "[d", function()
+            mc.diagnosticAddCursor(-1)
+        end)
+<
+    Parameters: ~
+      • {direction} (`-1 | 1`) With `1` for clockwise rotation and `-1` for
+        anti-clockwise.
+
+    See also: ~
+      • |multicursor-diagnosticSkipCursor|
+
+
+mc.diagnosticSkipCursor(direction)          *multicursor-diagnosticSkipCursor*
+    Skips to the next diagnostic found in `direction`.
+
+    Usage example: >lua
+        vim.keymap.set({"n", "x"}, "]d", function()
+            mc.diagnosticAddCursor(1)
+        end)
+        vim.keymap.set({"n", "x"}, "[d", function()
+            mc.diagnosticAddCursor(-1)
+        end)
+<
+    Parameters: ~
+      • {direction} (`-1 | 1`) With `1` for clockwise rotation and `-1` for
+        anti-clockwise.
+
+    See also: ~
+      • |multicursor-diagnosticAddCursor|
+
+mc.diagnosticMatchCursors(opts?)          *multicursor-diagnosticMatchCursors*
+    Adds a cursor for every diagnostic found in the range provided by a
+    motion.
+
+    Usage example: >lua
+        vim.keymap.set({"n", "x"}, "md", function()
+            mc.diagnosticMatchCursors({ severity = vim.diagnostic.severity.ERROR })
+        end)
+<
+    Parameters: ~
+      • {opts?} |vim.diagnostic.GetOpts|
+
+
+mc.jumpForward()                                     *multicursor-jumpForward*
+    This action is automatically mapped to `<c-i>` unless a mapping already
+    exists. It behaves identically to `<c-i>` except it syncs up the cursors.
+
+    Usage example: >lua
+        vim.keymap.set({"n", "x"}, "<c-i>", mc.jumpForward)
+<
+
+mc.jumpBackward()                                   *multicursor-jumpBackward*
+    This action is automatically mapped to `<c-o>` unless a mapping already
+    exists. It behaves identically to `<c-o>` except it syncs up the cursors.
+
+    Usage example: >lua
+        vim.keymap.set({"n", "x"}, "<c-o>", mc.jumpBackward)
 <
 
 mc.disableCursors()                               *multicursor-disableCursors*
@@ -620,7 +694,7 @@ like so:
 
 >lua
     mc.action(function(ctx)
-	local cursors = ctx:getCursors()
+        local cursors = ctx:getCursors()
     end)
 <
 
@@ -633,9 +707,9 @@ it.
 
 >lua
     mc.action(function(ctx)
-	local cursor = ctx:firstCursor()
-	vim.print(cursor:getLine())
-	cursor:feedkeys("ihello world")
+        local cursor = ctx:firstCursor()
+        vim.print(cursor:getLine())
+        cursor:feedkeys("ihello world")
     end)
 >
 
@@ -708,14 +782,14 @@ Context Methods                                      *multicursor-api-Context*
  • clear                                               |multicursor-ctx-clear|
 
 
-ctx:setCursorsEnabled({value})             *multicursor-ctx-setCursorsEnabled*
+ctx:setCursorsEnabled(value)               *multicursor-ctx-setCursorsEnabled*
     Enables or disables all cursors.
 
     Parameters: ~
       • {value} (`boolean`)
 
 
-ctx:getCursors({opts?})                           *multicursor-ctx-getCursors*
+ctx:getCursors(opts?)                             *multicursor-ctx-getCursors*
     Returns a list of cursors, sorted by their position.
 
     Parameters: ~
@@ -739,7 +813,7 @@ ctx:addCursor()                                    *multicursor-ctx-addCursor*
       • |multicursor-api-Cursor|
 
 
-ctx:forEachCursor({callback}, {opts?})         *multicursor-ctx-forEachCursor*
+ctx:forEachCursor(callback, opts?)             *multicursor-ctx-forEachCursor*
     Util which executes callback for each cursor, sorted by their position.
 
     Parameters: ~
@@ -752,7 +826,7 @@ ctx:forEachCursor({callback}, {opts?})         *multicursor-ctx-forEachCursor*
       • |multicursor-types-CursorQuery|
 
 
-ctx:mapCursors({callback}, {opts?})               *multicursor-ctx-mapCursors*
+ctx:mapCursors(callback, opts?)                   *multicursor-ctx-mapCursors*
     Util method which maps each cursor to a value.
 
     Parameters: ~
@@ -768,7 +842,7 @@ ctx:mapCursors({callback}, {opts?})               *multicursor-ctx-mapCursors*
       • |multicursor-types-CursorQuery|
 
 
-ctx:findLastCursor({predicate}, {opts?})      *multicursor-ctx-findLastCursor*
+ctx:findLastCursor(predicate, opts?)          *multicursor-ctx-findLastCursor*
     Util method which returns the last cursor matching the predicate.
 
     Parameters: ~
@@ -784,7 +858,7 @@ ctx:findLastCursor({predicate}, {opts?})      *multicursor-ctx-findLastCursor*
       • |multicursor-types-CursorQuery|
 
 
-ctx:findCursor({predicate}, {opts?})              *multicursor-ctx-findCursor*
+ctx:findCursor(predicate, opts?)                  *multicursor-ctx-findCursor*
     Util method which returns the first cursor matching the predicate.
 
     Parameters: ~
@@ -800,7 +874,7 @@ ctx:findCursor({predicate}, {opts?})              *multicursor-ctx-findCursor*
       • |multicursor-types-CursorQuery|
 
 
-ctx:nextCursor({pos}, {opts?})                    *multicursor-ctx-nextCursor*
+ctx:nextCursor(pos, opts?)                        *multicursor-ctx-nextCursor*
     Returns the closest cursor which appears AFTER pos. A cursor exactly at
     pos will not be returned. It does not wrap, so if none are found, then nil
     is returned. If you wish to wrap, use:
@@ -821,7 +895,7 @@ ctx:nextCursor({pos}, {opts?})                    *multicursor-ctx-nextCursor*
       • |multicursor-types-Pos|
 
 
-ctx:prevCursor({pos}, {opts?})                    *multicursor-ctx-prevCursor*
+ctx:prevCursor(pos, opts?)                        *multicursor-ctx-prevCursor*
     Returns the closest cursor which appears BEFORE pos. A cursor exactly at
     pos will not be returned. It does not wrap, so if none are found, then nil
     is returned. If you wish to wrap, use:
@@ -833,7 +907,7 @@ ctx:prevCursor({pos}, {opts?})                    *multicursor-ctx-prevCursor*
 
     Return: ~
       • (`Cursor | nil`) returns the closest cursor before the pos or nil if
-	none are found.
+        none are found.
 
     See also: ~
       • |multicursor-api-Cursor|
@@ -841,17 +915,17 @@ ctx:prevCursor({pos}, {opts?})                    *multicursor-ctx-prevCursor*
       • |multicursor-types-SimplePos|
       • |multicursor-types-Pos|
 
-                                                  *multicursor-ctx-seekCursor*
-ctx:seekCursor({pos}, {direction}, {wrap?}, {opts?})
-    Returns the closest cursor in the specified direction, which can
+   
+ctx:seekCursor(pos, direction, wrap?, opts?)      *multicursor-ctx-seekCursor*
+    Returns the closest cursor in the specified `direction`, which can
     optionally wrap.
 
     Parameters: ~
       • {pos} (`SimplePos | Pos`) position to search from.
       • {direction} (`-1 | 1`) With `1` for clockwise rotation and `-1` for
-	anti-clockwise.
+        anti-clockwise.
       • {wrap?} (`boolean?`) Whether the seach should wrap around the
-	document.
+        document.
       • {opts?} (`CursorQuery?`) type of cursor to search for.
 
     Return: ~
@@ -863,15 +937,15 @@ ctx:seekCursor({pos}, {direction}, {wrap?}, {opts?})
       • |multicursor-types-SimplePos|
       • |multicursor-types-Pos|
 
-                                          *multicursor-ctx-seekBoundaryCursor*
-ctx:seekBoundaryCursor({direction}, {opts?})
-    Returns the first/last cursor, specified by direction.
+                                         
+ctx:seekBoundaryCursor(direction, opts?)  *multicursor-ctx-seekBoundaryCursor*
+    Returns the first/last cursor, specified by `direction`.
 
     Parameters: ~
       • {direction} (`-1 | 1`) With `-1` for the first and `1` for the last
-	cursor.
+        cursor.
       • {wrap?} (`boolean?`) Whether the seach should wrap around the
-	document.
+        document.
       • {opts?} (`CursorQuery?`) type of cursor to search for.
 
     Return: ~
@@ -884,7 +958,7 @@ ctx:seekBoundaryCursor({direction}, {opts?})
       • |multicursor-types-Pos|
 
 
-ctx:nearestCursor({pos}, {opts?})              *multicursor-ctx-nearestCursor*
+ctx:nearestCursor(pos, opts?)                  *multicursor-ctx-nearestCursor*
     Returns the nearest cursor to pos, and accepts a cursor exactly at pos.
 
     Parameters: ~
@@ -901,7 +975,7 @@ ctx:nearestCursor({pos}, {opts?})              *multicursor-ctx-nearestCursor*
       • |multicursor-types-Pos|
 
 
-ctx:getCursorAtPos({pos}, {opts?})            *multicursor-ctx-getCursorAtPos*
+ctx:getCursorAtPos(pos, opts?)                *multicursor-ctx-getCursorAtPos*
     Returns the exact cursor at pos.
 
     Parameters: ~
@@ -910,7 +984,7 @@ ctx:getCursorAtPos({pos}, {opts?})            *multicursor-ctx-getCursorAtPos*
 
     Return: ~
       • (`Cursor | nil`) returns the cursor or nil if there are no cursors at
-	position.
+        position.
 
     See also: ~
       • |multicursor-api-Cursor|
@@ -939,7 +1013,7 @@ ctx:mainCursor()                                  *multicursor-ctx-mainCursor*
       • |multicursor-api-Cursor|
 
 
-ctx:firstCursor({opts?})                         *multicursor-ctx-firstCursor*
+ctx:firstCursor(opts?)                           *multicursor-ctx-firstCursor*
     Returns the cursor closest to the start of the document.
 
     Parameters: ~
@@ -947,14 +1021,14 @@ ctx:firstCursor({opts?})                         *multicursor-ctx-firstCursor*
 
     Return: ~
       • (`Cursor | nil`) returns the first cursor in the document or nil if
-	there are none.
+        there are none.
 
     See also: ~
       • |multicursor-api-Cursor|
       • |multicursor-types-CursorQuery|
 
 
-ctx:lastCursor({opts?})                           *multicursor-ctx-lastCursor*
+ctx:lastCursor(opts?)                             *multicursor-ctx-lastCursor*
     Returns the cursor closest to the end of the document.
 
     Parameters: ~
@@ -962,7 +1036,7 @@ ctx:lastCursor({opts?})                           *multicursor-ctx-lastCursor*
 
     Return: ~
       • (`Cursor | nil`) returns the last cursor in the document or nil if
-	there are none.
+        there are none.
 
     See also: ~
       • |multicursor-api-Cursor|
@@ -1126,7 +1200,7 @@ Cursor:getPos()                                    *multicursor-Cursor-getPos*
       • |multicursor-types-Pos|
 
 
-Cursor:setPos({pos})                               *multicursor-Cursor-setPos*
+Cursor:setPos(pos)                                 *multicursor-Cursor-setPos*
     Sets the position of the cursor.
 
     Parameters: ~
@@ -1140,7 +1214,7 @@ Cursor:setPos({pos})                               *multicursor-Cursor-setPos*
       • |multicursor-types-Pos|
 
 
-Cursor:setVisualAnchor({pos})             *multicursor-Cursor-setVisualAnchor*
+Cursor:setVisualAnchor(pos)               *multicursor-Cursor-setVisualAnchor*
     Sets the position of the visual anchor equivalent of `setpos()` on `'v'`
     for a cursor.
 
@@ -1170,7 +1244,7 @@ Cursor:getVisualAnchor()                  *multicursor-Cursor-getVisualAnchor*
       • |getpos()|
 
 
-Cursor:setRedoChangePos({pos})           *multicursor-cursor-setRedoChangePos*
+Cursor:setRedoChangePos(pos)             *multicursor-cursor-setRedoChangePos*
     Sets the position of the redo position marker.
 
     Parameters: ~
@@ -1250,13 +1324,13 @@ Cursor:mode()                                        *multicursor-cursor-mode*
 
     Return: ~
       • (`string`) mode of the cursor
-	One of: "n" | "v" | "V" | <c-v> | "s" | "S" | <c-s>
+        One of: "n" | "v" | "V" | <c-v> | "s" | "S" | <c-s>
 
     See also: ~
       • |mode()|
 
 
-Cursor:setMode({mode})                            *multicursor-cursor-setMode*
+Cursor:setMode(mode)                              *multicursor-cursor-setMode*
     Sets this cursor's mode. It should only ever be in normal, visual, or
     select modes.
 
@@ -1279,7 +1353,7 @@ Cursor:enable()                                    *multicursor-cursor-enable*
     Enable the cursor.
 
 
-Cursor:feedkeys({keys}, {opts?})                 *multicursor-cursor-feedkeys*
+Cursor:feedkeys(keys, opts?)                     *multicursor-cursor-feedkeys*
     Makes the cursor perform a command/commands. For example,
     `cursor:feedkeys('dw')` will delete a word. By default, keys are not
     remapped and keycodes are not parsed.
@@ -1291,7 +1365,7 @@ Cursor:feedkeys({keys}, {opts?})                 *multicursor-cursor-feedkeys*
         • {opts.keycodes?} (`boolean?`) if true translate keycodes
 
 
-Cursor:perform({callback})                        *multicursor-cursor-perform*
+Cursor:perform(callback)                          *multicursor-cursor-perform*
     Activates this cursor by setting its registers, visual selection, mode,
     position, etc. Then, it calls the provided callback where you can perform
     some lower level operations. Once the callback is finished, the new cursor
@@ -1315,17 +1389,17 @@ Cursor:getCursorWord()                      *multicursor-cursor-getCursorWord*
       • |<cword>|
 
 
-Cursor:setSearch({search})                      *multicursor-cursor-setSearch*
+Cursor:setSearch(search)                        *multicursor-cursor-setSearch*
     Set the search register of this cursor.
 
     Parameters: ~
-      • (`string`) new content of the register.
+      • {search} (`string`) new content of the register.
 
     See also: ~
       • |"/|
 
 
-Cursor:setVisual({visualStart}, {visualEnd})    *multicursor-cursor-setVisual*
+Cursor:setVisual(visualStart, visualEnd)        *multicursor-cursor-setVisual*
     Sets the visual selection and sets the cursor position to `visualEnd`.
 
     Parameters: ~

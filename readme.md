@@ -1,6 +1,7 @@
 # multicursor.nvim
 
-Multiple cursors in Neovim which work how you expect. Now with help pages! `:h multicursor`.
+Multiple cursors in Neovim which work how you expect.
+Now with help pages! `:h multicursor`.
 
 https://github.com/user-attachments/assets/a8c136dc-4786-447b-95c0-8e2a48f5776f
 
@@ -27,90 +28,38 @@ https://github.com/user-attachments/assets/a8c136dc-4786-447b-95c0-8e2a48f5776f
     branch = "1.0",
     config = function()
         local mc = require("multicursor-nvim")
-
         mc.setup()
 
         local set = vim.keymap.set
 
         -- Add or skip cursor above/below the main cursor.
-        set({"n", "x"}, "<up>",
-            function() mc.lineAddCursor(-1) end)
-        set({"n", "x"}, "<down>",
-            function() mc.lineAddCursor(1) end)
-        set({"n", "x"}, "<leader><up>",
-            function() mc.lineSkipCursor(-1) end)
-        set({"n", "x"}, "<leader><down>",
-            function() mc.lineSkipCursor(1) end)
+        set({"n", "x"}, "<up>", function() mc.lineAddCursor(-1) end)
+        set({"n", "x"}, "<down>", function() mc.lineAddCursor(1) end)
+        set({"n", "x"}, "<leader><up>", function() mc.lineSkipCursor(-1) end)
+        set({"n", "x"}, "<leader><down>", function() mc.lineSkipCursor(1) end)
 
         -- Add or skip adding a new cursor by matching word/selection
-        set({"n", "x"}, "<leader>n",
-            function() mc.matchAddCursor(1) end)
-        set({"n", "x"}, "<leader>s",
-            function() mc.matchSkipCursor(1) end)
-        set({"n", "x"}, "<leader>N",
-            function() mc.matchAddCursor(-1) end)
-        set({"n", "x"}, "<leader>S",
-            function() mc.matchSkipCursor(-1) end)
-
-        -- Add or skip adding a new cursor by matching diagnostics.
-        set({"n", "x"}, "]D",
-            function() mc.diagnosticAddCursor(1) end)
-        set({"n", "x"}, "[D",
-            function() mc.diagnosticAddCursor(-1) end)
-        set({"n", "x"}, "<leader>d",
-            function() mc.diagnosticSkipCursor(1) end)
-        set({"n", "x"}, "<leader>D",
-            function() mc.diagnosticSkipCursor(-1) end)
-
-        -- In normal mode, `meap` match all diagnostics in range `ap`, this is the same
-        -- as `vapme` in visual mode.
-        set({"n", "x"}, "me", function()
-            -- The param is the same as `:h vim.diagnostic.GetOpts`.
-            mc.diagnosticMatchCursors({ severity = vim.diagnostic.severity.ERROR })
-        end)
-
-        -- In normal/visual mode, press `mwap` will create a cursor in every match of
-        -- the word captured by `iw` (or visually selected range) inside the bigger
-        -- range specified by `ap`. Useful to replace a word inside a function, e.g. mwif.
-        set({"n", "x"}, "mw", function()
-            mc.operator({ motion = "iw", visual = true })
-            -- Or you can pass a pattern, press `mwi{` will select every \w,
-            -- basically every char in a `{ a, b, c, d }`.
-            -- mc.operator({ pattern = [[\<\w]] })
-        end)
-
-        -- Press `mWi"ap` will create a cursor in every match of string captured by `i"` inside range `ap`.
-        set("n", "mW", mc.operator)
-
-        -- Add all matches in the document
-        set({"n", "x"}, "<leader>A", mc.matchAllAddCursors)
-
-        -- You can also add cursors with any motion you prefer:
-        -- set("n", "<right>", function()
-        --     mc.addCursor("w")
-        -- end)
-        -- set("n", "<leader><right>", function()
-        --     mc.skipCursor("w")
-        -- end)
-
-        -- Rotate the main cursor.
-        set({"n", "x"}, "<left>", mc.nextCursor)
-        set({"n", "x"}, "<right>", mc.prevCursor)
-
-        -- Delete the main cursor.
-        set({"n", "x"}, "<leader>x", mc.deleteCursor)
+        set({"n", "x"}, "<leader>n", function() mc.matchAddCursor(1) end)
+        set({"n", "x"}, "<leader>s", function() mc.matchSkipCursor(1) end)
+        set({"n", "x"}, "<leader>N", function() mc.matchAddCursor(-1) end)
+        set({"n", "x"}, "<leader>S", function() mc.matchSkipCursor(-1) end)
 
         -- Add and remove cursors with control + left click.
         set("n", "<c-leftmouse>", mc.handleMouse)
         set("n", "<c-leftdrag>", mc.handleMouseDrag)
         set("n", "<c-leftrelease>", mc.handleMouseRelease)
 
-        -- Easy way to add and remove cursors using the main cursor.
+        -- Select a different cursor as the main one.
+        set({"n", "x"}, "<left>", mc.nextCursor)
+        set({"n", "x"}, "<right>", mc.prevCursor)
+
+        -- Delete the main cursor.
+        set({"n", "x"}, "<leader>x", mc.deleteCursor)
+
+        -- Disable and enable cursors.
         set({"n", "x"}, "<c-q>", mc.toggleCursor)
 
-        -- Clone every cursor and disable the originals.
-        set({"n", "x"}, "<leader><c-q>", mc.duplicateCursors)
-
+        -- Enable and clear cursors using escape.
         set("n", "<esc>", function()
             if not mc.cursorsEnabled() then
                 mc.enableCursors()
@@ -120,32 +69,6 @@ https://github.com/user-attachments/assets/a8c136dc-4786-447b-95c0-8e2a48f5776f
                 -- Default <esc> handler.
             end
         end)
-
-        -- bring back cursors if you accidentally clear them
-        set("n", "<leader>gv", mc.restoreCursors)
-
-        -- Align cursor columns.
-        set("n", "<leader>a", mc.alignCursors)
-
-        -- Split visual selections by regex.
-        set("x", "S", mc.splitCursors)
-
-        -- Append/insert for each line of visual selections.
-        set("x", "I", mc.insertVisual)
-        set("x", "A", mc.appendVisual)
-
-        -- match new cursors within visual selections by regex.
-        set("x", "M", mc.matchCursors)
-
-        -- Rotate visual selection contents.
-        set("x", "<leader>t",
-            function() mc.transposeCursors(1) end)
-        set("x", "<leader>T",
-            function() mc.transposeCursors(-1) end)
-
-        -- Jumplist support
-        set({"x", "n"}, "<c-i>", mc.jumpForward)
-        set({"x", "n"}, "<c-o>", mc.jumpBackward)
 
         -- Customize how cursors look.
         local hl = vim.api.nvim_set_hl
@@ -161,7 +84,8 @@ https://github.com/user-attachments/assets/a8c136dc-4786-447b-95c0-8e2a48f5776f
 ```
 
 ## How to Use
-This section explains the basic usage of multicursor.nvim with the default config.
+This section explains the basic usage of multicursor.nvim with
+the default config.
 
 #### Selecting Cursors:
 - You can add cursors above/below the current cursor with `<up>` and `<down>`.
@@ -177,29 +101,85 @@ This section explains the basic usage of multicursor.nvim with the default confi
 - You can delete the current cursor using `<leader>x`
 - You can disable cursors with `<c-q>`, which means only the main cursor
   moves.
-- You can also press `<leader><c-q>` to duplicate cursors, disabling the
-  originals.
 - When cursors are disabled, you can press `<c-q>` to add a cursor under the
   main cursor.
-- You can press `<esc>` to enable cursors again.
+- You can press `<esc>` to enable the cursors again.
 
 #### Using the Cursors:
 - Once you have your cursors, you use vim normally as you would with a single
   cursor.
-- You can press `<leader>a` to align cursor columns.
-- You can press `S` to split a visual selection by regex into multiple
-  selections.
-- You can press `M` to run a regex within your visual selection, creating
-  a new cursor for each match.
-- You can press `<leader>t` and `<leader>T` to transpose visual selections,
-  which means the text within each visual selection will be rotated between
-  cursors.
-
-#### Finished:
 - When you want to collapse your cursors back into one, press `<esc>`.
 
+## Advanced Actions
+The example config only has a few actions to keep it easy to understand.
+Below are a lot of powerful multicursor actions for quick reference, so
+you can pick which you find useful.
+
+```lua
+-- Pressing `gaip` will add a cursor on each line of a paragraph.
+set("n", "ga", mc.addCursorOperator)
+
+-- Clone every cursor and disable the originals.
+set({"n", "x"}, "<leader><c-q>", mc.duplicateCursors)
+
+-- Align cursor columns.
+set("n", "<leader>a", mc.alignCursors)
+
+-- Split visual selections by regex.
+set("x", "S", mc.splitCursors)
+
+-- match new cursors within visual selections by regex.
+set("x", "M", mc.matchCursors)
+
+-- bring back cursors if you accidentally clear them
+set("n", "<leader>gv", mc.restoreCursors)
+
+-- Add a cursor for all matches of cursor word/selection in the document.
+set({"n", "x"}, "<leader>A", mc.matchAllAddCursors)
+
+-- Rotate the text contained in each visual selection between cursors.
+set("x", "<leader>t", function() mc.transposeCursors(1) end)
+set("x", "<leader>T", function() mc.transposeCursors(-1) end)
+
+-- Append/insert for each line of visual selections.
+-- Similar to block selection insertion.
+set("x", "I", mc.insertVisual)
+set("x", "A", mc.appendVisual)
+
+-- Increment/decrement sequences, treaing all cursors as one sequence.
+set({"n", "x"}, "g<c-a>", mc.sequenceIncrement)
+set({"n", "x"}, "g<c-x>", mc.sequenceDecrement)
+
+-- Add a cursor and jump to the next/previous search result.
+set("n", "<leader>/n", function() mc.searchAddCursor(1) end)
+set("n", "<leader>/N", function() mc.searchAddCursor(-1) end)
+
+-- Jump to the next/previous search result without adding a cursor.
+set("n", "<leader>/s", function() mc.searchSkipCursor(1) end)
+set("n", "<leader>/S", function() mc.searchSkipCursor(-1) end)
+
+-- Add a cursor to every search result in the buffer.
+set("n", "<leader>/A", mc.searchAllAddCursors)
+
+-- Pressing `<leader>miwap` will create a cursor in every match of the
+-- string captured by `iw` inside range `ap`.
+-- This action is highly customizable, see `:h multicursor-operator`.
+set("n", "<leader>m", mc.operator)
+
+-- Add or skip adding a new cursor by matching diagnostics.
+set({"n", "x"}, "]d", function() mc.diagnosticAddCursor(1) end)
+set({"n", "x"}, "[d", function() mc.diagnosticAddCursor(-1) end)
+set({"n", "x"}, "]s", function() mc.diagnosticSkipCursor(1) end)
+set({"n", "x"}, "[S", function() mc.diagnosticSkipCursor(-1) end)
+
+-- Press `mdip` to add a cursor for every error diagnostic in the range `ip`.
+set({"n", "x"}, "md", function()
+    -- See `:h vim.diagnostic.GetOpts`.
+    mc.diagnosticMatchCursors({ severity = vim.diagnostic.severity.ERROR })
+end)
+```
+
 ## Cursor API
-All of the provided features are implemented using the Cursor API, which is
+All of the provided actions are implemented using the Cursor API, which is
 accessible for writing your own complex multi-cursor logic. You can view
 the docs at `:h multicursor-api`.
-
