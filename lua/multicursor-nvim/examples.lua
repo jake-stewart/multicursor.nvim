@@ -648,28 +648,27 @@ end
 --- @param regex string
 local function regexAddAllCursors(ctx, regex)
     local mainCursor = ctx:mainCursor()
-    local hasSelection = mainCursor:hasSelection()
-    local startPos = mainCursor:getPos()
-    local firstMatchPos = nil
+    if mainCursor:hasSelection() then
+        mainCursor:feedkeys(TERM_CODES.ESC)
+    end
+    local positions = {}
+    local nPositions = 0
     while true do
-        addCursor(ctx, function(cursor)
-            cursor:perform(function()
-                vim.fn.search(regex)
-            end)
-            if hasSelection then
-                cursor:feedkeys(TERM_CODES.ESC)
-            end
-        end, { addCursor = firstMatchPos ~= nil })
-        local newPos = mainCursor:getPos()
-        if not firstMatchPos then
-            firstMatchPos = newPos
-        elseif firstMatchPos[1] == newPos[1]
-            and firstMatchPos[2] == newPos[2]
+        mainCursor:perform(function()
+            vim.fn.search(regex)
+        end)
+        positions[nPositions + 1] = mainCursor:getPos()
+        nPositions = nPositions + 1
+        if nPositions > 1
+            and positions[1][1] == positions[nPositions][1]
+            and positions[1][2] == positions[nPositions][2]
         then
             break
         end
     end
-    mainCursor:setPos(startPos)
+    for _, position in ipairs(positions) do
+        mainCursor:clone():setPos(position)
+    end
     mainCursor:delete()
 end
 
