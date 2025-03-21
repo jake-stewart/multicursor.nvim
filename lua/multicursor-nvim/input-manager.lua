@@ -200,8 +200,24 @@ function InputManager:_handleSpecialKey(specialKey)
     end
 end
 
-local ADAPTERS = {
-    function() require("flash.plugins.char").state:hide() end
+local CLEARABLE_ADAPTERS = {
+    ["flash.plugins.char"] = function(m) m.state:hide() end,
+}
+
+local TOGGLABLE_ADAPTERS = {
+    ["snacks.scroll"] = {
+        state = {},
+        enabled = function(m)
+            return m.enabled
+        end,
+        setEnabled = function(m, enabled)
+            if enabled then
+                m.enable()
+            else
+                m.disable()
+            end
+        end
+    },
 }
 
 function InputManager:_handleKeys(mode)
@@ -209,7 +225,18 @@ function InputManager:_handleKeys(mode)
     if #self._typed > 0 and cursorManager:hasCursors() then
         cursorManager:dirty()
         handled = true
-        local adapters = tbl.filter(ADAPTERS, pcall)
+        local clearable_adapters = {}
+        for k, f in pairs(CLEARABLE_ADAPTERS) do
+            if package.loaded[k] then
+                local success, m = pcall(require, k)
+                if success then
+                    clearable_adapters[#clearable_adapters + 1] = function()
+                        pcall(f, m)
+                    end
+                end
+            end
+        end
+        tbl.forEach(clearable_adapters, function(f) f() end)
         cursorManager:action(function(ctx)
             if self._modeChangeCallbacks and self._wasMode ~= mode then
                 self:_emitModeChanged(ctx:mainCursor(), self._wasMode, mode)
@@ -219,7 +246,7 @@ function InputManager:_handleKeys(mode)
                 if self._modeChangeCallbacks and self._wasMode ~= mode then
                     self:_emitModeChanged(cursor, self._wasMode, mode)
                 end
-                tbl.forEach(adapters, pcall)
+                tbl.forEach(clearable_adapters, function(f) f() end)
             end)
         end, { excludeMainCursor = true, allowUndo = true })
     end
@@ -254,8 +281,34 @@ function InputManager:_onSafeState()
     end
     if cursorManager:hasCursors() then
         keymapManager:apply(self._keymapLayerCallbacks)
+        for k, v in pairs(TOGGLABLE_ADAPTERS) do
+            if v.state.enabled == nil then
+                v.state.enabled = false
+                if package.loaded[k] then
+                    local msuccess, m = pcall(require, k)
+                    if msuccess then
+                        local success, enabled = pcall(v.enabled, m)
+                        v.state.enabled = success and (enabled or false)
+                        if v.state.enabled then
+                            v.setEnabled(m, false)
+                        end
+                    end
+                end
+            end
+        end
     else
         keymapManager:restore()
+        for k, v in pairs(TOGGLABLE_ADAPTERS) do
+            if v.state.enabled then
+                if package.loaded[k] then
+                    local msuccess, m = pcall(require, k)
+                    if msuccess then
+                        v.setEnabled(m, true)
+                    end
+                end
+            end
+            v.state.enabled = nil
+        end
     end
     local mode = vim.fn.mode()
     if isInsertOrReplaceMode(mode) then
