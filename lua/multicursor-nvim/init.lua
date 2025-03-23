@@ -21,6 +21,7 @@ return {
     feedkeys = core.feedkeys,
     hasCursors = core.hasCursors,
     onModeChanged = core.onModeChanged,
+    onSafeState = core.onSafeState,
     cursorsEnabled = core.cursorsEnabled,
     numCursors = core.numCursors,
     numEnabledCursors = core.numEnabledCursors,

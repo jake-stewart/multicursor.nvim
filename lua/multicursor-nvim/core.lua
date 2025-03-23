@@ -15,6 +15,10 @@ function core.onModeChanged(callback)
     return inputManager:onModeChanged(callback)
 end
 
+function core.onSafeState(callback)
+    return inputManager:onSafeState(callback)
+end
+
 --- @param callback fun(set: KeymapSetCallback)
 function core.addKeymapLayer(callback)
     return inputManager:addKeymapLayer(callback)

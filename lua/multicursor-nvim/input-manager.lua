@@ -114,6 +114,17 @@ function InputManager:onModeChanged(callback)
     self._modeChangeCallbacks[#self._modeChangeCallbacks + 1] = callback
 end
 
+--- @class SafeStateInfo
+--- @field wasMode string
+
+--- @param callback function(info: SafeStateInfo)
+function InputManager:onSafeState(callback)
+    if not self._safeStateCallbacks then
+        self._safeStateCallbacks = {}
+    end
+    self._safeStateCallbacks[#self._safeStateCallbacks + 1] = callback
+end
+
 --- @param callback function
 function InputManager:performAction(callback)
     if not self._applying then
@@ -368,6 +379,12 @@ function InputManager:_onSafeState()
                 self:_handleKeys(mode)
             end
         end
+    end
+    if self._safeStateCallbacks then
+        local info = {
+            wasMode = self._wasMode,
+        }
+        tbl.forEach(self._safeStateCallbacks, function(f) f(info) end)
     end
     self._didUndo = false
     self._didRedo = false
