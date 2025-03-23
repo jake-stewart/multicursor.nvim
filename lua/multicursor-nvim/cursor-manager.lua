@@ -1193,6 +1193,7 @@ function Cursor:setPos(pos)
     cursorCheckUpdate(self)
     local virtcol = vim.fn.virtcol({ pos[1], pos[2] })
     self._pos = { 0, pos[1], pos[2], pos[3] or 0, virtcol }
+    self._state = CursorState.dirty
     cursorSetMarks(self)
     return self
 end
@@ -1203,6 +1204,7 @@ function Cursor:setVisualAnchor(pos)
     cursorCheckUpdate(self)
     local virtcol = vim.fn.virtcol({ pos[1], pos[2] })
     self._vPos = { 0, pos[1], pos[2], pos[3] or 0, virtcol }
+    self._state = CursorState.dirty
     cursorSetMarks(self)
     return self
 end
