@@ -671,15 +671,15 @@ local function cursorDraw(cursor)
     local row = cursor._pos[2] - 1
     local col = cursor._pos[3] - 1
     local virtCol = col + cursor._pos[4]
-
     local charLine = lines[cursor._pos[2] - start]
-    local displayWidth = vim.fn.strdisplaywidth(charLine)
+    local virtedit = virtCol >= #charLine
 
     local virt_text_win_col
-    if virtCol > #charLine then
-        virt_text_win_col = displayWidth + virtCol - #charLine - state.leftcol
-        if virt_text_win_col - state.textoffset < 0 then
-            virt_text_win_col = nil
+    if virtedit then
+        local vc = vim.fn.virtcol({ cursor._pos[2], cursor._pos[3] }) + cursor._pos[4] - 1
+        virt_text_win_col = vc - state.leftcol
+        if virt_text_win_col < 0 then
+            return
         end
     end
 
@@ -690,9 +690,9 @@ local function cursorDraw(cursor)
         priority = priority,
         virt_text_win_col = virt_text_win_col,
         hl_group = cursorHL,
-        end_col = col + 1,
+        end_col = virtedit and col or col + 1,
         virt_text_hide = true,
-        virt_text = col >= #charLine and {{ " ", cursorHL, }} or nil,
+        virt_text = virtedit and {{ " ", cursorHL, }} or nil,
     })
     cursor._visualIds[#cursor._visualIds + 1] = id
 end
@@ -1971,15 +1971,18 @@ end
 function CursorManager:update()
     state.mainCursor = state.mainCursor or createCursor({})
     cursorRead(state.mainCursor)
+    cursorContextUpdate(false)
+end
+
+function CursorManager:onSafeState()
     local oldLeftCol = state.leftcol
     state.leftcol = vim.fn.winsaveview().leftcol
-    if oldLeftCol > 0 or state.leftcol > 0 then
+    if oldLeftCol ~= state.leftcol then
         for _, cursor in ipairs(state.cursors) do
             cursorErase(cursor)
             cursorDraw(cursor)
         end
     end
-    cursorContextUpdate(false)
 end
 
 local function updateCursorline()
@@ -2089,7 +2092,7 @@ function CursorManager:action(callback, opts)
     updateCursorline()
     setOptions()
     updateVirtualEdit()
-    state.leftcol = vim.fn.winsaveview().leftcol
+    -- state.leftcol = vim.fn.winsaveview().leftcol
     state.textoffset = vim.fn.getwininfo(vim.fn.win_getid())[1].textoff
 
     tryUndo(opts)

@@ -1,18 +1,21 @@
 --- @class KeymapManager
---- @field private _keymaps? [string | string[], string, integer][]
-local KeymapManager = {}
+--- @field private _keymaps table<number, [string | string[], string, integer][]>
+local KeymapManager = {
+    _keymaps = {}
+}
 
 --- @alias KeymapSetCallback fun(mode: string | string[], lhs: string, rhs: string | function, opts?: vim.keymap.set.Opts)
+--- @param bufnr number
 --- @param callbacks fun(set: KeymapSetCallback)[]
-function KeymapManager:apply(callbacks)
-    if self._keymaps then
+function KeymapManager:apply(bufnr, callbacks)
+    if self._keymaps[bufnr] then
         return
     end
-    self._keymaps = {}
+    self._keymaps[bufnr] = {}
     local set = function(mode, lhs, rhs, opts)
         opts = opts or {}
-        opts.buffer = true
-        table.insert(self._keymaps, { mode, lhs, vim.fn.bufnr() })
+        opts.buffer = bufnr
+        table.insert(self._keymaps[bufnr], { mode, lhs })
         vim.keymap.set(mode, lhs, rhs, opts)
     end
     for _, callback in ipairs(callbacks) do
@@ -21,13 +24,14 @@ function KeymapManager:apply(callbacks)
 end
 
 function KeymapManager:restore()
-    if not self._keymaps then
-        return
+    for bufnr, keymaps in pairs(self._keymaps) do
+        for _, keymap in pairs(keymaps) do
+            pcall(vim.keymap.del, keymap[1], keymap[2], { buffer = bufnr })
+        end
     end
-    for _, keymap in pairs(self._keymaps) do
-        vim.keymap.del(keymap[1], keymap[2], { buffer = keymap[3] })
+    for bufnr in pairs(self._keymaps) do
+        self._keymaps[bufnr] = nil
     end
-    self._keymaps = nil
 end
 
 return KeymapManager

@@ -291,7 +291,7 @@ function InputManager:_onSafeState()
         return
     end
     if cursorManager:hasCursors() then
-        keymapManager:apply(self._keymapLayerCallbacks)
+        keymapManager:apply(vim.fn.bufnr(), self._keymapLayerCallbacks)
         for k, v in pairs(TOGGLABLE_ADAPTERS) do
             if v.state.enabled == nil then
                 v.state.enabled = false
@@ -379,12 +379,21 @@ function InputManager:_onSafeState()
                 self:_handleKeys(mode)
             end
         end
-    end
-    if self._safeStateCallbacks then
-        local info = {
-            wasMode = self._wasMode,
-        }
-        tbl.forEach(self._safeStateCallbacks, function(f) f(info) end)
+        if self._safeStateCallbacks then
+            local info = {
+                wasMode = self._wasMode,
+            }
+            tbl.forEach(self._safeStateCallbacks, function(f) f(info) end)
+        end
+        if #self._typed > 0 then
+        local safeStateId = (self._safeStateId or 0) + 1
+        self._safeStateId = safeStateId
+        vim.schedule(function()
+            if self._safeStateId == safeStateId then
+                cursorManager:onSafeState()
+            end
+        end)
+        end
     end
     self._didUndo = false
     self._didRedo = false
