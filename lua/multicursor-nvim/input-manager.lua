@@ -379,21 +379,21 @@ function InputManager:_onSafeState()
                 self:_handleKeys(mode)
             end
         end
-        if self._safeStateCallbacks then
-            local info = {
-                wasMode = self._wasMode,
-            }
-            tbl.forEach(self._safeStateCallbacks, function(f) f(info) end)
-        end
         if #self._typed > 0 then
-        local safeStateId = (self._safeStateId or 0) + 1
-        self._safeStateId = safeStateId
-        vim.schedule(function()
-            if self._safeStateId == safeStateId then
-                cursorManager:onSafeState()
-            end
-        end)
+            local safeStateId = (self._safeStateId or 0) + 1
+            self._safeStateId = safeStateId
+            vim.schedule(function()
+                if self._safeStateId == safeStateId then
+                    cursorManager:onSafeState()
+                end
+            end)
         end
+    end
+    if self._safeStateCallbacks then
+        local info = {
+            wasMode = self._wasMode,
+        }
+        tbl.forEach(self._safeStateCallbacks, function(f) f(info) end)
     end
     self._didUndo = false
     self._didRedo = false
