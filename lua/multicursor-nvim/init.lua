@@ -3,17 +3,18 @@ local examples = require("multicursor-nvim.examples")
 
 table.unpack = table.unpack or unpack
 
-local function setDefaultHighlight(name, link)
-    vim.api.nvim_set_hl(0, name, { link = link, default = true })
+local function defaultHl(name, opts)
+    opts.default = true
+    vim.api.nvim_set_hl(0, name, opts)
 end
 
-setDefaultHighlight("MultiCursorCursor", "Cursor")
-setDefaultHighlight("MultiCursorVisual", "Visual")
-setDefaultHighlight("MultiCursorSign", "SignColumn")
-setDefaultHighlight("MultiCursorMatchPreview", "Search")
-setDefaultHighlight("MultiCursorDisabledCursor", "Visual")
-setDefaultHighlight("MultiCursorDisabledVisual", "Visual")
-setDefaultHighlight("MultiCursorDisabledSign", "SignColumn")
+defaultHl("MultiCursorCursor", { reverse = true })
+defaultHl("MultiCursorVisual", { link = "Visual" })
+defaultHl("MultiCursorSign", { link = "SignColumn" })
+defaultHl("MultiCursorMatchPreview", { link = "Search" })
+defaultHl("MultiCursorDisabledCursor", { reverse = true })
+defaultHl("MultiCursorDisabledVisual", { link = "Visual" })
+defaultHl("MultiCursorDisabledSign", { link = "SignColumn" })
 
 return {
     setup = core.setup,
