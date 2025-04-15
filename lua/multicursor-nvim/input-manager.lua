@@ -42,6 +42,7 @@ function InputManager:setup(nsid)
     self._applying = false
     self._keys = ""
     self._typed = ""
+    self._wasMode = "n"
     self._fromSelectMode = false
     self._didUndo = false
     self._didRedo = false
@@ -163,7 +164,9 @@ function InputManager:_handleExitInsertMode(mode, wasFromSelectMode)
         local reg = vim.fn.getreg(".")
         cursorManager:action(function(ctx)
             if self._modeChangeCallbacks and self._wasMode ~= mode then
+                local changePos = vim.fn.getpos("'[")
                 self:_emitModeChanged(ctx:mainCursor(), self._wasMode, mode)
+                ctx:mainCursor():setRedoChangePos({changePos[2], changePos[3]})
             end
             ctx:forEachCursor(function(cursor)
                 cursor:perform(function()
@@ -176,11 +179,13 @@ function InputManager:_handleExitInsertMode(mode, wasFromSelectMode)
                     self:_emitModeChanged(cursor, self._wasMode, mode)
                 end
             end)
-        end, {
-            excludeMainCursor = true,
-            allowUndo = false,
-        })
+        end, { excludeMainCursor = true, allowUndo = false })
     else
+        if self._modeChangeCallbacks and self._wasMode ~= mode then
+            cursorManager:action(function(ctx)
+                self:_emitModeChanged(ctx:mainCursor(), self._wasMode, mode)
+            end, { excludeMainCursor = true, allowUndo = false })
+        end
         cursorManager:update()
     end
 end
