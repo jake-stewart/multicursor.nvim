@@ -234,6 +234,19 @@ local TOGGLABLE_ADAPTERS = {
             end
         end
     },
+    ["hardtime"] = {
+        state = {},
+        enabled = function(m)
+            return m.is_plugin_enabled
+        end,
+        setEnabled = function(m, enabled)
+            if enabled then
+                m.enable()
+            else
+                m.disable()
+            end
+        end,
+    },
 }
 
 function InputManager:_handleKeys(mode)
