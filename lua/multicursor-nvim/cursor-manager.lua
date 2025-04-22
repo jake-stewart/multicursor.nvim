@@ -22,12 +22,6 @@ local function get_lines(buffer, startLine, endLine)
     return lines
 end
 
-local OPTIONS_OVERRIDE = {
-    timeout = false,
-    clipboard = "",
-    hlsearch = false,
-}
-
 --- @param cur integer
 local function undoItemId(cur)
     return vim.fn.bufnr() .. ":" .. cur
@@ -171,6 +165,12 @@ local state = {
     jumps = {},
     didPushJump = false,
     jumpIdx = 0
+}
+
+local OPTIONS_OVERRIDE = {
+    timeout = false,
+    clipboard = "",
+    hlsearch = false,
 }
 
 --- @param ignore table<string, boolean>
@@ -2241,7 +2241,7 @@ function CursorManager:loadUndoItem(direction)
     if #state.cursors == 0 then
         clearCursorContext()
     else
-        setOptions()
+        setOptions({})
         cursorContextRedraw()
         state.oldCursor = cursorCopy(state.mainCursor)
         state.oldCursors = {table.unpack(state.cursors)}
