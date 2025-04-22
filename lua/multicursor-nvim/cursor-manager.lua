@@ -173,15 +173,20 @@ local state = {
     jumpIdx = 0
 }
 
-local function setOptions()
+--- @param ignore table<string, boolean>
+local function setOptions(ignore)
     if not state.options then
         state.origRegister = vim.v.register
         state.options = {}
         for key, value in pairs(OPTIONS_OVERRIDE) do
-            state.options[key] = vim.o[key]
-            vim.o[key] = value
+            if not ignore[key] then
+                state.options[key] = vim.o[key]
+                vim.o[key] = value
+            end
         end
-        vim.cmd.noh()
+        if not ignore["hlsearch"] then
+            vim.cmd.noh()
+        end
     end
 end
 
@@ -190,8 +195,10 @@ local function unsetOptions()
         for key, value in pairs(state.options) do
             vim.o[key] = value
         end
+        if state.options["hlsearch"] then
+            vim.schedule(vim.cmd.noh)
+        end
         state.options = nil
-        vim.schedule(vim.cmd.noh)
     end
 end
 
@@ -2084,13 +2091,18 @@ end
 --- @field fixWindow? boolean
 --- @field allowUndo? boolean
 --- @field ifNotUndo? function
+--- @field ignoreHlsearch? boolean
 
 --- @param callback fun(context: CursorContext)
 --- @param opts ActionOptions
 function CursorManager:action(callback, opts)
     updateSigns()
     updateCursorline()
-    setOptions()
+    if opts.ignoreHlsearch then
+        setOptions({ hlsearch = true })
+    else
+        setOptions({})
+    end
     updateVirtualEdit()
     -- state.leftcol = vim.fn.winsaveview().leftcol
     state.textoffset = vim.fn.getwininfo(vim.fn.win_getid())[1].textoff
