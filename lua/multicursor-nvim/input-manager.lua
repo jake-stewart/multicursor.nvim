@@ -184,7 +184,7 @@ function InputManager:_handleExitInsertMode(mode, wasFromSelectMode)
         if self._modeChangeCallbacks and self._wasMode ~= mode then
             cursorManager:action(function(ctx)
                 self:_emitModeChanged(ctx:mainCursor(), self._wasMode, mode)
-            end, { excludeMainCursor = true, allowUndo = false, ignoreHlsearch = true })
+            end, { excludeMainCursor = true, allowUndo = false })
         end
         cursorManager:update()
     end
@@ -283,7 +283,7 @@ function InputManager:_handleKeys(mode)
         if self._modeChangeCallbacks and self._wasMode ~= mode then
             cursorManager:action(function(ctx)
                 self:_emitModeChanged(ctx:mainCursor(), self._wasMode, mode)
-            end, { excludeMainCursor = false, ignoreHlsearch = not cursorManager:hasCursors() })
+            end, { excludeMainCursor = false })
         else
             cursorManager:update()
         end

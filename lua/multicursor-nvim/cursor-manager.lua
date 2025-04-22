@@ -169,23 +169,16 @@ local state = {
 
 local OPTIONS_OVERRIDE = {
     timeout = false,
-    clipboard = "",
-    hlsearch = false,
+    clipboard = ""
 }
 
---- @param ignore table<string, boolean>
-local function setOptions(ignore)
+local function setOptions()
     if not state.options then
         state.origRegister = vim.v.register
         state.options = {}
         for key, value in pairs(OPTIONS_OVERRIDE) do
-            if not ignore[key] then
-                state.options[key] = vim.o[key]
-                vim.o[key] = value
-            end
-        end
-        if not ignore["hlsearch"] then
-            vim.cmd.noh()
+            state.options[key] = vim.o[key]
+            vim.o[key] = value
         end
     end
 end
@@ -195,11 +188,26 @@ local function unsetOptions()
         for key, value in pairs(state.options) do
             vim.o[key] = value
         end
-        if state.options["hlsearch"] then
-            vim.schedule(vim.cmd.noh)
-        end
         state.options = nil
     end
+end
+
+local hlSearch = nil
+
+local function setHlsearch()
+    if hlSearch == nil then
+        hlSearch = vim.o.hlsearch
+        vim.o.hlsearch = false
+        -- vim.cmd.noh()
+    end
+end
+
+local function unsetHlsearch()
+    if hlSearch then
+        vim.o.hlsearch = true
+        vim.schedule(vim.cmd.noh)
+    end
+    hlSearch = nil
 end
 
 
@@ -1704,6 +1712,7 @@ local function clearCursorContext()
     state.jumpIdx = 0
     state.yankedWhileDisabled = false
     unsetOptions()
+    unsetHlsearch()
     state.yanked = false
     if state.yankedBuffer then
         local buffer = state.yankedBuffer
@@ -1925,6 +1934,7 @@ local function cursorContextUpdate(applyToMainCursor)
     if #state.cursors == 0 then
         clearCursorContext()
     else
+        setHlsearch()
         redrawSigns()
     end
 end
@@ -2091,18 +2101,13 @@ end
 --- @field fixWindow? boolean
 --- @field allowUndo? boolean
 --- @field ifNotUndo? function
---- @field ignoreHlsearch? boolean
 
 --- @param callback fun(context: CursorContext)
 --- @param opts ActionOptions
 function CursorManager:action(callback, opts)
     updateSigns()
     updateCursorline()
-    if opts.ignoreHlsearch then
-        setOptions({ hlsearch = true })
-    else
-        setOptions({})
-    end
+    setOptions()
     updateVirtualEdit()
     -- state.leftcol = vim.fn.winsaveview().leftcol
     state.textoffset = vim.fn.getwininfo(vim.fn.win_getid())[1].textoff
@@ -2241,7 +2246,8 @@ function CursorManager:loadUndoItem(direction)
     if #state.cursors == 0 then
         clearCursorContext()
     else
-        setOptions({})
+        setOptions()
+        setHlsearch()
         cursorContextRedraw()
         state.oldCursor = cursorCopy(state.mainCursor)
         state.oldCursors = {table.unpack(state.cursors)}
