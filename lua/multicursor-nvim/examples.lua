@@ -571,6 +571,11 @@ local function matchAddCursor(direction, add)
                 searchWord = true
                 mainCursor:feedkeys('"_yiw')
             end
+        elseif vim.o.selection == "exclusive" then
+            local vs, ve = mainCursor:getVisual()
+            if vs[1] < ve[1] and ve[2] == 1 then
+                mainCursor:feedkeys(TERM_CODES.BS)
+            end
         end
         addCursor(ctx, function(cursor)
             local regex

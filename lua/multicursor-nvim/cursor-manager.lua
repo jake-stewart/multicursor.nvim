@@ -1398,6 +1398,7 @@ function Cursor:getVisualLines()
     end
     local pos = self._pos
     local vPos = self._vPos
+    local exclusive = vim.o.selection == "exclusive"
     if vPos[3] == 0 then
         vPos = { table.unpack(vPos) }
         vPos[3] = 1
@@ -1408,9 +1409,9 @@ function Cursor:getVisualLines()
     end
     local lines = vim.fn.getregion(vPos, pos, {
         type = info.enterVisualKey,
-        exclusive = false
+        exclusive = exclusive
     })
-    if info.type == "c" then
+    if info.type == "c" and not exclusive then
         local lastPos = compareMarkPos(pos, vPos) and vPos or pos
         local lastCol = vim.fn.col({lastPos[2], "$"})
         if lastCol == lastPos[3] then
