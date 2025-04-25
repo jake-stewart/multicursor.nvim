@@ -142,6 +142,8 @@ Cursor.__index = Cursor
 --- @field numEnabledCursors number
 --- @field leftcol number
 --- @field textoffset number
+--- @field exclusive boolean
+--- @field eol_listchar boolean
 --- @field yanked? boolean
 --- @field yankedWhileDisabled? boolean
 --- @field opts MultiCursorOpts
@@ -357,10 +359,10 @@ local function cursorDrawVisualChar(cursor, lines, start, hl)
             priority = 2000,
             virt_text = ve[3] > #line
                 and (vs[3] > #line
-                    and {{string.rep(" ", ve[4] - vs[4] + 1), hl}}
-                    or {{string.rep(" ", ve[4] + 1), hl}}
+                    and {{string.rep(" ", ve[4] - vs[4] + (state.exclusive and 0 or 1)), hl}}
+                    or {{string.rep(" ", ve[4] + (state.exclusive and 0 or 1)), hl}}
                 ) or nil,
-            end_col = ve[3],
+            end_col = ve[3] + (state.exclusive and -1 or 0),
             virt_text_pos = "overlay",
             virt_text_win_col = displayWidth + (vs[3] > #line and vs[4] or 0) - state.leftcol,
             hl_group = hl,
@@ -389,8 +391,8 @@ local function cursorDrawVisualChar(cursor, lines, start, hl)
                     }}
                     or {{
                         i == ve[2]
-                            and string.rep(" ", ve[4] + 1)
-                            or " ",
+                            and string.rep(" ", ve[4] + (state.exclusive and 0 or 1))
+                            or (((#line == 0) or state.eol_listchar) and " " or ""),
                         hl
                     }}
                 ) or nil
@@ -398,7 +400,7 @@ local function cursorDrawVisualChar(cursor, lines, start, hl)
                 strict = false,
                 undo_restore = false,
                 virt_text = virt_text,
-                end_col = endCol + 1,
+                end_col = endCol + (state.exclusive and 0 or 1),
                 priority = 2000,
                 virt_text_pos = "overlay",
                 virt_text_win_col = displayWidth
@@ -425,7 +427,7 @@ local function cursorDrawVisualLine(cursor, lines, start, hl)
         local id = set_extmark(0, state.nsid, row, 0, {
             strict = false,
             undo_restore = false,
-            virt_text = {{" ", hl}},
+            virt_text = (#line == 0 or state.eol_listchar) and {{" ", hl}} or nil,
             end_col = #line,
             virt_text_pos = "overlay",
             priority = 2000,
@@ -1398,7 +1400,6 @@ function Cursor:getVisualLines()
     end
     local pos = self._pos
     local vPos = self._vPos
-    local exclusive = vim.o.selection == "exclusive"
     if vPos[3] == 0 then
         vPos = { table.unpack(vPos) }
         vPos[3] = 1
@@ -1409,10 +1410,10 @@ function Cursor:getVisualLines()
     end
     local lines = vim.fn.getregion(vPos, pos, {
         type = info.enterVisualKey,
-        exclusive = exclusive
+        exclusive = state.exclusive
     })
     if info.type == "c" then
-        if exclusive then
+        if state.exclusive then
             local vs, ve = self:getVisual()
             if vs[1] < ve[1] and ve[2] == 1 then
                 table.insert(lines, "")
@@ -2119,6 +2120,8 @@ function CursorManager:action(callback, opts)
     updateVirtualEdit()
     -- state.leftcol = vim.fn.winsaveview().leftcol
     state.textoffset = vim.fn.getwininfo(vim.fn.win_getid())[1].textoff
+    state.exclusive = vim.o.selection == "exclusive"
+    state.eol_listchar = vim.opt.listchars:get().eol ~= nil
 
     tryUndo(opts)
     state.errors = {}
