@@ -1411,11 +1411,18 @@ function Cursor:getVisualLines()
         type = info.enterVisualKey,
         exclusive = exclusive
     })
-    if info.type == "c" and not exclusive then
-        local lastPos = compareMarkPos(pos, vPos) and vPos or pos
-        local lastCol = vim.fn.col({lastPos[2], "$"})
-        if lastCol == lastPos[3] then
-            table.insert(lines, "")
+    if info.type == "c" then
+        if exclusive then
+            local vs, ve = self:getVisual()
+            if vs[1] < ve[1] and ve[2] == 1 then
+                table.insert(lines, "")
+            end
+        else
+            local lastPos = compareMarkPos(pos, vPos) and vPos or pos
+            local lastCol = vim.fn.col({lastPos[2], "$"})
+            if lastCol == lastPos[3] then
+                table.insert(lines, "")
+            end
         end
     end
     return lines

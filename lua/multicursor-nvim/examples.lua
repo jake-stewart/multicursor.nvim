@@ -236,6 +236,11 @@ local function addCursor(ctx, motion, opts)
         local startCol = vs[2] + colDiff
         local endRow = ve[1] + rowDiff
         local endCol = ve[2] + colDiff
+        local lastLine = vim.fn.line("$")
+        if endRow > lastLine then
+            endRow = lastLine
+            endCol = vim.fn.col({lastLine, "$"})
+        end
         if oldMode == "V" or oldMode == "S" then
             startCol = vs[2]
             endCol = ve[2]
@@ -571,17 +576,15 @@ local function matchAddCursor(direction, add)
                 searchWord = true
                 mainCursor:feedkeys('"_yiw')
             end
-        elseif vim.o.selection == "exclusive" then
-            local vs, ve = mainCursor:getVisual()
-            if vs[1] < ve[1] and ve[2] == 1 then
-                mainCursor:feedkeys(TERM_CODES.BS)
-            end
         end
         addCursor(ctx, function(cursor)
             local regex
             local hasSelection = cursor:hasSelection()
             if hasSelection then
                 regex = "\\C\\V" .. escapeRegex(table.concat(cursor:getVisualLines(), "\n"))
+                if vim.o.selection == "exclusive"  then
+                    regex = regex .. "\\v.*\\n"
+                end
                 if cursor:mode() == "V" or cursor:mode() == "S" then
                     cursor:feedkeys(cursor:atVisualStart() and "0" or "o0")
                 elseif not cursor:atVisualStart() then
