@@ -8,13 +8,24 @@ local function defaultHl(name, opts)
     vim.api.nvim_set_hl(0, name, opts)
 end
 
-defaultHl("MultiCursorCursor", { reverse = true })
-defaultHl("MultiCursorVisual", { link = "Visual" })
-defaultHl("MultiCursorSign", { link = "SignColumn" })
-defaultHl("MultiCursorMatchPreview", { link = "Search" })
-defaultHl("MultiCursorDisabledCursor", { reverse = true })
-defaultHl("MultiCursorDisabledVisual", { link = "Visual" })
-defaultHl("MultiCursorDisabledSign", { link = "SignColumn" })
+local function setDefaultHighlights()
+    defaultHl("MultiCursorCursor", { reverse = true })
+    defaultHl("MultiCursorVisual", { link = "Visual" })
+    defaultHl("MultiCursorSign", { link = "SignColumn" })
+    defaultHl("MultiCursorMatchPreview", { link = "Search" })
+    defaultHl("MultiCursorDisabledCursor", { reverse = true })
+    defaultHl("MultiCursorDisabledVisual", { link = "Visual" })
+    defaultHl("MultiCursorDisabledSign", { link = "SignColumn" })
+end
+
+vim.api.nvim_create_autocmd("ColorScheme", {
+    group = vim.api.nvim_create_augroup(
+        "MultiCursorHighlights", { clear = true }),
+    pattern = "*",
+    callback = setDefaultHighlights
+})
+
+setDefaultHighlights()
 
 return {
     setup = core.setup,
