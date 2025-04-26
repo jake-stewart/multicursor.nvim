@@ -28,14 +28,18 @@ local function undoItemId(cur)
 end
 
 --- @param keys string
---- @param opts? { remap?: boolean, keycodes?: boolean }
+--- @param opts? { remap?: boolean, keycodes?: boolean, silent?: boolean }
 local function feedkeys(keys, opts)
     local mode = opts and opts.remap and "x" or "xn"
     if opts and opts.keycodes then
         keys = replace_termcodes(keys, true, true, true)
     end
     -- feedkeysManager.nvim_feedkeys(keys, mode, false)
-    feedkeysManager:keepjumpsFeedkeys(keys, mode)
+    if opts and opts.silent then
+        feedkeysManager:silentKeepjumpsFeedkeys(keys, mode)
+    else
+        feedkeysManager:keepjumpsFeedkeys(keys, mode)
+    end
 end
 
 --- @param a MarkPos
@@ -1575,7 +1579,7 @@ end
 --- For example, cursor:feedkeys('dw') will delete a word.
 --- By default, keys are not remapped and keycodes are not parsed.
 --- @param keys string
---- @param opts? { remap?: boolean, keycodes?: boolean }
+--- @param opts? { remap?: boolean, keycodes?: boolean, silent?: boolean }
 function Cursor:feedkeys(keys, opts)
     self:perform(function()
         feedkeys(keys, opts)

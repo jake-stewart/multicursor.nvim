@@ -99,17 +99,20 @@ end
 --- @param direction -1 | 1
 function examples.transposeCursors(direction)
     mc.action(function(ctx)
-        ctx:forEachCursor(function(cursor)
-            cursor:splitVisualLines()
-        end)
         local cursors = ctx:getCursors()
+        if #cursors <= 1 then
+            return
+        end
         local values = tbl.map(cursors, function(cursor)
-            return cursor:getVisualLines()[1]
+            return table.concat(cursor:getVisualLines(), "\n")
         end)
         for i, cursor in ipairs(cursors) do
             local idx = ((i - direction - 1) % #values) + 1
-            cursor:feedkeys('"_c' .. values[idx] .. TERM_CODES.ESC .. "v`<o")
+            vim.g.MulticursorRegister = values[idx]
+            cursor:feedkeys('"=MulticursorRegister'
+                .. TERM_CODES.CR .. 'P`[v`]', { silent = true })
         end
+        vim.g.MulticursorRegister = nil
         ctx:seekCursor(ctx:mainCursor():getPos(), direction, true):select()
     end)
 end
