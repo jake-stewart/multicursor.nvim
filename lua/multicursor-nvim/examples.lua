@@ -28,41 +28,33 @@ function examples.splitCursors(pattern)
         if not pattern or pattern == "" then
             return
         end
-        --- @type Cursor[]
-        local newCursors = {}
+        local exclusive = vim.o.selection == "exclusive"
         ctx:forEachCursor(function(cursor)
-            for _, newCursor in ipairs(cursor:splitVisualLines()) do
-                newCursors[#newCursors + 1] = newCursor
-            end
-        end)
-        --- @param cursor Cursor
-        local function pushCursor(cursor, startCol, endCol)
-            local newCursor = cursor:clone()
-            local pos = cursor:getPos()
-            local vs = cursor:getVisual()
-            local col = vs[2]
-            newCursor:setVisual(
-                { pos[1], col + startCol },
-                { pos[1], col + endCol }
-            )
-        end
-        for _, cursor in ipairs(newCursors) do
-            local selection = cursor:getVisualLines()
-            local matches = util.matchlist(selection, pattern, {
+            local visualLines = cursor:getVisualLines()
+            local matches = util.matchlist(visualLines, pattern, {
                 userConfig = true,
             })
-            local nextIdx = 0
+            if #matches == 0 then
+                return
+            end
+            local vs, ve = cursor:getVisual()
+            local last = vs
             for _, match in ipairs(matches) do
-                if match.byteidx ~= nextIdx then
-                    pushCursor(cursor, nextIdx, match.byteidx - 1)
-                end
-                nextIdx = match.byteidx + #match.text
+                local lines = vim.split(match.text, "\n", { plain = true })
+                local startPos = {
+                    vs[1] + match.idx,
+                    (match.idx == 0 and vs[2] or 1) + match.byteidx
+                        - (exclusive and 0 or 1),
+                }
+                local endPos = {
+                    vs[1] + match.idx + #lines - 1,
+                    (match.idx == 0 and vs[2] or 1) + match.byteidx + #lines[#lines],
+                }
+                cursor:clone():setVisual(last, startPos)
+                last = endPos
             end
-            if nextIdx < #selection[1] then
-                pushCursor(cursor, nextIdx, #selection[1] - 1)
-            end
-            cursor:delete()
-        end
+            cursor:setVisual(last, ve)
+        end)
     end)
 end
 
