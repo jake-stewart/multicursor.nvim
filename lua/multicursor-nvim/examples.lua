@@ -304,7 +304,7 @@ local mouseDragPos = nil
 function examples.handleMouse()
     mc.action(function(ctx)
         mouseDragPos = getMousePos()
-        local existingCursor = ctx:getCursorAtPos(mouseDragPos)
+        local existingCursor = ctx:getCursorAtPos(mouseDragPos, vim.fn.bufnr())
         if existingCursor then
             if ctx:numCursors() == 1 then
                 mouseDragAdd = true
@@ -339,7 +339,7 @@ function examples.handleMouseDrag()
         local direction = mouseDragPos[1] < endRow and 1 or -1
         for i = mouseDragPos[1], endRow, direction do
             pos[1] = i
-            local existingCursor = ctx:getCursorAtPos(pos)
+            local existingCursor = ctx:getCursorAtPos(pos, vim.fn.bufnr())
             if mouseDragAdd then
                 if existingCursor then
                     existingCursor:select()
@@ -351,7 +351,7 @@ function examples.handleMouseDrag()
                     end
                 end
             else
-                local existingCursor = ctx:getCursorAtPos(pos)
+                local existingCursor = ctx:getCursorAtPos(pos, vim.fn.bufnr())
                 if existingCursor then
                     existingCursor:delete()
                 end
@@ -498,13 +498,13 @@ local function selectRelativeCursor(direction, wrap)
     mc.action(function(ctx)
         local mainCursor = ctx:mainCursor()
         if ctx:numEnabledCursors() > 1 then
-            local cursor = ctx:seekCursor(mainCursor:getPos(), direction, wrap)
+            local cursor = ctx:seekCursor(mainCursor:getPos(), direction, wrap, nil, mainCursor:bufnr())
             if cursor then
                 cursor:select()
             end
         elseif ctx:numCursors() > 1 then
             local opts = { disabledCursors = true }
-            local cursor = ctx:seekCursor(mainCursor:getPos(), direction, wrap, opts)
+            local cursor = ctx:seekCursor(mainCursor:getPos(), direction, wrap, opts, mainCursor:bufnr())
             if cursor then
                 cursor:select()
                 mainCursor:delete()

@@ -59,12 +59,12 @@ function core.setup(opts)
         vim.keymap.set("i", "<right>", "<C-g>U<Right>")
     end
 
-    vim.api.nvim_create_autocmd({ "WinLeave" }, {
-        pattern = "*",
-        callback = function()
-            cursorManager:clear()
-        end
-    })
+    -- vim.api.nvim_create_autocmd({ "WinLeave" }, {
+    --     pattern = "*",
+    --     callback = function()
+    --         cursorManager:clear()
+    --     end
+    -- })
 end
 
 local function jump(direction, key)
