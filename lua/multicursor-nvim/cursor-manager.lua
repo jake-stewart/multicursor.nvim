@@ -12,6 +12,7 @@ local get_extmark = vim.api.nvim_buf_get_extmark_by_id
 --- @param buffer integer
 --- @param startLine integer
 --- @param endLine integer
+--- @return string[]
 local function get_lines(buffer, startLine, endLine)
     local lines = vim.api.nvim_buf_get_lines(buffer, startLine, endLine, true)
     for i, line in ipairs(lines) do
@@ -22,7 +23,8 @@ local function get_lines(buffer, startLine, endLine)
     return lines
 end
 
---- @param cur integer
+--- @param cur integer Undo sequence ID
+--- @return string
 local function undoItemId(cur)
     return vim.fn.bufnr() .. ":" .. cur
 end
@@ -46,8 +48,8 @@ local function feedkeys(keys, opts)
     end
 end
 
---- @param a MarkPos
---- @param b MarkPos
+--- @param a mc.MarkPos
+--- @param b mc.MarkPos
 --- @return boolean
 local function compareMarkPos(a, b)
     if a[2] == b[2] then
@@ -59,34 +61,34 @@ local function compareMarkPos(a, b)
     return a[2] < b[2]
 end
 
---- @param a Cursor
---- @param b Cursor
+--- @param a mc.Cursor
+--- @param b mc.Cursor
 --- @return boolean
 local function compareCursorsPosition(a, b)
     return compareMarkPos(a._pos, b._pos)
 end
 
---- @param a Pos
---- @param b Pos
+--- @param a mc.Pos
+--- @param b mc.Pos
 local function positionsEqual(a, b)
     return a[2] == b[2] and a[3] == b[3] and a[4] == b[4]
 end
 
 --- See :h getcurpos()
---- @alias CursorPos [integer, integer, integer, integer, integer]
+--- @alias mc.CursorPos [integer, integer, integer, integer, integer]
 
 --- See :h getpos()
---- @alias MarkPos [integer, integer, integer, integer]
+--- @alias mc.MarkPos [integer, integer, integer, integer]
 
 --- 1-indexed line, 1-indexed col, virtualedit offset
---- @alias Pos [integer, integer, integer]
+--- @alias mc.Pos [integer, integer, integer]
 
 --- 1-indexed line, 1-indexed col
---- @alias SimplePos [integer, integer]
+--- @alias mc.SimplePos [integer, integer]
 
---- @alias CursorQuery {disabledCursors?: boolean, enabledCursors?: boolean}
+--- @alias mc.CursorQuery {disabledCursors?: boolean, enabledCursors?: boolean}
 
---- @enum CursorState
+--- @enum mc.CursorState
 local CursorState = {
     none = 0,
     dirty = 1,
@@ -94,59 +96,59 @@ local CursorState = {
     deleted = 3,
 }
 
---- @class Cursor
+--- @class mc.Cursor
 --- @field package _id              integer
 --- @field package _modifiedId      integer
 --- @field package _enabled         boolean
---- @field package _state           CursorState
---- @field package _changePos       MarkPos
---- @field package _redoChangePos   MarkPos
---- @field package _origChangePos   MarkPos
+--- @field package _state           mc.CursorState
+--- @field package _changePos       mc.MarkPos
+--- @field package _redoChangePos   mc.MarkPos
+--- @field package _origChangePos   mc.MarkPos
 --- @field package _undoRegistered  boolean | nil
---- @field package _origPos         CursorPos
---- @field package _origVPos        MarkPos
+--- @field package _origPos         mc.CursorPos
+--- @field package _origVPos        mc.MarkPos
 --- @field package _drift           [integer, integer]
---- @field package _pos             CursorPos
+--- @field package _pos             mc.CursorPos
 --- @field package _register        table
 --- @field package _search          string
---- @field package _visualStart     MarkPos
---- @field package _visualEnd       MarkPos
+--- @field package _visualStart     mc.MarkPos
+--- @field package _visualEnd       mc.MarkPos
 --- @field package _visualIds       integer[] | nil
---- @field package _vPos            MarkPos
+--- @field package _vPos            mc.MarkPos
 --- @field package _mode            string
 --- @field package _posId           integer | nil
 --- @field package _changePosId     integer | nil
 --- @field package _vPosId          integer | nil
---- @field package _jumps           Pos[]
+--- @field package _jumps           mc.Pos[]
 --- @field package _jumpIdx         integer
 local Cursor = {}
 Cursor.__index = Cursor
 
---- @class MultiCursorUndoItem
+--- @class mc.MultiCursorUndoItem
 --- @field data number[]
 --- @field enabled boolean
 
 --- @package
---- @class StateHistoryItem
---- @field cursor? Cursor
---- @field cursors Cursor[]
+--- @class mc.StateHistoryItem
+--- @field cursor? mc.Cursor
+--- @field cursors mc.Cursor[]
 --- @field seqCur integer
---- @field jumplist Pos[]
+--- @field jumplist mc.Pos[]
 --- @field jumpIdx integer
 
 --- @package
---- @class SharedMultiCursorState
---- @field mainCursor Cursor | nil
+--- @class mc.SharedMultiCursorState
+--- @field mainCursor mc.Cursor | nil
 --- @field signIds? integer[]
 --- @field modifiedId integer
---- @field cursors Cursor[]
---- @field stateHistory table<integer, StateHistoryItem>
+--- @field cursors mc.Cursor[]
+--- @field stateHistory table<integer, mc.StateHistoryItem>
 --- @field options? table
 --- @field nsid integer
 --- @field virtualEditBlock? boolean
 --- @field cursorline? boolean
---- @field undoItems table<string, MultiCursorUndoItem>
---- @field redoItems table<string, MultiCursorUndoItem>
+--- @field undoItems table<string, mc.MultiCursorUndoItem>
+--- @field redoItems table<string, mc.MultiCursorUndoItem>
 --- @field currentSeq integer | nil
 --- @field changedtick integer | nil
 --- @field numLines number
@@ -158,11 +160,11 @@ Cursor.__index = Cursor
 --- @field eol_listchar boolean
 --- @field yanked? boolean
 --- @field yankedWhileDisabled? boolean
---- @field opts MultiCursorOpts
+--- @field opts mc.MultiCursorOpts
 --- @field mainSignHlExists? boolean
---- @field jumps Pos[]
+--- @field jumps mc.Pos[]
 --- @field jumpIdx integer
---- @field package lastJump? Pos
+--- @field package lastJump? mc.Pos
 local state = {
     cursors = {},
     stateHistory = {},
@@ -207,12 +209,13 @@ local function unsetOptions()
     end
 end
 
-local hlSearch = nil
+--- @type boolean?
+local saved_hlSearch = nil
 
 local function setHlsearch()
     if not state.opts.hlsearch then
-        if hlSearch == nil then
-            hlSearch = vim.o.hlsearch
+        if saved_hlSearch == nil then
+            saved_hlSearch = vim.o.hlsearch
             vim.o.hlsearch = false
             -- vim.cmd.noh()
         end
@@ -221,15 +224,16 @@ end
 
 local function unsetHlsearch()
     if not state.opts.hlsearch then
-        if hlSearch then
+        if saved_hlSearch then
             vim.o.hlsearch = true
             vim.schedule(vim.cmd.noh)
         end
-        hlSearch = nil
+        saved_hlSearch = nil
     end
 end
 
---- @return Cursor
+--- @param cursor table
+--- @return mc.Cursor
 local function createCursor(cursor)
     cursor._id = state.id
     state.id = state.id + 1
@@ -240,6 +244,8 @@ local function createCursor(cursor)
     return setmetatable(cursor, Cursor)
 end
 
+--- @param id integer Extmark ID
+--- @return vim.api.keyset.get_extmark_item|nil
 local function safeGetExtmark(id)
     local mark = get_extmark(0, state.nsid, id, {})
     if mark and #mark > 0 then
@@ -254,7 +260,7 @@ local function safeGetExtmark(id)
     return nil
 end
 
---- @param cursor Cursor
+--- @param cursor mc.Cursor
 local function cursorReset(cursor)
     cursor._origPos = cursor._pos
     cursor._origVPos = cursor._vPos
@@ -265,8 +271,8 @@ local function cursorReset(cursor)
     cursor._drift = { 0, 0 }
 end
 
---- @param cursor Cursor
---- @param target Cursor
+--- @param cursor mc.Cursor
+--- @param target mc.Cursor
 local function cursorCopyMode(cursor, target)
     if cursor._mode == target._mode then
         return
@@ -281,7 +287,7 @@ local function cursorCopyMode(cursor, target)
     cursor._mode = target._mode
 end
 
---- @param cursor Cursor
+--- @param cursor mc.Cursor
 local function cursorUpdatePos(cursor)
     local oldPos = cursor._pos
     cursor._modifiedId = state.modifiedId
@@ -338,14 +344,14 @@ local function cursorUpdatePos(cursor)
     end
 end
 
---- @param cursor Cursor
+--- @param cursor mc.Cursor
 local function cursorCheckUpdate(cursor)
     if cursor._modifiedId ~= state.modifiedId then
         cursorUpdatePos(cursor)
     end
 end
 
---- @param cursor Cursor
+--- @param cursor mc.Cursor
 --- @param lines string[]
 --- @param start integer
 --- @param hl string
@@ -429,7 +435,7 @@ local function cursorDrawVisualChar(cursor, lines, start, hl)
     end
 end
 
---- @param cursor Cursor
+--- @param cursor mc.Cursor
 --- @param lines string[]
 --- @param start integer
 --- @param hl string
@@ -455,7 +461,7 @@ local function cursorDrawVisualLine(cursor, lines, start, hl)
     end
 end
 
---- @param cursor Cursor
+--- @param cursor mc.Cursor
 --- @param lines string[]
 --- @param start integer
 --- @param hl string
@@ -549,8 +555,8 @@ local function cursorDrawVisualBlock(cursor, lines, start, hl)
     end
 end
 
---- @param cursor Cursor
---- @return Cursor[]
+--- @param cursor mc.Cursor
+--- @return mc.Cursor[]
 local function cursorSplitVisualChar(cursor)
     local newCursors = {}
     local atVisualStart = cursor:atVisualStart()
@@ -575,8 +581,8 @@ local function cursorSplitVisualChar(cursor)
     return newCursors
 end
 
---- @param cursor Cursor
---- @return Cursor[]
+--- @param cursor mc.Cursor
+--- @return mc.Cursor[]
 local function cursorSplitVisualLine(cursor)
     local newCursors = {}
     local visualStart, visualEnd = cursor:getVisual()
@@ -593,8 +599,8 @@ local function cursorSplitVisualLine(cursor)
     return newCursors
 end
 
---- @param cursor Cursor
---- @return Cursor[]
+--- @param cursor mc.Cursor
+--- @return mc.Cursor[]
 local function cursorSplitVisualBlock(cursor)
     local newCursors = {}
     local atVisualStart = cursor:atVisualStart()
@@ -623,6 +629,9 @@ local function cursorSplitVisualBlock(cursor)
 end
 
 
+--- @alias mc._CursorDrawFunc fun(cursor: mc.Cursor, lines: string[], start: integer, hl: string)
+--- @alias mc._CursorSplitFunc fun(cursor: mc.Cursor): mc.Cursor[]
+--- @type table<string, {type: string, enterVisualKey: string, enterSelectKey: string, draw: mc._CursorDrawFunc, split: mc._CursorSplitFunc}>
 local VISUAL_LOOKUP = {
     v = {
         type = "c",
@@ -668,7 +677,7 @@ local VISUAL_LOOKUP = {
     },
 }
 
---- @param cursor Cursor
+--- @param cursor mc.Cursor
 local function cursorDraw(cursor)
     local visualHL
     local cursorHL
@@ -730,7 +739,7 @@ local function cursorDraw(cursor)
     cursor._visualIds[#cursor._visualIds + 1] = id
 end
 
---- @param cursor Cursor
+--- @param cursor mc.Cursor
 local function cursorClearMarks(cursor)
     if cursor._posId then
         del_extmark(0, state.nsid, cursor._posId)
@@ -742,7 +751,7 @@ local function cursorClearMarks(cursor)
     end
 end
 
---- @param cursor Cursor
+--- @param cursor mc.Cursor
 local function cursorSetMarks(cursor)
     cursorClearMarks(cursor)
     local opts = { strict = false, undo_restore = false }
@@ -773,7 +782,7 @@ local function cursorSetMarks(cursor)
     )
 end
 
---- @param cursor Cursor
+--- @param cursor mc.Cursor
 local function cursorErase(cursor)
     if cursor._visualIds then
         for _, id in ipairs(cursor._visualIds) do
@@ -783,7 +792,8 @@ local function cursorErase(cursor)
     end
 end
 
---- @param cursor Cursor
+--- @param cursor mc.Cursor
+--- @return mc.Cursor
 local function cursorRead(cursor)
     cursor._mode = vim.fn.mode()
     cursor._pos = vim.fn.getcurpos()
@@ -800,7 +810,7 @@ local function cursorRead(cursor)
     return cursor
 end
 
---- @param cursor Cursor
+--- @param cursor mc.Cursor
 local function cursorWrite(cursor)
     vim.fn.setreg("", cursor._register)
     vim.fn.setreg("/", cursor._search)
@@ -844,7 +854,7 @@ local function cursorWrite(cursor)
     end
 end
 
---- @param cursor Cursor
+--- @param cursor mc.Cursor
 local function cursorUpdate(cursor)
     if cursor._state == CursorState.deleted then
         cursorErase(cursor)
@@ -859,10 +869,10 @@ local function cursorUpdate(cursor)
     end
 end
 
---- @class CursorContext
+--- @class mc.CursorContext
 local CursorContext = {}
 
---- @param cursor Cursor | nil
+--- @param cursor mc.Cursor | nil
 local function cursorContextSetMainCursor(cursor)
     if state.mainCursor then
         if state.mainCursor._state ~= CursorState.deleted then
@@ -904,8 +914,8 @@ local function default(value, defaultIfNil)
 end
 
 --- Returns a list of cursors, sorted by their position.
---- @param opts? CursorQuery
---- @return Cursor[]
+--- @param opts? mc.CursorQuery
+--- @return mc.Cursor[]
 function CursorContext:getCursors(opts)
     local enabledCursors = default(opts and opts.enabledCursors, true)
     local disabledCursors = default(opts and opts.disabledCursors, false)
@@ -918,39 +928,39 @@ function CursorContext:getCursors(opts)
 end
 
 --- Clones and returns the main cursor
---- @return Cursor
+--- @return mc.Cursor
 function CursorContext:addCursor()
     return self:mainCursor():clone()
 end
 
---- Util which executes callback for each cursor, sorted by their position.
---- @param callback fun(cursor: Cursor, i: integer, t: Cursor[])
---- @param opts? CursorQuery
+--- Util method which executes a callback for each cursor, sorted by their position.
+--- @param callback fun(cursor: mc.Cursor, i: integer, t: mc.Cursor[])
+--- @param opts? mc.CursorQuery
 function CursorContext:forEachCursor(callback, opts)
     tbl.forEach(self:getCursors(opts), callback)
 end
 
---- Util method which maps each cursor to a value.
+--- Util method which maps each cursor to a value, sorted by their position.
 --- @generic T
---- @param callback fun(cursor: Cursor, i: integer, t: Cursor[]): T
---- @param opts? CursorQuery
+--- @param callback fun(cursor: mc.Cursor, i: integer, t: mc.Cursor[]): T
+--- @param opts? mc.CursorQuery
 --- @return T[]
 function CursorContext:mapCursors(callback, opts)
     return tbl.map(self:getCursors(opts), callback)
 end
 
 --- Util method which returns the last cursor matching the predicate.
---- @param predicate fun(cursor: Cursor, i: integer, t: Cursor[]): any
---- @param opts? CursorQuery
---- @return Cursor | nil
+--- @param predicate fun(cursor: mc.Cursor, i: integer, t: mc.Cursor[]): any
+--- @param opts? mc.CursorQuery
+--- @return mc.Cursor | nil
 function CursorContext:findLastCursor(predicate, opts)
     return tbl.findLast(self:getCursors(opts), predicate)
 end
 
 --- Util method which returns the first cursor matching the predicate.
---- @param predicate fun(cursor: Cursor, i: integer, t: Cursor[]): any
---- @param opts? CursorQuery
---- @return Cursor | nil
+--- @param predicate fun(cursor: mc.Cursor, i: integer, t: mc.Cursor[]): any
+--- @param opts? mc.CursorQuery
+--- @return mc.Cursor | nil
 function CursorContext:findCursor(predicate, opts)
     return tbl.find(self:getCursors(opts), predicate)
 end
@@ -959,9 +969,9 @@ end
 --- A cursor exactly at pos will not be returned.
 --- It does not wrap, so if none are found, then nil is returned.
 --- If you wish to wrap, use `ctx:nextCursor(...) or ctx:firstCursor(...)`.
---- @param pos SimplePos | Pos
---- @param opts? CursorQuery
---- @return Cursor | nil
+--- @param pos mc.SimplePos | mc.Pos
+--- @param opts? mc.CursorQuery
+--- @return mc.Cursor | nil
 function CursorContext:nextCursor(pos, opts)
     local offset = pos[3] or 0
     return self:findCursor(function(cursor)
@@ -979,9 +989,9 @@ end
 --- A cursor exactly at pos will not be returned.
 --- It does not wrap, so if none are found, then nil is returned.
 --- If you wish to wrap, use `ctx:prevCursor(...) or ctx:lastCursor(...)`.
---- @param pos SimplePos | Pos
---- @param opts? CursorQuery
---- @return Cursor | nil
+--- @param pos mc.SimplePos | mc.Pos
+--- @param opts? mc.CursorQuery
+--- @return mc.Cursor | nil
 function CursorContext:prevCursor(pos, opts)
     local offset = pos[3] or 0
     return self:findLastCursor(function(cursor)
@@ -996,11 +1006,11 @@ function CursorContext:prevCursor(pos, opts)
 end
 
 --- Returns the closest cursor in the specified direction
---- @param pos SimplePos | Pos
+--- @param pos mc.SimplePos | mc.Pos
 --- @param direction -1 | 1
 --- @param wrap? boolean
---- @param opts? CursorQuery
---- @return Cursor | nil
+--- @param opts? mc.CursorQuery
+--- @return mc.Cursor | nil
 function CursorContext:seekCursor(pos, direction, wrap, opts)
     local cursor
     if direction == -1 then
@@ -1019,8 +1029,8 @@ end
 
 --- Returns the first/last cursor in the specified direction
 --- @param direction -1 | 1
---- @param opts? CursorQuery
---- @return Cursor | nil
+--- @param opts? mc.CursorQuery
+--- @return mc.Cursor | nil
 function CursorContext:seekBoundaryCursor(direction, opts)
     if direction == -1 then
         return self:firstCursor(opts)
@@ -1030,9 +1040,9 @@ function CursorContext:seekBoundaryCursor(direction, opts)
 end
 
 --- Returns the nearest cursor to pos, and accepts a cursor exactly at pos.
---- @param pos SimplePos | Pos
---- @param opts? CursorQuery
---- @return Cursor | nil
+--- @param pos mc.SimplePos | mc.Pos
+--- @param opts? mc.CursorQuery
+--- @return mc.Cursor | nil
 function CursorContext:nearestCursor(pos, opts)
     local offset = pos[3] or 0
     local nearestCursor = nil
@@ -1056,9 +1066,10 @@ function CursorContext:nearestCursor(pos, opts)
     return nearestCursor
 end
 
---- @param pos SimplePos | Pos
---- @param opts? CursorQuery
---- @return Cursor | nil
+--- Returns the exact cursor at pos.
+--- @param pos mc.SimplePos | mc.Pos
+--- @param opts? mc.CursorQuery
+--- @return mc.Cursor | nil
 function CursorContext:getCursorAtPos(pos, opts)
     return self:findCursor(function(cursor)
         return cursor._pos[2] == pos[1]
@@ -1068,7 +1079,7 @@ function CursorContext:getCursorAtPos(pos, opts)
 end
 
 --- Returns the cursor under the main cursor
---- @return Cursor | nil
+--- @return mc.Cursor | nil
 function CursorContext:overlappedCursor()
     util.warnOnce(
         "ctx:overlappedCursor",
@@ -1078,7 +1089,7 @@ function CursorContext:overlappedCursor()
 end
 
 --- Returns the main cursor.
---- @return Cursor
+--- @return mc.Cursor
 function CursorContext:mainCursor()
     if not state.mainCursor then
         state.mainCursor = tbl.find(state.cursors, function(cursor)
@@ -1094,15 +1105,15 @@ function CursorContext:mainCursor()
 end
 
 --- Returns the cursor closest to the start of the document.
---- @param opts? CursorQuery
---- @return Cursor | nil
+--- @param opts? mc.CursorQuery
+--- @return mc.Cursor | nil
 function CursorContext:firstCursor(opts)
     return self:findCursor(function() return true end, opts)
 end
 
 --- Returns the cursor closest to the end of the document.
---- @param opts? CursorQuery
---- @return Cursor | nil
+--- @param opts? mc.CursorQuery
+--- @return mc.Cursor | nil
 function CursorContext:lastCursor(opts)
     return self:findLastCursor(function() return true end, opts)
 end
@@ -1162,7 +1173,7 @@ function Cursor:delete()
 end
 
 --- Returns the disabled cursor underneath this one, if it exists
---- @return Cursor | nil
+--- @return mc.Cursor | nil
 function Cursor:overlappedCursor()
     if not self._enabled then
         return nil
@@ -1202,7 +1213,7 @@ end
 --- For each line of the cursor's visual selection, a new cursor is
 --- created, visually selecting only the single line.
 --- This method deletes the original cursor.
---- @return Cursor[]
+--- @return mc.Cursor[]
 function Cursor:splitVisualLines()
     cursorCheckUpdate(self)
     local visualInfo = VISUAL_LOOKUP[self._mode]
@@ -1214,13 +1225,15 @@ function Cursor:splitVisualLines()
     return {}
 end
 
---- @return Pos
+--- Returns the position of a cursor.
+--- @return mc.Pos
 function Cursor:getPos()
     cursorCheckUpdate(self)
     return { self._pos[2], self._pos[3], self._pos[4] }
 end
 
---- @param pos SimplePos | Pos
+--- Sets the position of the cursor.
+--- @param pos mc.SimplePos | mc.Pos
 --- @return self
 function Cursor:setPos(pos)
     cursorCheckUpdate(self)
@@ -1231,7 +1244,8 @@ function Cursor:setPos(pos)
     return self
 end
 
---- @param pos SimplePos | Pos
+--- Sets the position of the visual anchor equivalent of `setpos()` on `'v'` for a cursor.
+--- @param pos mc.SimplePos | mc.Pos
 --- @return self
 function Cursor:setVisualAnchor(pos)
     cursorCheckUpdate(self)
@@ -1242,20 +1256,23 @@ function Cursor:setVisualAnchor(pos)
     return self
 end
 
---- @return Pos
+--- Returns the position of cursor's visual anchor same as `getpos('v')`.
+--- @return mc.Pos
 function Cursor:getVisualAnchor()
     cursorCheckUpdate(self)
     return { self._vPos[2], self._vPos[3], self._vPos[4] }
 end
 
---- @param pos SimplePos | Pos
+--- Sets the position of the redo position marker.
+--- @param pos mc.SimplePos | mc.Pos
 function Cursor:setRedoChangePos(pos)
     cursorCheckUpdate(self)
     self._redoChangePos = { 0, pos[1], pos[2], 0 }
     cursorSetMarks(self)
 end
 
---- @param pos SimplePos | Pos
+--- Sets the position of the undo position marker.
+--- @param pos mc.SimplePos | mc.Pos
 function Cursor:setUndoChangePos(pos)
     cursorCheckUpdate(self)
     self._drift = { 0, 0 }
@@ -1264,18 +1281,22 @@ function Cursor:setUndoChangePos(pos)
     cursorSetMarks(self)
 end
 
+--- Set the search register of this cursor.
 --- @param search string
 function Cursor:setSearch(search)
     self._search = search
 end
 
+--- Return the <cword> for this cursor.
+--- @return string
 function Cursor:getCursorWord()
     cursorCheckUpdate(self)
     cursorWrite(self)
     return vim.fn.expand("<cword>")
 end
 
---- @param cursor Cursor
+--- @param cursor mc.Cursor
+--- @return mc.Cursor
 local function cursorCopy(cursor)
     state.id = state.id + 1
     return createCursor({
@@ -1298,7 +1319,7 @@ end
 -- id1, line1, col1, id2, line2, col2
 -- the id is of each cursor is negative if the cursor is disabled
 
---- @param cursors Cursor[]
+--- @param cursors mc.Cursor[]
 --- @return number[]
 local function packRedoCursors(cursors)
     local data = {}
@@ -1315,7 +1336,7 @@ local function packRedoCursors(cursors)
     return data
 end
 
---- @param cursors Cursor[]
+--- @param cursors mc.Cursor[]
 --- @return number[]
 local function packUndoCursors(cursors)
     local data = {}
@@ -1386,7 +1407,7 @@ end
 
 --- Returns a new cursor with the same position, registers,
 --- visual selection, and mode as this cursor.
---- @return Cursor
+--- @return mc.Cursor
 function Cursor:clone()
     cursorCheckUpdate(self)
     local cursor = cursorCopy(self)
@@ -1512,7 +1533,7 @@ end
 
 --- Returns start and end positions of visual selection start position
 --- is before or equal to end position.
---- @return Pos, Pos
+--- @return mc.Pos, mc.Pos
 function Cursor:getVisual()
     cursorCheckUpdate(self)
     if self:hasSelection() then
@@ -1550,6 +1571,8 @@ function Cursor:setMode(mode)
     return self
 end
 
+--- Disable the cursor.
+--- @return self
 function Cursor:disable()
     if self._state ~= CursorState.deleted and self._enabled then
         state.numDisabledCursors = state.numDisabledCursors + 1
@@ -1560,6 +1583,8 @@ function Cursor:disable()
     return self
 end
 
+--- Enable the cursor.
+--- @return self
 function Cursor:enable()
     if self._state ~= CursorState.deleted and not self._enabled then
         state.numEnabledCursors = state.numEnabledCursors + 1
@@ -1570,8 +1595,11 @@ function Cursor:enable()
     return self
 end
 
---- Calls callback with cursor
---- @param callback fun(cursor: Cursor)
+--- Activates this cursor by setting its registers, visual selection, mode,
+--- position, etc. Then, it calls the provided callback where you can perform
+--- some lower level operations. Once the callback is finished, the new cursor
+--- state is read and the previously selected cursor is restored.
+--- @param callback fun(cursor: mc.Cursor)
 function Cursor:perform(callback)
     cursorCheckUpdate(self)
     state.modifiedId = state.modifiedId + 1
@@ -1589,8 +1617,10 @@ function Cursor:perform(callback)
 end
 
 --- Makes the cursor perform a command/commands.
---- For example, cursor:feedkeys('dw') will delete a word.
+---
+--- For example, `cursor:feedkeys('dw')` will delete a word.
 --- By default, keys are not remapped and keycodes are not parsed.
+---
 --- @param keys string
 --- @param opts? { remap?: boolean, keycodes?: boolean, silent?: boolean }
 function Cursor:feedkeys(keys, opts)
@@ -1600,8 +1630,8 @@ function Cursor:feedkeys(keys, opts)
 end
 
 --- Sets the visual selection and sets the cursor position to `visualEnd`.
---- @param visualStart SimplePos | Pos
---- @param visualEnd SimplePos | Pos
+--- @param visualStart mc.SimplePos | mc.Pos
+--- @param visualEnd mc.SimplePos | mc.Pos
 --- @return self
 function Cursor:setVisual(visualStart, visualEnd)
     cursorCheckUpdate(self)
@@ -1661,23 +1691,29 @@ function CursorContext:cursorsEnabled()
     return state.numDisabledCursors == 0
 end
 
+--- Returns the total number of cursors.
+--- There is always at least one cursor (the main cursor).
 --- @return integer
 function CursorContext:numCursors()
     return state.numEnabledCursors + state.numDisabledCursors + 1
 end
 
+--- Returns number of enabled cursors.
+--- There is always at least one enabled cursor (the main cursor).
 --- @return integer
 function CursorContext:numEnabledCursors()
     return state.numEnabledCursors + 1
 end
 
+--- Returns the number of disabled cursors.
 --- @return integer
 function CursorContext:numDisabledCursors()
     return state.numDisabledCursors
 end
 
+--- @return mc.Cursor[], boolean
 local function cursorContextMergeCursors()
-    --- @type Cursor[]
+    --- @type mc.Cursor[]
     local newCursors = {}
     local didMerge = false
     state.numDisabledCursors = 0
@@ -1721,6 +1757,8 @@ local function cursorContextMergeCursors()
     return origCursors, didMerge
 end
 
+--- Returns whether there are virtual cursors.
+--- @return boolean
 function CursorContext:hasCursors()
     return #state.cursors > 1
         or #state.cursors == 1
@@ -1756,6 +1794,7 @@ local function clearCursorContext()
     end
 end
 
+--- Removes all cursors.
 function CursorContext:clear()
     if #state.cursors > 0 then
         state.stateHistory[historyItemId()] = {
@@ -1770,7 +1809,8 @@ function CursorContext:clear()
     clearCursorContext()
 end
 
---- @param cursor Cursor
+--- @param cursor mc.Cursor
+--- @return mc.Cursor
 local function cursorApplyDrift(cursor)
     if not cursor._redoChangePos then
         cursor._redoChangePos = cursor._pos
@@ -1972,7 +2012,7 @@ end
 local CursorManager = {}
 
 --- @param nsid integer
---- @param opts MultiCursorOpts
+--- @param opts mc.MultiCursorOpts
 function CursorManager:setup(nsid, opts)
     state.nsid = nsid
     state.opts = opts or {}
@@ -2061,10 +2101,11 @@ local function updateCursorline()
         })
         newHl = vim.tbl_deep_extend("keep", newHl, hl)
     end
+    --- @diagnostic disable-next-line: param-type-mismatch (hl is actually compatible)
     vim.api.nvim_set_hl(0, "MultiCursorMainSign", newHl)
 end
 
---- @param opts ActionOptions
+--- @param opts mc.ActionOptions
 local function tryUndo(opts)
     if not opts.allowUndo then
         return
@@ -2096,7 +2137,7 @@ local function updateVirtualEdit()
     end
 end
 
---- @param origCursor Cursor
+--- @param origCursor mc.Cursor
 --- @param winStartLine integer
 local function fixWindowScroll(origCursor, winStartLine)
     local newStartLine = vim.fn.line("w0")
@@ -2125,14 +2166,16 @@ local function fixWindowScroll(origCursor, winStartLine)
     -- is returning outdated values. probably a neovim bug
 end
 
---- @class ActionOptions
+--- @class mc.ActionOptions
 --- @field excludeMainCursor? boolean
 --- @field fixWindow? boolean
 --- @field allowUndo? boolean
---- @field ifNotUndo? function
+--- @field ifNotUndo? fun(cursor: mc.Cursor)
 
---- @param callback fun(context: CursorContext)
---- @param opts ActionOptions
+--- @generic T
+--- @param callback fun(context: mc.CursorContext): T?
+--- @param opts mc.ActionOptions
+--- @return T?
 function CursorManager:action(callback, opts)
     updateSigns()
     updateCursorline()
@@ -2401,28 +2444,38 @@ function CursorManager:dirty()
     state.numLines = vim.fn.line("$")
 end
 
+--- Returns whether all cursors are enabled.
+--- @return boolean
 function CursorManager:cursorsEnabled()
     return CursorContext:cursorsEnabled()
 end
 
+--- Returns whether there are virtual cursors.
+--- @return boolean
 function CursorManager:hasCursors()
     return CursorContext:hasCursors()
 end
 
+--- Removes all cursors.
 function CursorManager:clear()
     CursorContext:clear()
 end
 
+--- Returns the total number of cursors.
+--- There is always at least one cursor (the main cursor).
 --- @return integer
 function CursorManager:numCursors()
     return CursorContext:numCursors()
 end
 
+--- Returns number of enabled cursors.
+--- There is always at least one enabled cursor (the main cursor).
 --- @return integer
 function CursorManager:numEnabledCursors()
     return CursorContext:numEnabledCursors()
 end
 
+--- Returns the number of disabled cursors.
 --- @return integer
 function CursorManager:numDisabledCursors()
     return CursorContext:numDisabledCursors()
