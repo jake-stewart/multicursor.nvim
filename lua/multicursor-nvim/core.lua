@@ -32,6 +32,7 @@ end
 --- @class MultiCursorOpts
 --- @field signs? string[] | nil,
 --- @field shallowUndo? boolean
+--- @field hlsearch? boolean
 
 --- @param opts? MultiCursorOpts
 function core.setup(opts)

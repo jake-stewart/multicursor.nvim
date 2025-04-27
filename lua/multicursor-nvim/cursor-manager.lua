@@ -201,21 +201,24 @@ end
 local hlSearch = nil
 
 local function setHlsearch()
-    if hlSearch == nil then
-        hlSearch = vim.o.hlsearch
-        vim.o.hlsearch = false
-        -- vim.cmd.noh()
+    if not state.opts.hlsearch then
+        if hlSearch == nil then
+            hlSearch = vim.o.hlsearch
+            vim.o.hlsearch = false
+            -- vim.cmd.noh()
+        end
     end
 end
 
 local function unsetHlsearch()
-    if hlSearch then
-        vim.o.hlsearch = true
-        vim.schedule(vim.cmd.noh)
+    if not state.opts.hlsearch then
+        if hlSearch then
+            vim.o.hlsearch = true
+            vim.schedule(vim.cmd.noh)
+        end
+        hlSearch = nil
     end
-    hlSearch = nil
 end
-
 
 --- @return Cursor
 local function createCursor(cursor)
