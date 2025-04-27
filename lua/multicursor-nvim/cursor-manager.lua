@@ -613,7 +613,7 @@ local function cursorSplitVisualBlock(cursor)
         local newCursor = cursor:clone()
         newCursors[#newCursors + 1] = newCursor
         local visualEndCol = atEndOfLine
-            and #get_lines(cursor._buffer, i - 1, i)
+            and #get_lines(cursor._buffer, i - 1, i)[1]
             or visualEnd[2]
         if atVisualStart then
             newCursor:setVisual(
@@ -2226,6 +2226,24 @@ function CursorManager:action(callback, opts)
     state.cursors = newCursors
 
 
+    local bufsExist = {}
+    local newCursors = {}
+    for _, cursor in ipairs(state.cursors) do
+        local exists = bufsExist[cursor._buffer]
+        if exists == nil then
+            exists = vim.fn.bufexists(cursor._buffer) == 1
+            bufsExist[cursor._buffer] = exists
+            if not exists then
+                state.buffers[cursor._buffer] = nil
+            end
+        end
+        if exists then
+            newCursors[#newCursors + 1] = cursor
+        end
+    end
+    state.cursors = newCursors
+
+
     tryUndo(opts)
     state.errors = {}
 
@@ -2481,6 +2499,37 @@ function CursorContext:restore()
         state.mainCursor = cursorCopy(item.cursor)
         state.mainCursor._state = CursorState.new
         cursorSetMarks(state.mainCursor)
+    end
+end
+
+function CursorManager:bufEnter()
+    local bufnr = vim.fn.bufnr()
+    state.buffers[bufnr] = true
+    state.buffer = bufnr
+    if state.mainCursor and bufnr == state.mainCursor._buffer then
+        redrawSigns()
+        return
+    end
+
+    local pos = vim.fn.getcurpos()
+    local newCursor = CursorContext:nearestCursor({ pos[2], pos[3], pos[4] })
+    if newCursor then
+        cursorWrite(newCursor)
+    else
+        newCursor = cursorRead(CursorContext:mainCursor():clone())
+        newCursor._buffer = state.buffer
+        state.buffers[newCursor._buffer] = true
+    end
+    local oldCursor = state.mainCursor
+    state.mainCursor = newCursor
+    if oldCursor then
+        oldCursor:delete()
+    end
+    cursorContextMergeCursors()
+    if #state.cursors == 0 then
+        clearCursorContext()
+    else
+        redrawSigns()
     end
 end
 
