@@ -27,6 +27,10 @@ local function undoItemId(cur)
     return vim.fn.bufnr() .. ":" .. cur
 end
 
+local function historyItemId()
+    return vim.fn.win_getid() .. ":" .. vim.fn.bufnr()
+end
+
 --- @param keys string
 --- @param opts? { remap?: boolean, keycodes?: boolean, silent?: boolean }
 local function feedkeys(keys, opts)
@@ -1754,7 +1758,7 @@ end
 
 function CursorContext:clear()
     if #state.cursors > 0 then
-        state.stateHistory[vim.fn.bufnr()] = {
+        state.stateHistory[historyItemId()] = {
             cursor = state.mainCursor
                 and cursorCopy(state.mainCursor) or nil,
             cursors = tbl.map(state.cursors, cursorCopy),
@@ -2276,7 +2280,7 @@ function CursorManager:loadUndoItem(direction)
         setOptions()
         setHlsearch()
         cursorContextRedraw()
-        state.stateHistory[vim.fn.bufnr()] = {
+        state.stateHistory[historyItemId()] = {
             cursor = state.mainCursor
                 and cursorCopy(state.mainCursor) or nil,
             cursors = tbl.map(state.cursors, cursorCopy),
@@ -2357,8 +2361,8 @@ function CursorManager:navigateJumplist(direction)
 end
 
 function CursorContext:restore()
-    local bufnr = vim.fn.bufnr()
-    local item = state.stateHistory[bufnr]
+    local id = historyItemId()
+    local item = state.stateHistory[id]
     if not item or item.seqCur ~= state.currentSeq then
         return
     end
@@ -2377,7 +2381,7 @@ function CursorContext:restore()
     for _, cursor in ipairs(state.cursors) do
         cursor:delete()
     end
-    state.stateHistory[bufnr] = newItem
+    state.stateHistory[id] = newItem
     state.jumps = item.jumplist
     state.jumpIdx = item.jumpIdx
     for _, cursor in ipairs(item.cursors) do
