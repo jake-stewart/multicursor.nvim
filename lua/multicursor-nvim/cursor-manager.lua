@@ -123,16 +123,20 @@ Cursor.__index = Cursor
 --- @field enabled boolean
 
 --- @package
+--- @class StateHistoryItem
+--- @field cursor? Cursor
+--- @field cursors Cursor[]
+--- @field seqCur integer
+--- @field jumplist Pos[]
+--- @field jumpIdx integer
+
+--- @package
 --- @class SharedMultiCursorState
 --- @field mainCursor Cursor | nil
 --- @field signIds? integer[]
 --- @field modifiedId integer
 --- @field cursors Cursor[]
---- @field oldCursor? Cursor[]
---- @field oldSeqCur? integer
---- @field oldCursors? Cursor[]
---- @field oldJumplist? Pos[]
---- @field oldJumpIdx? integer
+--- @field stateHistory table<integer, StateHistoryItem>
 --- @field options? table
 --- @field nsid integer
 --- @field virtualEditBlock? boolean
@@ -157,6 +161,7 @@ Cursor.__index = Cursor
 --- @field package lastJump? Pos
 local state = {
     cursors = {},
+    stateHistory = {},
     errors = {},
     undoItems = {},
     redoItems = {},
@@ -1268,6 +1273,7 @@ end
 
 --- @param cursor Cursor
 local function cursorCopy(cursor)
+    state.id = state.id + 1
     return createCursor({
         _id = state.id,
         _modifiedId = state.modifiedId,
@@ -1747,13 +1753,16 @@ local function clearCursorContext()
 end
 
 function CursorContext:clear()
-    if state.mainCursor then
-        state.oldCursor = cursorCopy(state.mainCursor)
+    if #state.cursors > 0 then
+        state.stateHistory[vim.fn.bufnr()] = {
+            cursor = state.mainCursor
+                and cursorCopy(state.mainCursor) or nil,
+            cursors = tbl.map(state.cursors, cursorCopy),
+            seqCur = state.currentSeq,
+            jumpIdx = state.jumpIdx,
+            jumplist = state.jumps
+        }
     end
-    state.oldCursors = {table.unpack(state.cursors)}
-    state.oldJumpIdx = state.jumpIdx
-    state.oldJumplist = state.jumps
-    state.oldSeqCur = state.currentSeq
     clearCursorContext()
 end
 
@@ -2267,9 +2276,14 @@ function CursorManager:loadUndoItem(direction)
         setOptions()
         setHlsearch()
         cursorContextRedraw()
-        state.oldCursor = cursorCopy(state.mainCursor)
-        state.oldCursors = {table.unpack(state.cursors)}
-        state.oldSeqCur = state.currentSeq
+        state.stateHistory[vim.fn.bufnr()] = {
+            cursor = state.mainCursor
+                and cursorCopy(state.mainCursor) or nil,
+            cursors = tbl.map(state.cursors, cursorCopy),
+            seqCur = state.currentSeq,
+            jumpIdx = state.jumpIdx,
+            jumplist = state.jumps
+        }
     end
 end
 
@@ -2343,27 +2357,38 @@ function CursorManager:navigateJumplist(direction)
 end
 
 function CursorContext:restore()
-    if state.oldSeqCur ~= state.currentSeq then
+    local bufnr = vim.fn.bufnr()
+    local item = state.stateHistory[bufnr]
+    if not item or item.seqCur ~= state.currentSeq then
         return
     end
-    local oldCursors = state.oldCursors or {}
-    local oldCursor = state.oldCursor
-    state.jumps = state.oldJumplist or {}
-    state.jumpIdx = state.oldJumpIdx or 0
-    state.oldCursors = self:getCursors()
-    state.oldCursor = self:mainCursor()
-    for _, cursor in ipairs(oldCursors) do
+    local newItem = {
+        jumplist = state.jumps,
+        jumpIdx = state.jumpIdx,
+        cursors = tbl.map(state.cursors, cursorCopy),
+        cursor = state.mainCursor
+            and cursorCopy(state.mainCursor) or nil,
+        seqCur = state.currentSeq
+    }
+    if state.mainCursor then
+        state.mainCursor:delete()
+        state.mainCursor = nil
+    end
+    for _, cursor in ipairs(state.cursors) do
+        cursor:delete()
+    end
+    state.stateHistory[bufnr] = newItem
+    state.jumps = item.jumplist
+    state.jumpIdx = item.jumpIdx
+    for _, cursor in ipairs(item.cursors) do
         state.cursors[#state.cursors + 1] = cursor
         cursor._state = CursorState.new
         cursorSetMarks(cursor)
     end
-    if oldCursor then
-        state.mainCursor = oldCursor
+    if item.cursor then
+        state.mainCursor = cursorCopy(item.cursor)
         state.mainCursor._state = CursorState.new
         cursorSetMarks(state.mainCursor)
-    end
-    for _, cursor in ipairs(state.oldCursors) do
-        cursor:delete()
     end
 end
 
