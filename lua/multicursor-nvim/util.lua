@@ -32,6 +32,7 @@ end
 --- @param lines string[]
 --- @param pattern string
 --- @param opts? { userConfig?: boolean }
+--- @return {idx: integer, byteidx: integer, text: string, submatches: string[]}[]
 function util.matchlist(lines, pattern, opts)
     opts = opts or {}
     if opts.userConfig then

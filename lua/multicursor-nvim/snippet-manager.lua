@@ -35,7 +35,7 @@ end
 
 --- @param wasFromSelectMode boolean
 --- @param typed? string
---- @param insertModePos? MarkPos
+--- @param insertModePos? mc.MarkPos
 function SnippetManager:performSnippet(wasFromSelectMode, typed, insertModePos)
     self._hasSnippet = false
     cursorManager:dirty()

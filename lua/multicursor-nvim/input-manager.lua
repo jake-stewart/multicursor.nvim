@@ -33,7 +33,7 @@ local SPECIAL_NORMAL_KEYS = {
 --- @field private _wasMode string
 --- @field private _fromSelectMode boolean
 --- @field private _modeChangeCallbacks? function[]
---- @field private _keymapLayerCallbacks? KeymapSetCallback[]
+--- @field private _keymapLayerCallbacks? mc.KeymapSetterFunc[]
 local InputManager = {}
 
 --- @param nsid number
@@ -49,6 +49,7 @@ function InputManager:setup(nsid)
     self._keymapLayerCallbacks = {}
 
     local originalGetChar = vim.fn.getchar
+    --- @diagnostic disable-next-line: duplicate-set-field (we're replacing the function)
     function vim.fn.getchar(...)
         if ({...})[1] == 1 and cursorManager:hasCursors() then
             return 0
@@ -94,12 +95,12 @@ function InputManager:setup(nsid)
     )
 end
 
---- @param callback fun(set: KeymapSetCallback)
+--- @param callback fun(set: mc.KeymapSetterFunc)
 function InputManager:addKeymapLayer(callback)
     table.insert(self._keymapLayerCallbacks, callback)
 end
 
---- @param callback fun(set: KeymapSetCallback)
+--- @param callback fun(set: mc.KeymapSetterFunc)
 function InputManager:removeKeymapLayer(callback)
     self._keymapLayerCallbacks =
         tbl.filter(self._keymapLayerCallbacks, function(cb)
@@ -107,7 +108,7 @@ function InputManager:removeKeymapLayer(callback)
         end)
 end
 
---- @param callback function(cursor: Cursor, from: string, to: string)
+--- @param callback fun(cursor: mc.Cursor, from: string, to: string)
 function InputManager:onModeChanged(callback)
     if not self._modeChangeCallbacks then
         self._modeChangeCallbacks = {}
@@ -115,10 +116,10 @@ function InputManager:onModeChanged(callback)
     self._modeChangeCallbacks[#self._modeChangeCallbacks + 1] = callback
 end
 
---- @class SafeStateInfo
+--- @class mc.SafeStateInfo
 --- @field wasMode string
 
---- @param callback function(info: SafeStateInfo)
+--- @param callback fun(info: mc.SafeStateInfo)
 function InputManager:onSafeState(callback)
     if not self._safeStateCallbacks then
         self._safeStateCallbacks = {}
@@ -126,7 +127,8 @@ function InputManager:onSafeState(callback)
     self._safeStateCallbacks[#self._safeStateCallbacks + 1] = callback
 end
 
---- @param callback function
+--- Call given callback, handling internal state
+--- @param callback fun()
 function InputManager:performAction(callback)
     if not self._applying then
         self._applying = true
@@ -138,6 +140,7 @@ function InputManager:performAction(callback)
     end
 end
 
+--- Reset internal state
 function InputManager:clear()
     self._keys = ""
     self._typed = ""
