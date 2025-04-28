@@ -27,12 +27,18 @@ function util.warnOnce(key, message)
     util.echowarn(message)
 end
 
+--- @class mc.MatchListItem
+--- @field idx integer
+--- @field byteidx integer
+--- @field text string
+--- @field submatches string[]
+
 --- Wraps `:h matchstrlist()` and allow injecting user options
 --- for `:h smartcase`, `:h ignorecase`, and `:h magic`
 --- @param lines string[]
 --- @param pattern string
 --- @param opts? { userConfig?: boolean }
---- @return {idx: integer, byteidx: integer, text: string, submatches: string[]}[]
+--- @return mc.MatchListItem[]
 function util.matchlist(lines, pattern, opts)
     opts = opts or {}
     if opts.userConfig then

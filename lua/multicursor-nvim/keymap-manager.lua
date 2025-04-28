@@ -1,10 +1,14 @@
 --- @class mc.KeymapManager
---- @field private _keymaps table<number, [string | string[], string, integer][]>
+--- @field private _keymaps table<number, table>
 local KeymapManager = {
     _keymaps = {}
 }
 
---- @alias mc.KeymapSetterFunc fun(mode: string | string[], lhs: string, rhs: string | function, opts?: vim.keymap.set.Opts)
+--- @alias mc.KeymapSetterFunc fun(
+---     mode: string | string[],
+---     lhs: string,
+---     rhs: string | function,
+---     opts?: vim.keymap.set.Opts)
 
 --- @param bufnr number
 --- @param callbacks fun(set: mc.KeymapSetterFunc)[]

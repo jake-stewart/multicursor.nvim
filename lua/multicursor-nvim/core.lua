@@ -5,12 +5,14 @@ local snippetManager = require("multicursor-nvim.snippet-manager")
 local TERM_CODES = require("multicursor-nvim.term-codes")
 
 local core = {
-    --- @type boolean Whether there is an action in progress (to prevent nested action calls)
+    --- @type boolean Whether there is an action in progress
+    --- (to prevent nested action calls)
     performingAction = false,
 }
 
 --- Registers a cursor callback.
---- It will be called for each cursor whenever mode is changed with old mode, new mode.
+--- It will be called for each cursor whenever mode is changed with
+--- old mode, new mode.
 --- @param callback fun(cursor: mc.Cursor, oldMode: string, newMode: string)
 function core.onModeChanged(callback)
     inputManager:onModeChanged(callback)
@@ -24,8 +26,10 @@ function core.onSafeState(callback)
 end
 
 --- Registers a keymap layer callback.
---- It will be called when a buffer has cursors, any mappings set with the provided function
---- (similar to `vim.keymap.set`) will be automatically removed once multicursor ends.
+--- It will be called when a buffer has cursors, any mappings set with the
+--- provided function
+--- (similar to `vim.keymap.set`) will be automatically removed once
+--- multicursor ends.
 --- @param callback fun(set: mc.KeymapSetterFunc)
 function core.addKeymapLayer(callback)
     inputManager:addKeymapLayer(callback)
@@ -40,7 +44,7 @@ end
 --- @class mc.MultiCursorOpts
 --- @field signs? string[] | nil,
 --- @field shallowUndo? boolean  (default: false)
---- @field hlsearch? boolean Whether to keep hlsearch for main cursor after a cursor action (default: false)
+--- @field hlsearch? boolean Allow hlsearch when multicursor (default: false)
 
 --- @param opts? mc.MultiCursorOpts
 function core.setup(opts)
@@ -89,20 +93,22 @@ end
 
 --- Go to the newer cursor position in jump list.
 --- Behaves identically to `<C-i>` except it syncs up the cursors.
---- This action is automatically mapped to `<C-i>` unless a mapping already exists.
+--- This action is automatically mapped to `<C-i>` unless a mapping
+--- already exists.
 function core.jumpForward()
     jump(1, TERM_CODES.CTRL_I)
 end
 
 --- Go to the older cursor position in jump list.
 --- Behaves identically to `<C-o>` except it syncs up the all the cursors.
---- This action is automatically mapped to `<C-o>` unless a mapping already exists.
+--- This action is automatically mapped to `<C-o>` unless a mapping
+--- already exists.
 function core.jumpBackward()
     jump(-1, TERM_CODES.CTRL_O)
 end
 
 --- Perform a complex action using the |multicursor-api|.
---- @param callback fun(ctx: mc.CursorContext) Function to execute with multicursor context
+--- @param callback fun(ctx: mc.CursorContext)
 function core.action(callback)
     if core.performingAction then
         error("An action is already being performed")

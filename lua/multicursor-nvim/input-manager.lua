@@ -49,7 +49,8 @@ function InputManager:setup(nsid)
     self._keymapLayerCallbacks = {}
 
     local originalGetChar = vim.fn.getchar
-    --- @diagnostic disable-next-line: duplicate-set-field (we're replacing the function)
+
+    --- @diagnostic disable-next-line: duplicate-set-field
     function vim.fn.getchar(...)
         if ({...})[1] == 1 and cursorManager:hasCursors() then
             return 0
@@ -169,7 +170,8 @@ function InputManager:_handleExitInsertMode(mode, wasFromSelectMode)
             if self._modeChangeCallbacks and self._wasMode ~= mode then
                 local changePos = vim.fn.getpos("'[")
                 self:_emitModeChanged(ctx:mainCursor(), self._wasMode, mode)
-                ctx:mainCursor():setRedoChangePos({changePos[2], changePos[3]})
+                ctx:mainCursor():setRedoChangePos(
+                    {changePos[2], changePos[3]})
             end
             ctx:forEachCursor(function(cursor)
                 cursor:perform(function()
@@ -347,7 +349,8 @@ function InputManager:_onSafeState()
         if not isInsertOrReplaceMode(self._wasMode) then
             self._insertModeStartPos = vim.fn.getpos(".")
             if self._fromSelectMode then
-                self._insertModeStartPos[3] = math.max(1, self._insertModeStartPos[3] - 1)
+                self._insertModeStartPos[3] = math.max(
+                    1, self._insertModeStartPos[3] - 1)
             end
         end
         self._wasMode = mode
@@ -368,7 +371,8 @@ function InputManager:_onSafeState()
     if self._cmdType == ":" then
         self:_handleLeaveCommandlineMode()
     elseif self._cmdType
-        and string.sub(self._typed, #self._typed, #self._typed) == TERM_CODES.ESC
+        and string.sub(self._typed, #self._typed, #self._typed)
+            == TERM_CODES.ESC
     then
         -- for some reason escape doesn't cancel search when feedkeys
     elseif self._didUndo then

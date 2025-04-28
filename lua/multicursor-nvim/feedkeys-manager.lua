@@ -51,12 +51,14 @@ end
 
 function FeedkeysManager:silentKeepjumpsFeedkeys(keys, mode)
     keys = vim.fn.substitute(keys, "'", "'..\"'\"..'", "g")
-    vim.cmd("silent keepjumps call feedkeys('" .. keys .. "', '" .. mode .. "')")
+    vim.cmd("silent keepjumps call feedkeys('"
+        .. keys .. "', '" .. mode .. "')")
 end
 
 function FeedkeysManager:noAutocommandsKeepjumpsFeedkeys(keys, mode)
     keys = vim.fn.substitute(keys, "'", "'..\"'\"..'", "g")
-    vim.cmd("noautocmd keepjumps call feedkeys('" .. keys .. "', '" .. mode .. "')")
+    vim.cmd("noautocmd keepjumps call feedkeys('"
+        .. keys .. "', '" .. mode .. "')")
 end
 
 --- @param typed string
@@ -65,7 +67,8 @@ function FeedkeysManager:removeFedKeys(typed)
     if #self._fedKeys > 0 then
         local start, _end = string.find(self._fedKeys, typed, 1, true)
         if start == 1 and _end then
-            self._fedKeys = string.sub(self._fedKeys, _end + 1, #self._fedKeys)
+            self._fedKeys = string.sub(
+                self._fedKeys, _end + 1, #self._fedKeys)
             return ""
         else
             start, _end = string.find(typed, self._fedKeys, 1, true)

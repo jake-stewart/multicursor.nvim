@@ -36,30 +36,36 @@ end
 --- @param wasFromSelectMode boolean
 --- @param typed? string
 --- @param insertModePos? mc.MarkPos
-function SnippetManager:performSnippet(wasFromSelectMode, typed, insertModePos)
+function SnippetManager:performSnippet(
+    wasFromSelectMode, typed, insertModePos
+)
     self._hasSnippet = false
     cursorManager:dirty()
     local reg = vim.fn.getreg(".")
 
-    -- This is nvim-cmp specific logic, for blink.cmp, directly applying the dot register
-    -- result in a clean state ready to expand.
+    -- This is nvim-cmp specific logic, for blink.cmp, directly applying
+    -- the dot register result in a clean state ready to expand.
     if not package.loaded["blink.cmp"] then
         local removedEndReg = util.removeStartFromEnd(reg, self._snippetText)
         if reg == removedEndReg then
             -- Note that label is not necessarily a prefix of
             -- _snippetText, e.g. label is "sp" but _snippetText is
-            -- "fmt.Sprintf", that's why reg == removedEndReg here, in this case dot
-            -- register is "sp<BS><BS>sp" and what we want is "sp<BS><BS>".
+            -- "fmt.Sprintf", that's why reg == removedEndReg here, in this
+            -- case dot register is "sp<BS><BS>sp" and what we want
+            -- is "sp<BS><BS>".
             --
             -- For example, if user types `fo` and wants to expand "for range"
-            -- snippet, nvim-cmp will first fill dot register with two "<BS>" then
-            -- the label "for" which is emulated by `feedkeys()`, then use
-            -- `nvim_buf_set_text` to clear the "for", which is **not** recorded in
-            -- dot register, after that, it will eventually expand the snippet.
+            -- snippet, nvim-cmp will first fill dot register with two "<BS>"
+            -- then the label "for" which is emulated by `feedkeys()`, then
+            -- use `nvim_buf_set_text` to clear the "for", which is **not**
+            -- recorded in dot register, after that, it will eventually
+            -- expand the snippet.
             local last = #reg
             for i = #reg, 3, -1 do
                 -- This sequence (128, 107, 98) represents "<BS>".
-                if reg:byte(i) == 98 and reg:byte(i - 1) == 107 and reg:byte(i - 2) == 128 then
+                if reg:byte(i) == 98 and reg:byte(i - 1) == 107
+                    and reg:byte(i - 2) == 128
+                then
                     last = i
                     break
                 end
@@ -85,13 +91,16 @@ function SnippetManager:performSnippet(wasFromSelectMode, typed, insertModePos)
         mainCursor:perform(function()
             local atStartCol = self._snippetCol <= 1
             if col + 1 < self._snippetCol then
-                local text = string.sub(self._snippetLine, col, self._snippetCol)
+                local text = string.sub(
+                    self._snippetLine, col, self._snippetCol)
                 if #text > 0 then
                     atStartCol = false
-                    feedkeysManager.nvim_feedkeys("a" .. text .. TERM_CODES.ESC, "n", false)
+                    feedkeysManager.nvim_feedkeys(
+                        "a" .. text .. TERM_CODES.ESC, "n", false)
                 end
             end
-            feedkeysManager.nvim_feedkeys(atStartCol and "i" or "a", "n", false)
+            feedkeysManager.nvim_feedkeys(
+                atStartCol and "i" or "a", "n", false)
             feedkeysManager.nvim_feedkeys("\7", "", false)
             feedkeysManager.nvim_feedkeys(TERM_CODES.ESC, "nx", false)
         end)

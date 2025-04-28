@@ -390,7 +390,7 @@ mc.hasCursors()                                       *multicursor-hasCursors*
 
 
 mc.deleteCursor()                                   *multicursor-deleteCursor*
-    Delete the main cursor, the main cursor is now the previous cursor.
+    Delete the main cursor. The closest cursor becomes the new main cursor.
 
     Usage example: >lua
         vim.keymap.set({"n", "v"}, "<leader>x", mc.deleteCursor)
