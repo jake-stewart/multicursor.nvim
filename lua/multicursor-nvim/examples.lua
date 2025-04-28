@@ -8,7 +8,7 @@ local setOpfunc = vim.fn[vim.api.nvim_exec2([[
     let &opfunc = a:val
   endfunc
   echon get(function('s:setOpfunc'), 'name')
-]], { output = true })]
+]], { output = true }).output]
 
 
 -- All of the default actions like match, select, transpose
