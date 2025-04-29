@@ -175,10 +175,14 @@ function InputManager:_handleExitInsertMode(mode, wasFromSelectMode)
             end
             ctx:forEachCursor(function(cursor)
                 cursor:perform(function()
-                    if not wasFromSelectMode then
-                        feedkeysManager.nvim_feedkeys(self._typed, "", false)
+                    if cursor:mode() == "n" then
+                        feedkeysManager.nvim_feedkeys(".", "nx", false)
+                    else
+                        if not wasFromSelectMode then
+                            feedkeysManager.nvim_feedkeys(self._typed, "", false)
+                        end
+                        feedkeysManager.nvim_feedkeys(reg, "nx", false)
                     end
-                    feedkeysManager.nvim_feedkeys(reg, "nx", false)
                 end)
                 if self._modeChangeCallbacks and self._wasMode ~= mode then
                     self:_emitModeChanged(cursor, self._wasMode, mode)
