@@ -23,6 +23,14 @@ local function get_lines(buffer, startLine, endLine)
     return lines
 end
 
+--- @param mode string
+--- @return boolean
+local function isVisualMode(mode)
+    return mode == "v"
+        or mode == "V"
+        or mode == TERM_CODES.CTRL_V
+end
+
 --- @param cur integer Undo sequence ID
 --- @return string
 local function undoItemId(cur)
@@ -149,6 +157,7 @@ Cursor.__index = Cursor
 --- @field nsid integer
 --- @field virtualEditBlock? boolean
 --- @field cursorline? boolean
+--- @field visual? boolean
 --- @field undoItems table<string, mc.MultiCursorUndoItem>
 --- @field redoItems table<string, mc.MultiCursorUndoItem>
 --- @field currentSeq integer | nil
@@ -1712,9 +1721,7 @@ end
 --- Returns true if cursor is in visual char/line/block mode
 --- @return boolean
 function Cursor:inVisualMode()
-    return self._mode == "v"
-        or self._mode == "V"
-        or self._mode == TERM_CODES.CTRL_V
+    return isVisualMode(self._mode)
 end
 
 --- Returns true if cursor is in select char/line/block mode
@@ -2121,21 +2128,26 @@ function CursorManager:onSafeState()
 end
 
 local function updateCursorline()
-    if vim.o.cursorline == state.cursorline then
-        return
-    end
     if state.mainSignHlExists == nil then
         state.mainSignHlExists = vim.fn.hlexists("MultiCursorMainSign") == 1
     end
     if state.mainSignHlExists == true then
         return
     end
+    local cursorline = vim.o.cursorline
+    local visual = isVisualMode(vim.fn.mode())
+    if cursorline == state.cursorline and state.visual == visual then
+        return
+    end
+    state.cursorline = cursorline
+    state.visual = visual
     local newHl = vim.api.nvim_get_hl(0, {
         name = "MultiCursorSign",
         link = false
     })
-    if vim.o.cursorline
-        and vim.o.signcolumn == "number"
+    if visual or not cursorline then
+        -- don't show cursorline
+    elseif vim.o.signcolumn == "number"
         and (vim.o.number or vim.o.relativenumber)
     then
         local hl = vim.api.nvim_get_hl(0, {
