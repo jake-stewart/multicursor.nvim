@@ -718,11 +718,10 @@ local function regexAddAllCursors(ctx, regex)
     local positions = {}
     local nPositions = 0
     while true do
-        mainCursor:perform(function()
-            vim.fn.search(regex)
-        end)
-        positions[nPositions + 1] = mainCursor:getPos()
+        vim.fn.search(regex)
+        local pos = vim.fn.getcurpos()
         nPositions = nPositions + 1
+        positions[nPositions] = { pos[2], pos[3] }
         if nPositions > 1
             and positions[1][1] == positions[nPositions][1]
             and positions[1][2] == positions[nPositions][2]
