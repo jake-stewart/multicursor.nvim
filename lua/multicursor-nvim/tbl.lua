@@ -67,6 +67,16 @@ end
 
 --- @generic T
 --- @param t T[]
+--- @param value T
+function tbl.remove(t, value)
+    local idx = tbl.indexOf(t, value)
+    if idx then
+        table.remove(t, idx)
+    end
+end
+
+--- @generic T
+--- @param t T[]
 --- @callback fun(v: T, i: integer, t: T[]): any
 --- @return T[], T[]
 function tbl.bifurcate(t, callback)

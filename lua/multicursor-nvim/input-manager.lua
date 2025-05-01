@@ -121,9 +121,17 @@ end
 --- @field wasMode string
 
 --- @param callback fun(info: mc.SafeStateInfo)
-function InputManager:onSafeState(callback)
+--- @param opts? { once?: boolean }
+function InputManager:onSafeState(callback, opts)
     if not self._safeStateCallbacks then
         self._safeStateCallbacks = {}
+    end
+    if opts and opts.once then
+        local wrapped = callback
+        callback = function(info)
+            wrapped(info)
+            tbl.remove(self._safeStateCallbacks, callback)
+        end
     end
     self._safeStateCallbacks[#self._safeStateCallbacks + 1] = callback
 end

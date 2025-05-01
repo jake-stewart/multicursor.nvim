@@ -21,8 +21,9 @@ end
 --- Registers a safe state callback.
 --- It will be called whenever the input manager is in a safe state.
 --- @param callback fun(info: mc.SafeStateInfo)
-function core.onSafeState(callback)
-    inputManager:onSafeState(callback)
+--- @param opts? { once?: boolean }
+function core.onSafeState(callback, opts)
+    inputManager:onSafeState(callback, opts)
 end
 
 --- Registers a keymap layer callback.
