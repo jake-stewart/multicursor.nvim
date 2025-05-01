@@ -31,6 +31,14 @@ local function isVisualMode(mode)
         or mode == TERM_CODES.CTRL_V
 end
 
+--- @param mode string
+--- @return boolean
+local function isSelectMode(mode)
+    return mode == "s"
+        or mode == "S"
+        or mode == TERM_CODES.CTRL_S
+end
+
 --- @param cur integer Undo sequence ID
 --- @return string
 local function undoItemId(cur)
@@ -1727,9 +1735,7 @@ end
 --- Returns true if cursor is in select char/line/block mode
 --- @return boolean
 function Cursor:inSelectMode()
-    return self._mode == "s"
-        or self._mode == "S"
-        or self._mode == TERM_CODES.CTRL_S
+    return isSelectMode(self._mode)
 end
 
 --- When cursors are disabled, only the main cursor can be interacted with.
@@ -2135,7 +2141,8 @@ local function updateCursorline()
         return
     end
     local cursorline = vim.o.cursorline
-    local visual = isVisualMode(vim.fn.mode())
+    local mode = vim.fn.mode()
+    local visual = isVisualMode(mode) or isSelectMode(mode)
     if cursorline == state.cursorline and state.visual == visual then
         return
     end
