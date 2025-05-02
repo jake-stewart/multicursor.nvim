@@ -712,26 +712,15 @@ end
 --- @param regex string
 local function regexAddAllCursors(ctx, regex)
     local mainCursor = ctx:mainCursor()
-    if mainCursor:hasSelection() then
-        mainCursor:feedkeys(TERM_CODES.ESC)
-    end
-    local positions = {}
-    local nPositions = 0
-    while true do
+    mainCursor:setMode("n")
+    vim.fn.search(regex)
+    local firstPos = vim.fn.getcurpos()
+    local pos = firstPos
+    repeat
+        mainCursor:clone():setPos({ pos[2], pos[3] })
         vim.fn.search(regex)
-        local pos = vim.fn.getcurpos()
-        nPositions = nPositions + 1
-        positions[nPositions] = { pos[2], pos[3] }
-        if nPositions > 1
-            and positions[1][1] == positions[nPositions][1]
-            and positions[1][2] == positions[nPositions][2]
-        then
-            break
-        end
-    end
-    for _, position in ipairs(positions) do
-        mainCursor:clone():setPos(position)
-    end
+        pos = vim.fn.getcurpos()
+    until firstPos[2] == pos[2] and firstPos[3] == pos[3]
     mainCursor:delete()
 end
 
@@ -755,9 +744,6 @@ function examples.searchAllAddCursors()
         return
     end
     mc.action(function(ctx)
-        if ctx:mainCursor():hasSelection() then
-            ctx:mainCursor():feedkeys(TERM_CODES.ESC)
-        end
         regexAddAllCursors(ctx, regex)
     end)
 end
