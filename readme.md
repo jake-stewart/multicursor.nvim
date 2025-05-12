@@ -32,9 +32,23 @@ https://github.com/user-attachments/assets/a8c136dc-4786-447b-95c0-8e2a48f5776f
 
         local set = vim.keymap.set
 
-        -- Add or skip cursor above/below the main cursor.
-        set({"n", "x"}, "<up>", function() mc.lineAddCursor(-1) end)
-        set({"n", "x"}, "<down>", function() mc.lineAddCursor(1) end)
+        -- Add a cursor above/below the main cursor
+        -- Add multiple cursors with count
+        set({"n", "x"}, "<up>", function()
+          for i=1, vim.v.count1 do
+            mc.lineAddCursor(-1)
+          end
+        end)
+        set({"n", "x"}, "<down>", function()
+          for i=1, vim.v.count1 do
+            mc.lineAddCursor(1)
+          end
+        end)
+        -- Or add a cursor n lines above/below
+        --set({"n", "x"}, "<up>", function() mc.lineAddCursor(-vim.v.count1) end)
+        --set({"n", "x"}, "<down>", function() mc.lineAddCursor(vim.v.count1) end)
+
+        -- Skip a cursor above/below the main cursor
         set({"n", "x"}, "<leader><up>", function() mc.lineSkipCursor(-1) end)
         set({"n", "x"}, "<leader><down>", function() mc.lineSkipCursor(1) end)
 
