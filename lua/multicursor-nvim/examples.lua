@@ -612,52 +612,54 @@ end
 --- @param add boolean
 local function matchAddCursor(direction, add)
     mc.action(function(ctx)
-        local mainCursor = ctx:mainCursor()
-        local cursorChar
-        local cursorWord
-        local searchWord
-        if not mainCursor:hasSelection() then
-            local c = mainCursor:col()
-            cursorChar = string.sub(mainCursor:getLine(), c, c)
-            cursorWord = mainCursor:getCursorWord()
-            if cursorChar ~= ""
-                and isKeyword(cursorChar)
-                and string.find(cursorWord, cursorChar, 1, true)
-            then
-                searchWord = true
-                mainCursor:feedkeys('"_yiw')
+        for _ = 1, vim.v.count1 do
+            local mainCursor = ctx:mainCursor()
+            local cursorChar
+            local cursorWord
+            local searchWord
+            if not mainCursor:hasSelection() then
+                local c = mainCursor:col()
+                cursorChar = string.sub(mainCursor:getLine(), c, c)
+                cursorWord = mainCursor:getCursorWord()
+                if cursorChar ~= ""
+                    and isKeyword(cursorChar)
+                    and string.find(cursorWord, cursorChar, 1, true)
+                then
+                    searchWord = true
+                    mainCursor:feedkeys('"_yiw')
+                end
             end
-        end
-        addCursor(ctx, function(cursor)
-            local regex
-            local hasSelection = cursor:hasSelection()
-            if hasSelection then
-                regex = "\\C\\V" .. escapeRegex(
-                    table.concat(cursor:getVisualLines(), "\n"))
-                if vim.o.selection == "exclusive"  then
-                    regex = regex .. "\\v.*\\n"
-                end
-                if cursor:mode() == "V" or cursor:mode() == "S" then
-                    cursor:feedkeys(cursor:atVisualStart() and "0" or "o0")
-                elseif not cursor:atVisualStart() then
-                    cursor:feedkeys("o")
-                end
-            else
-                if cursorChar == "" then
-                    regex = "\\v^$"
-                elseif searchWord then
-                    regex = "\\v<\\C\\V" .. escapeRegex(cursorWord) .. "\\v>"
+            addCursor(ctx, function(cursor)
+                local regex
+                local hasSelection = cursor:hasSelection()
+                if hasSelection then
+                    regex = "\\C\\V" .. escapeRegex(
+                        table.concat(cursor:getVisualLines(), "\n"))
+                    if vim.o.selection == "exclusive"  then
+                        regex = regex .. "\\v.*\\n"
+                    end
+                    if cursor:mode() == "V" or cursor:mode() == "S" then
+                        cursor:feedkeys(cursor:atVisualStart() and "0" or "o0")
+                    elseif not cursor:atVisualStart() then
+                        cursor:feedkeys("o")
+                    end
                 else
-                    regex = "\\C\\V" .. escapeRegex(cursorChar)
+                    if cursorChar == "" then
+                        regex = "\\v^$"
+                    elseif searchWord then
+                        regex = "\\v<\\C\\V" .. escapeRegex(cursorWord) .. "\\v>"
+                    else
+                        regex = "\\C\\V" .. escapeRegex(cursorChar)
+                    end
                 end
-            end
-            cursor:perform(function()
-                vim.fn.search(regex, (direction == -1 and "b" or ""))
-            end)
-            if hasSelection then
-                cursor:feedkeys(TERM_CODES.ESC)
-            end
-        end, { addCursor = add })
+                cursor:perform(function()
+                    vim.fn.search(regex, (direction == -1 and "b" or ""))
+                end)
+                if hasSelection then
+                    cursor:feedkeys(TERM_CODES.ESC)
+                end
+            end, { addCursor = add })
+        end
     end)
 end
 
@@ -681,18 +683,20 @@ local function searchAddCursor(direction, add)
         return
     end
     mc.action(function(ctx)
-        local mainCursor = ctx:mainCursor()
-        if mainCursor:hasSelection() then
-            mainCursor:feedkeys(
-                (mainCursor:atVisualStart() and "" or "o")
-                .. TERM_CODES.ESC
-            )
+        for _ = 1, vim.v.count1 do
+            local mainCursor = ctx:mainCursor()
+            if mainCursor:hasSelection() then
+                mainCursor:feedkeys(
+                    (mainCursor:atVisualStart() and "" or "o")
+                    .. TERM_CODES.ESC
+                )
+            end
+            addCursor(ctx, function(cursor)
+                cursor:perform(function()
+                    vim.fn.search(regex, (direction == -1 and "b" or ""))
+                end)
+            end, { addCursor = add })
         end
-        addCursor(ctx, function(cursor)
-            cursor:perform(function()
-                vim.fn.search(regex, (direction == -1 and "b" or ""))
-            end)
-        end, { addCursor = add })
     end)
 end
 
@@ -752,39 +756,41 @@ end
 --- @param add boolean
 local function lineAddCursor(direction, add)
     mc.action(function(ctx)
-        local mainCursor = ctx:mainCursor()
-        local line, _, offset = table.unpack(mainCursor:getPos())
-        if offset > 0 then
-            addCursor(ctx, direction == -1 and "k" or "j", {
-                addCursor = add,
-                remap = false,
-            })
-            return
-        end
-        local virtCol = vim.fn.virtcol(".")
-        local lastLine = vim.fn.line("$")
-        local found = false
-        while true do
-            line = line + direction
-            if line < 1 or line > lastLine then
-                break
+        for _ = 1, vim.v.count1 do
+            local mainCursor = ctx:mainCursor()
+            local line, _, offset = table.unpack(mainCursor:getPos())
+            if offset > 0 then
+                addCursor(ctx, direction == -1 and "k" or "j", {
+                    addCursor = add,
+                    remap = false,
+                })
+                return
             end
-            local maxCol = vim.fn.virtcol({ line, "$" })
-            if virtCol == 1 or maxCol > virtCol then
-                found = true
-                break
+            local virtCol = vim.fn.virtcol(".")
+            local lastLine = vim.fn.line("$")
+            local found = false
+            while true do
+                line = line + direction
+                if line < 1 or line > lastLine then
+                    break
+                end
+                local maxCol = vim.fn.virtcol({ line, "$" })
+                if virtCol == 1 or maxCol > virtCol then
+                    found = true
+                    break
+                end
             end
+            if not found then
+                return
+            end
+            addCursor(ctx, function(cursor)
+                cursor:setPos({
+                    line,
+                    vim.fn.virtcol2col(0, line, virtCol),
+                    offset,
+                })
+            end, { addCursor = add })
         end
-        if not found then
-            return
-        end
-        addCursor(ctx, function(cursor)
-            cursor:setPos({
-                line,
-                vim.fn.virtcol2col(0, line, virtCol),
-                offset,
-            })
-        end, { addCursor = add })
     end)
 end
 
@@ -909,16 +915,21 @@ end
 --- @param add boolean
 --- @param opts? vim.diagnostic.JumpOpts
 local function diagnosticAddCursor(direction, add, opts)
+    opts = opts or {}
     mc.action(function(ctx)
-        local d = direction == 1 and
-            vim.diagnostic.get_next(opts)
-            or vim.diagnostic.get_prev(opts)
-        if d == nil then
-            return
+        for _ = 1, vim.v.count1 do
+            local pos = ctx:mainCursor():getPos()
+            opts.pos = { pos[1], pos[2] - 1 }
+            local d = direction == 1 and
+                vim.diagnostic.get_next(opts)
+                or vim.diagnostic.get_prev(opts)
+            if d == nil then
+                return
+            end
+            addCursor(ctx, function(cursor)
+                cursor:setPos({ d.lnum + 1, d.col + 1 })
+            end, { addCursor = add })
         end
-        addCursor(ctx, function(cursor)
-            cursor:setPos({ d.lnum + 1, d.col + 1 })
-        end, { addCursor = add })
     end)
 end
 
