@@ -636,7 +636,7 @@ local function matchAddCursor(direction, add)
                     regex = "\\C\\V" .. escapeRegex(
                         table.concat(cursor:getVisualLines(), "\n"))
                     if vim.o.selection == "exclusive"  then
-                        regex = regex .. "\\v.*\\n"
+                        regex = regex .. "\\v(.*\\n)@="
                     end
                     if cursor:mode() == "V" or cursor:mode() == "S" then
                         cursor:feedkeys(cursor:atVisualStart() and "0" or "o0")
