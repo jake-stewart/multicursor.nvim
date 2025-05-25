@@ -754,11 +754,13 @@ end
 
 --- @param direction? -1 | 1
 --- @param add boolean
-local function lineAddCursor(direction, add)
+--- @param opts? { skipEmpty?: boolean }
+local function lineAddCursor(direction, add, opts)
+    opts = vim.tbl_extend("keep", opts or {}, { skipEmpty = true })
     mc.action(function(ctx)
         for _ = 1, vim.v.count1 do
-            local mainCursor = ctx:mainCursor()
-            local line, _, offset = table.unpack(mainCursor:getPos())
+            local _, line, _, offset, curswant =
+                table.unpack(vim.fn.getcurpos())
             if offset > 0 then
                 addCursor(ctx, direction == -1 and "k" or "j", {
                     addCursor = add,
@@ -769,26 +771,35 @@ local function lineAddCursor(direction, add)
             local virtCol = vim.fn.virtcol(".")
             local lastLine = vim.fn.line("$")
             local found = false
-            while true do
+            if opts.skipEmpty then
+                while true do
+                    line = line + direction
+                    if line < 1 or line > lastLine then
+                        break
+                    end
+                    local maxCol = vim.fn.virtcol({ line, "$" })
+                    if virtCol == 1 or maxCol > virtCol then
+                        found = true
+                        break
+                    end
+                end
+            else
                 line = line + direction
-                if line < 1 or line > lastLine then
-                    break
-                end
-                local maxCol = vim.fn.virtcol({ line, "$" })
-                if virtCol == 1 or maxCol > virtCol then
-                    found = true
-                    break
-                end
+                found = line >= 1 and line <= lastLine
             end
             if not found then
                 return
             end
             addCursor(ctx, function(cursor)
-                cursor:setPos({
-                    line,
-                    vim.fn.virtcol2col(0, line, virtCol),
-                    offset,
-                })
+                cursor:perform(function()
+                    vim.fn.setpos(".", {
+                        0,
+                        line,
+                        curswant,
+                        offset,
+                        curswant
+                    })
+                end)
             end, { addCursor = add })
         end
     end)
@@ -797,15 +808,17 @@ end
 --- Add a cursor above or below the main cursor, skipping empty lines,
 --- specified by `direction`.
 --- @param direction? -1 | 1
-function examples.lineAddCursor(direction)
-    lineAddCursor(direction, true)
+--- @param opts? { skipEmpty?: boolean }
+function examples.lineAddCursor(direction, opts)
+    lineAddCursor(direction, true, opts)
 end
 
 --- Move only the main cursor up or down a line, skipping empty lines,
 --- specified by `direction`.
 --- @param direction? -1 | 1
-function examples.lineSkipCursor(direction)
-    lineAddCursor(direction, false)
+--- @param opts? { skipEmpty?: boolean }
+function examples.lineSkipCursor(direction, opts)
+    lineAddCursor(direction, false, opts)
 end
 
 --- Takes a motion and adds a cursor for every lines.
