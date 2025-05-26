@@ -768,7 +768,11 @@ local function lineAddCursor(direction, add, opts)
                 })
                 return
             end
-            local virtCol = vim.fn.virtcol(".")
+            -- local virtCol = vim.fn.virtcol(".")
+            local virtCol = vim.fn.virtcol({
+                vim.fn.line("."),
+                vim.fn.col(".") - 1
+            }) + 1
             local lastLine = vim.fn.line("$")
             local found = false
             if opts.skipEmpty then
@@ -790,12 +794,16 @@ local function lineAddCursor(direction, add, opts)
             if not found then
                 return
             end
+            if ctx:numEnabledCursors() <= 1 then
+                curswant = virtCol
+            end
             addCursor(ctx, function(cursor)
+                local col = vim.fn.virtcol2col(0, line, curswant)
                 cursor:perform(function()
                     vim.fn.setpos(".", {
                         0,
                         line,
-                        curswant,
+                        col,
                         offset,
                         curswant
                     })
