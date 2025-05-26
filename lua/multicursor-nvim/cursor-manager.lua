@@ -371,6 +371,43 @@ local function cursorCheckUpdate(cursor)
     end
 end
 
+--- @class mc._VisualRenderPart
+--- @field line integer
+--- @field col integer
+--- @field endCol integer
+--- @field lineLength integer
+--- @field lineWidth integer
+
+--- @param hl string
+--- @param part mc._VisualRenderPart
+local function renderVisualPart(hl, part)
+    local shift = part.lineWidth
+            + (part.col > part.lineLength
+                and (part.col - part.lineLength - 1) or 0) - state.leftcol
+    return set_extmark(0, state.nsid, part.line - 1, part.col - 1, {
+        strict = false,
+        undo_restore = false,
+        priority = 2000,
+        virt_text = part.endCol > part.lineLength
+            and (part.col > part.lineLength
+                and {{
+                    string.rep(" ", part.endCol - part.col + 1
+                        + math.min(0, shift)),
+                    hl,
+                }}
+                or {{
+                    string.rep(" ", part.endCol - part.lineLength
+                        + math.min(0, shift)),
+                    hl,
+                }}
+            ) or nil,
+        end_col = part.endCol,
+        virt_text_pos = "overlay",
+        virt_text_win_col = math.max(0, shift),
+        hl_group = hl,
+    })
+end
+
 --- @param cursor mc.Cursor
 --- @param lines string[]
 --- @param start integer
@@ -392,73 +429,32 @@ local function cursorDrawVisualChar(cursor, lines, start, hl)
         vs = cursor._pos
         ve = cursor._vPos
     end
+    --- @type mc._VisualRenderPart[]
+    local parts = {}
+    for lnum = vs[2], ve[2] do
+        local idx = lnum - start;
+        table.insert(parts, {
+            line = lnum,
+            col = 1,
+            endCol = #lines[idx] + (state.eol_listchar and 1 or 0),
+            lineLength = #lines[idx],
+            lineWidth = vim.fn.strdisplaywidth(lines[idx])
+        } --[[ as mc._VisualRenderPart ]])
+    end
     if vs[2] == ve[2] then
-        local line = lines[vs[2] - start]
-        local displayWidth = line and vim.fn.strdisplaywidth(line) or 0
-        local id = set_extmark(0, state.nsid, vs[2] - 1, vs[3] - 1, {
-            strict = false,
-            undo_restore = false,
-            priority = 2000,
-            virt_text = ve[3] > #line
-                and (vs[3] > #line
-                    and {{string.rep(" ", ve[4] - vs[4]
-                        + (state.exclusive and 0 or 1)), hl}}
-                    or {{string.rep(" ", ve[4]
-                        + (state.exclusive and 0 or 1)), hl}}
-                ) or nil,
-            end_col = ve[3] + (state.exclusive and -1 or 0),
-            virt_text_pos = "overlay",
-            virt_text_win_col = displayWidth
-                + (vs[3] > #line and vs[4] or 0) - state.leftcol,
-            hl_group = hl,
-        })
-        cursor._visualIds[#cursor._visualIds + 1] = id
+        parts[1].col = vs[3] + (vs[3] > #lines[vs[2] - start] and vs[4] or 0)
+        parts[1].endCol = ve[3] + (ve[3] > #lines[ve[2] - start] and ve[4] or 0)
     else
-        local i = vs[2]
-        while i <= ve[2] do
-            local row = i - 1
-            local line = lines[row - start + 1]
-            local col = i == vs[2] and (vs[3] - 1) or 0
-            local displayWidth = line and vim.fn.strdisplaywidth(line) or 0
-            local endCol = i == ve[2]
-                and ve[3] - 1
-                or #line
-            local endVirtCol = i == ve[2]
-                and endCol
-                or endCol + ve[4]
-            local virt_text = endVirtCol >= #line
-                and (col > #line
-                    and {{
-                        i == ve[2]
-                            and string.rep(" ", ve[4]
-                                + (endVirtCol == displayWidth + 1 and 1 or 0))
-                            or " ",
-                        hl
-                    }}
-                    or {{
-                        i == ve[2]
-                            and string.rep(" ", ve[4]
-                                + (state.exclusive and 0 or 1))
-                            or (((#line == 0) or state.eol_listchar)
-                                and " " or ""),
-                        hl
-                    }}
-                ) or nil
-            local id = set_extmark(0, state.nsid, row, col, {
-                strict = false,
-                undo_restore = false,
-                virt_text = virt_text,
-                end_col = endCol + (state.exclusive and 0 or 1),
-                priority = 2000,
-                virt_text_pos = "overlay",
-                virt_text_win_col = displayWidth
-                    + (col >= #line and i == vs[2]
-                        and vs[4] or 0) - state.leftcol,
-                hl_group = hl,
-            })
-            cursor._visualIds[#cursor._visualIds + 1] = id
-            i = i + 1
+        parts[1].col = vs[3] + (vs[3] > #lines[vs[2] - start] and vs[4] - 1 or 0)
+        if vs[3] > #lines[vs[2] - start] then
+            parts[1].col = parts[1].col + 1
+            parts[1].endCol = parts[1].col
         end
+        parts[#parts].endCol = ve[3]
+            + (ve[3] > #lines[ve[2] - start] and ve[4] or 0)
+    end
+    for _, part in ipairs(parts) do
+        table.insert(cursor._visualIds, renderVisualPart(hl, part))
     end
 end
 
@@ -468,24 +464,15 @@ end
 --- @param hl string
 local function cursorDrawVisualLine(cursor, lines, start, hl)
     local visualStart, visualEnd = cursor:getVisual()
-    local i = visualStart[1]
-    while i <= visualEnd[1] do
-        local row = i - 1
-        local line = lines[row - start + 1]
-        local displayWidth = line and vim.fn.strdisplaywidth(line) or 0
-        local id = set_extmark(0, state.nsid, row, 0, {
-            strict = false,
-            undo_restore = false,
-            virt_text = (#line == 0 or state.eol_listchar)
-                and {{" ", hl}} or nil,
-            end_col = #line,
-            virt_text_pos = "overlay",
-            priority = 2000,
-            virt_text_win_col = displayWidth - state.leftcol,
-            hl_group = hl,
-        })
-        cursor._visualIds[#cursor._visualIds + 1] = id
-        i = i + 1
+    for i = visualStart[1], visualEnd[1] do
+        local idx = i - start
+        table.insert(cursor._visualIds, renderVisualPart(hl, {
+            line = i,
+            col = 1,
+            endCol = #lines[idx] + (state.eol_listchar and 1 or 0),
+            lineLength = #lines[idx],
+            lineWidth = vim.fn.strdisplaywidth(lines[idx])
+        }))
     end
 end
 
@@ -494,92 +481,58 @@ end
 --- @param start integer
 --- @param hl string
 local function cursorDrawVisualBlock(cursor, lines, start, hl)
-    local startLine = math.min(cursor._vPos[2], cursor._pos[2])
-    local endLine = math.max(cursor._vPos[2], cursor._pos[2])
-    local startCol
-    local endCol
-    local startVirtCol
-    local endVirtCol
-    local atEnd = cursor._vPos[3] < cursor._pos[3]
-        or cursor._vPos[3] == cursor._pos[3]
-        and cursor._vPos[4] < cursor._pos[4]
-    if atEnd then
-        startCol = cursor._vPos[3]
-        endCol = cursor._pos[3]
-        startVirtCol = startCol + cursor._vPos[4]
-        endVirtCol = endCol + cursor._pos[4]
-    else
-        startCol = cursor._pos[3]
-        endCol = cursor._vPos[3]
-        startVirtCol = startCol + cursor._pos[4]
-        endVirtCol = endCol + cursor._vPos[4]
-    end
-    local col = startCol < #lines[1] and startCol or startVirtCol
-    local atEndOfLine = cursor._pos[5] == vim.v.maxcol
+    local minLine = math.min(cursor._pos[2], cursor._vPos[2])
+    local maxLine = math.max(cursor._pos[2], cursor._vPos[2])
+    local virtCols = {
+        vim.fn.virtcol({ cursor._pos[2], cursor._pos[3] }) + cursor._pos[4],
+        vim.fn.virtcol({ cursor._vPos[2], cursor._vPos[3] }) + cursor._vPos[4]
+    }
+    local minVirtCol = math.min(virtCols[1], virtCols[2])
+    local maxVirtCol = minVirtCol == virtCols[1]
+        and virtCols[2] or virtCols[1]
 
-    local maxCol = 0
-    if atEndOfLine and state.virtualEditBlock then
-        local i = startLine
-        while i <= endLine do
-            local line = lines[i - start]
-            if line and #line >= maxCol then
-                maxCol = #line
-            end
-            i = i + 1
-        end
-        maxCol = maxCol + 1
-    else
-        maxCol = endVirtCol
-    end
+    --- @type mc._VisualRenderPart[]
+    local parts = {}
 
-    local i = startLine
-    while i <= endLine do
-        local line = lines[i - start]
-        if line then
-            local displayWidth = vim.fn.strdisplaywidth(line)
-            local virt_text
-            local lineEndCol = atEndOfLine and #line or endVirtCol
-            if state.virtualEditBlock then
-                if atEndOfLine then
-                    if maxCol > #line then
-                        virt_text = {{
-                            string.rep(" ", maxCol - #line),
-                            hl
-                        }}
-                    end
-                elseif startCol > #line then
-                    virt_text = {{
-                        string.rep(" ", endVirtCol - startVirtCol + 1),
-                        hl
-                    }}
-                elseif col > #line then
-                    virt_text = {{
-                        string.rep(" ", endVirtCol - col + 1),
-                        hl
-                    }}
-                elseif endVirtCol >= #line then
-                    virt_text = {{
-                        string.rep(" ", endVirtCol - #line),
-                        hl
-                    }}
-                end
-            end
-            local virt_text_win_col = displayWidth
-                + (col > #line and (col - #line) - 1 or 0)
-                - state.leftcol
-            local id = set_extmark(0, state.nsid, i - 1, col - 1, {
-                strict = false,
-                undo_restore = false,
-                end_col = lineEndCol,
-                virt_text_pos = "overlay",
-                priority = 2000,
-                virt_text_win_col = virt_text_win_col,
-                virt_text = virt_text,
-                hl_group = hl,
-            })
-            cursor._visualIds[#cursor._visualIds + 1] = id
+    for lnum = minLine, maxLine do
+        local idx = lnum - start;
+        local displayWidth = vim.fn.strdisplaywidth(lines[idx])
+        if state.virtualEditBlock then
+            table.insert(parts, {
+                line = lnum,
+                col = displayWidth > minVirtCol
+                    and vim.fn.virtcol2col(0, lnum, minVirtCol)
+                    or #lines[idx] + minVirtCol - displayWidth,
+                endCol = displayWidth >= maxVirtCol
+                    and vim.fn.virtcol2col(0, lnum, maxVirtCol)
+                    or #lines[idx] + maxVirtCol - displayWidth,
+                lineLength = #lines[idx],
+                lineWidth = displayWidth
+            } --[[ @as mc._VisualRenderPart ]])
+        elseif cursor._pos[5] == vim.v.maxcol then
+            table.insert(parts, {
+                line = lnum,
+                col = 1,
+                endCol = #lines[idx] + (state.eol_listchar and 1 or 0),
+                lineLength = #lines[idx],
+                lineWidth = displayWidth
+            } --[[ @as mc._VisualRenderPart ]])
+        elseif displayWidth >= minVirtCol then
+            table.insert(parts, {
+                line = lnum,
+                col = displayWidth >= minVirtCol
+                    and vim.fn.virtcol2col(0, lnum, minVirtCol)
+                    or #lines[idx] + (state.eol_listchar and 1 or 0),
+                endCol = displayWidth >= maxVirtCol
+                    and vim.fn.virtcol2col(0, lnum, maxVirtCol)
+                    or #lines[idx] + (state.eol_listchar and 1 or 0),
+                lineLength = #lines[idx],
+                lineWidth = displayWidth
+            } --[[ @as mc._VisualRenderPart ]])
         end
-        i = i + 1
+    end
+    for _, part in ipairs(parts) do
+        table.insert(cursor._visualIds, renderVisualPart(hl, part))
     end
 end
 
@@ -755,17 +708,36 @@ local function cursorDraw(cursor)
     local col = cursor._pos[3] - 1
     local virtCol = col + cursor._pos[4]
     local charLine = lines[cursor._pos[2] - start]
-    local virtedit = virtCol >= #charLine
+    local outOfBounds = virtCol >= #charLine
 
     local virt_text_win_col
-    if virtedit then
-        local vc = vim.fn.virtcol({ cursor._pos[2], cursor._pos[3] })
-            + cursor._pos[4] - 1
-        virt_text_win_col = vc - state.leftcol
-        if virt_text_win_col < 0 then
-            return
-        end
+    local vc = vim.fn.virtcol({ cursor._pos[2], cursor._pos[3] })
+        + cursor._pos[4] - 1
+    virt_text_win_col = vc - state.leftcol
+    local cursorChar = outOfBounds
+        and " "
+        or vim.fn.strpart(charLine, cursor._pos[3] - 1, 1, 1)
+    if cursorChar == "\t"
+        and not state.virtualEdit
+        and not (state.virtualEditBlock
+            and visualInfo and visualInfo.type == "b")
+        and (
+            visualInfo
+                and (cursor._pos[2] < cursor._vPos[2]
+                or cursor._pos[2] == cursor._vPos[2]
+                and cursor._pos[3] < cursor._vPos[3]
+            )
+            or state.listChars
+        )
+    then
+        virt_text_win_col = virt_text_win_col - state.tabstop + 1
     end
+    if virt_text_win_col < 0 then
+        return
+    end
+    local virt_text = cursorChar == "\t"
+        and {{ " ", cursorHL }}
+        or {{ cursorChar, cursorHL }}
 
     local id = set_extmark(0, state.nsid, row, col, {
         strict = false,
@@ -773,10 +745,8 @@ local function cursorDraw(cursor)
         virt_text_pos = "overlay",
         priority = priority,
         virt_text_win_col = virt_text_win_col,
-        hl_group = cursorHL,
-        end_col = virtedit and col or col + 1,
         virt_text_hide = true,
-        virt_text = virtedit and {{ " ", cursorHL, }} or nil,
+        virt_text = virt_text,
     })
     cursor._visualIds[#cursor._visualIds + 1] = id
 end
@@ -2199,9 +2169,14 @@ end
 
 local function updateVirtualEdit()
     state.virtualEditBlock = false
+    state.virtualEdit = false
     for _, key in ipairs(vim.opt.virtualedit:get()) do
-        if key == "block" or key == "all" then
+        if key == "block" then
             state.virtualEditBlock = true
+        end
+        if key == "all" then
+            state.virtualEditBlock = true
+            state.virtualEdit = true
             break
         end
     end
@@ -2251,6 +2226,8 @@ function CursorManager:action(callback, opts)
     updateCursorline()
     setOptions()
     updateVirtualEdit()
+    state.tabstop = vim.o.tabstop
+    state.listChars = vim.o.list
     -- state.leftcol = vim.fn.winsaveview().leftcol
     state.textoffset = vim.fn.getwininfo(vim.fn.win_getid())[1].textoff
     state.exclusive = vim.o.selection == "exclusive"
