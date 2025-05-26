@@ -50,7 +50,12 @@ function examples.splitCursors(pattern)
                 return
             end
             local vs, ve = cursor:getVisual()
+            if cursor:mode() == "V" or cursor:mode() == "S" then
+                vs[2] = 1
+                ve[2] = vim.fn.col({ ve[1], "$" })
+            end
             local last = vs
+            cursor:setMode("v")
             for _, match in ipairs(matches) do
                 local lines = vim.split(match.text, "\n", { plain = true })
                 local startPos = {
@@ -101,14 +106,13 @@ function examples.matchCursors(pattern)
             })
             local vs = cursor:getVisual()
             for _, match in ipairs(matches) do
-                if #match.text > 0 then
-                    local newCursor = cursor:clone()
-                    newCursor:setVisual(
-                        { vs[1], vs[2] + match.byteidx + #match.text - 1 },
-                        { vs[1], vs[2] + match.byteidx }
-                    )
-                    newCursor:setMode("n")
-                end
+                local newCursor = cursor:clone()
+                newCursor:setMode("v")
+                newCursor:setVisual(
+                    { vs[1], vs[2] + match.byteidx },
+                    { vs[1], vs[2] + match.byteidx
+                        + math.max(0, #match.text - 1) }
+                )
             end
             cursor:delete()
         end
