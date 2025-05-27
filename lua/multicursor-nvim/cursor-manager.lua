@@ -2189,7 +2189,13 @@ local function fixWindowScroll(origCursor, winStartLine)
     local newStartLine = vim.fn.line("w0")
     local newEndLine = vim.fn.line("w$")
     local scrollOff = vim.o.scrolloff
-    if scrollOff >= math.floor((newEndLine - newStartLine) / 2) then
+    local height = newEndLine - newStartLine
+    if origCursor._pos[2] < winStartLine + scrollOff
+        or origCursor._pos[2] > winStartLine + height - scrollOff
+    then
+        -- scrolling is expected and welcome when
+        -- cursor has moved outside of original view
+    elseif scrollOff >= math.floor(height / 2) then
         -- dont go scrolling since cursor is guarenteed
         -- to be in the middle of the screen due to scrolloff
     elseif origCursor._pos[2] <= newEndLine - scrollOff then

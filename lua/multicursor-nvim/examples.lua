@@ -616,23 +616,24 @@ end
 --- @param add boolean
 local function matchAddCursor(direction, add)
     mc.action(function(ctx)
-        for _ = 1, vim.v.count1 do
-            local mainCursor = ctx:mainCursor()
-            local cursorChar
-            local cursorWord
-            local searchWord
-            if not mainCursor:hasSelection() then
-                local c = mainCursor:col()
-                cursorChar = string.sub(mainCursor:getLine(), c, c)
-                cursorWord = mainCursor:getCursorWord()
-                if cursorChar ~= ""
-                    and isKeyword(cursorChar)
-                    and string.find(cursorWord, cursorChar, 1, true)
-                then
-                    searchWord = true
-                    mainCursor:feedkeys('"_yiw')
-                end
+        local count = vim.v.count1
+        local mainCursor = ctx:mainCursor()
+        local cursorChar
+        local cursorWord
+        local searchWord
+        if not mainCursor:hasSelection() then
+            local c = mainCursor:col()
+            cursorChar = string.sub(mainCursor:getLine(), c, c)
+            cursorWord = mainCursor:getCursorWord()
+            if cursorChar ~= ""
+                and isKeyword(cursorChar)
+                and string.find(cursorWord, cursorChar, 1, true)
+            then
+                searchWord = true
+                mainCursor:feedkeys('"_yiw')
             end
+        end
+        for _ = 1, count do
             addCursor(ctx, function(cursor)
                 local regex
                 local hasSelection = cursor:hasSelection()
