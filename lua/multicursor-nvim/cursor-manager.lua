@@ -710,13 +710,12 @@ local function cursorDraw(cursor)
     local charLine = lines[cursor._pos[2] - start]
     local outOfBounds = virtCol >= #charLine
 
-    local virt_text_win_col
-    local vc = vim.fn.virtcol({ cursor._pos[2], cursor._pos[3] })
-        + cursor._pos[4] - 1
-    virt_text_win_col = vc - state.leftcol
     local cursorChar = outOfBounds
         and " "
         or vim.fn.strpart(charLine, cursor._pos[3] - 1, 1, 1)
+    local virt_text_win_col
+    local vc = vim.fn.virtcol({ cursor._pos[2], cursor._pos[3] }) + cursor._pos[4]
+    virt_text_win_col = vc - state.leftcol
     if cursorChar == "\t"
         and not state.virtualEdit
         and not (state.virtualEditBlock
@@ -730,7 +729,9 @@ local function cursorDraw(cursor)
             or state.listChars
         )
     then
-        virt_text_win_col = virt_text_win_col - state.tabstop + 1
+        virt_text_win_col = virt_text_win_col - state.tabstop
+    else
+        virt_text_win_col = virt_text_win_col - vim.fn.strdisplaywidth(cursorChar)
     end
     if virt_text_win_col < 0 then
         return
