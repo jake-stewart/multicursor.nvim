@@ -189,6 +189,7 @@ want to create your own complex action, see the |multicursor-api|.
  • mc.addKeymapLayer                              |multicursor-addKeymapLayer|
  • mc.removeKeymapLayer                        |multicursor-removeKeymapLayer|
  • mc.action                                              |multicursor-action|
+ • mc.onSafeState                                    |multicursor-onSafeState|
 
 
 mc.addCursor(motion)                                   *multicursor-addCursor*
@@ -228,7 +229,7 @@ mc.toggleCursor()                                   *multicursor-toggleCursor*
       • |multicursor-enableCursors|
 
 
-mc.lineAddCursor(direction)                        *multicursor-lineAddCursor*
+mc.lineAddCursor(direction, opts?)                 *multicursor-lineAddCursor*
     Add a cursor above or below the main cursor, skipping empty lines,
     specified by `direction`.
 
@@ -243,9 +244,12 @@ mc.lineAddCursor(direction)                        *multicursor-lineAddCursor*
     Parameters: ~
       • {direction} (`-1 | 1`) when passing in `-1` spawn a cursor in the
         previous line, while `1` spawn in the next line
+      • {opts?} (`table?`) options
+        • {opts.skipEmpty?} (`boolean?`) Whether lines shorter than cursor
+          column should be skipped (default `true`)
 
 
-mc.lineSkipCursor(direction)                      *multicursor-lineSkipCursor*
+mc.lineSkipCursor(direction, opts?)               *multicursor-lineSkipCursor*
     Move only the main cursor up or down a line, skipping empty lines,
     specified by `direction`.
 
@@ -260,6 +264,9 @@ mc.lineSkipCursor(direction)                      *multicursor-lineSkipCursor*
     Parameters: ~
       • {direction} (`-1 | 1`) when passing in `-1` spawn a cursor in the
         previous line, while `1` spawn in the next line
+      • {opts?} (`table?`) options
+        • {opts.skipEmpty?} (`boolean?`) Whether lines shorter than cursor
+          column should be skipped (default `true`)
 
 
 mc.matchAddCursor(direction)                      *multicursor-matchAddCursor*
@@ -725,6 +732,22 @@ mc.action(func)                                           *multicursor-action*
     See also: ~
       • |multicursor-api-Context|
       • |multicursor-api|
+
+
+mc.onSafeState(func, opts?)                          *multicursor-onSafeState*
+    Execute callback upon reaching multicursor safestate.
+
+    Usage example: >lua
+        mc.onSafeState(function(details)
+            if details.wasMode ~= vim.fn.mode() then
+                print("mode changed!")
+            end
+        end)
+<
+    Parameters: ~
+      • {func} (`function`) function to execute on safe state.
+      • {opts?} (`table?`) options
+        • {opts.once?} (`boolean?`) only call func for a single safestate.
 
 
 ==============================================================================
