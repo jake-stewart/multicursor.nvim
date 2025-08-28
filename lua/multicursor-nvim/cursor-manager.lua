@@ -372,6 +372,7 @@ local function cursorCheckUpdate(cursor)
 end
 
 --- @class mc._VisualRenderPart
+--- @field priority? integer
 --- @field line integer
 --- @field col integer
 --- @field endCol integer
@@ -387,7 +388,7 @@ local function renderVisualPart(hl, part)
     return set_extmark(0, state.nsid, part.line - 1, part.col - 1, {
         strict = false,
         undo_restore = false,
-        priority = 2000,
+        priority = part.priority or 2000,
         virt_text = part.endCol > part.lineLength
             and (part.col > part.lineLength
                 and {{
@@ -713,42 +714,16 @@ local function cursorDraw(cursor)
     local cursorChar = outOfBounds
         and " "
         or vim.fn.strpart(charLine, cursor._pos[3] - 1, 1, 1)
-    local virt_text_win_col
-    local vc = vim.fn.virtcol({ cursor._pos[2], cursor._pos[3] }) + cursor._pos[4]
-    virt_text_win_col = vc - state.leftcol
-    if cursorChar == "\t"
-        and not state.virtualEdit
-        and not (state.virtualEditBlock
-            and visualInfo and visualInfo.type == "b")
-        and (
-            visualInfo
-                and (cursor._pos[2] < cursor._vPos[2]
-                or cursor._pos[2] == cursor._vPos[2]
-                and cursor._pos[3] < cursor._vPos[3]
-            )
-            or state.listChars
-        )
-    then
-        virt_text_win_col = virt_text_win_col - state.tabstop
-    else
-        virt_text_win_col = virt_text_win_col - vim.fn.strdisplaywidth(cursorChar)
-    end
-    if virt_text_win_col < 0 then
-        return
-    end
-    local virt_text = cursorChar == "\t"
-        and {{ " ", cursorHL }}
-        or {{ cursorChar, cursorHL }}
 
-    local id = set_extmark(0, state.nsid, row, col, {
-        strict = false,
-        undo_restore = false,
-        virt_text_pos = "overlay",
+    local id = renderVisualPart(cursorHL, {
         priority = priority,
-        virt_text_win_col = virt_text_win_col,
-        virt_text_hide = true,
-        virt_text = virt_text,
+        col = outOfBounds and (virtCol + 1) or (col + 1),
+        line = row + 1,
+        endCol = outOfBounds and (virtCol + 1) or (col + 1),
+        lineLength = #charLine,
+        lineWidth = vim.fn.strdisplaywidth(charLine),
     })
+
     cursor._visualIds[#cursor._visualIds + 1] = id
 end
 

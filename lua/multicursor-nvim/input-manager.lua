@@ -234,7 +234,11 @@ function InputManager:_handleSpecialKey(specialKey)
 end
 
 local CLEARABLE_ADAPTERS = {
-    ["flash.plugins.char"] = function(m) m.state:hide() end,
+    ["flash.plugins.char"] = function(m)
+        if m.state then
+            m.state:hide()
+        end
+    end,
 }
 
 local TOGGLABLE_ADAPTERS = {
