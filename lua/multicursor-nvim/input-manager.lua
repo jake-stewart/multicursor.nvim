@@ -399,6 +399,8 @@ function InputManager:_onSafeState()
         self:_handleSnippet(wasFromSelectMode)
     elseif isInsertOrReplaceMode(self._wasMode) then
         self:_handleExitInsertMode(mode, wasFromSelectMode)
+    elseif vim.startswith(self._keys, "q") then
+        -- ignore macro start/end recording keys
     else
         local command = string.match(self._keys, "%d*(.*)")
         if self._wasMode ~= "c" and
