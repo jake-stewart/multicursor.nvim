@@ -1774,6 +1774,7 @@ local function clearCursorContext()
     state.errors = {}
     state.jumpIdx = 0
     state.yankedWhileDisabled = false
+    state.yankedWhileActive = false
     unsetOptions()
     unsetHlsearch()
     state.yanked = false
@@ -2292,6 +2293,7 @@ function CursorManager:action(callback, opts)
     end
 
     if state.yanked then
+        state.yankedWhileActive = true
         state.yanked = false
         state.cursors[#state.cursors + 1] = state.mainCursor
         table.sort(state.cursors, compareCursorsPosition)
@@ -2309,6 +2311,25 @@ function CursorManager:action(callback, opts)
             and state.numEnabledCursors == 0
         then
             state.yankedWhileDisabled = true
+        end
+    elseif not state.yankedWhileActive then
+        --- @type mc.StateHistoryItem
+        local item = state.stateHistory[historyItemId()]
+        if item then
+            local oldCursors = tbl.shallow_copy(item.cursors)
+            local newCursors = tbl.shallow_copy(state.cursors)
+            newCursors[#newCursors + 1] = state.mainCursor
+            oldCursors[#oldCursors + 1] = item.cursor
+            table.sort(newCursors, compareCursorsPosition)
+            table.sort(oldCursors, compareCursorsPosition)
+            for i, oldCursor in ipairs(oldCursors) do
+                local newCursor = newCursors[i]
+                if not newCursor then
+                    break
+                end
+                newCursor._register = oldCursor._register
+            end
+            vim.fn.setreg("", state.mainCursor._register)
         end
     end
 
