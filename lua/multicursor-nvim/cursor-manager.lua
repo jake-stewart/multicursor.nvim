@@ -252,10 +252,13 @@ local function unsetHlsearch()
 end
 
 --- @param cursor table
+--- @param newId? boolean = true
 --- @return mc.Cursor
-local function createCursor(cursor)
-    cursor._id = state.id
-    state.id = state.id + 1
+local function createCursor(cursor, newId)
+    if newId ~= false then
+        cursor._id = state.id
+        state.id = state.id + 1
+    end
     cursor._enabled = true
     cursor._drift = { 0, 0 }
     cursor._jumpIdx = 0
@@ -1292,11 +1295,11 @@ function Cursor:getCursorWord()
 end
 
 --- @param cursor mc.Cursor
+--- @param newId? boolean = true
 --- @return mc.Cursor
-local function cursorCopy(cursor)
-    state.id = state.id + 1
+local function cursorCopy(cursor, newId)
     return createCursor({
-        _id = state.id,
+        _id = cursor._id,
         _modifiedId = state.modifiedId,
         _drift = cursor._drift,
         _changePos = cursor._changePos,
@@ -1308,7 +1311,7 @@ local function cursorCopy(cursor)
         _vPos = cursor._vPos,
         _mode = cursor._mode,
         _state = CursorState.new,
-    })
+    }, newId)
 end
 
 -- cursors are packed together for undo history like so
@@ -1358,8 +1361,17 @@ end
 --- @param data number[]
 local function unpackCursors(data)
     local cursorLookup = {}
-    for _, cursor in ipairs(state.cursors) do
-        cursorLookup[cursor._id] = cursor
+    if #state.cursors > 0 then
+        for _, cursor in ipairs(state.cursors) do
+            cursorLookup[cursor._id] = cursor
+        end
+    else
+        local item = state.stateHistory[historyItemId()]
+        if item then
+            for _, cursor in ipairs(item.cursors) do
+                cursorLookup[cursor._id] = cursor
+            end
+        end
     end
     state.cursors = {}
     local newMainCursor
@@ -1799,8 +1811,9 @@ function CursorContext:clear()
     if #state.cursors > 0 then
         state.stateHistory[historyItemId()] = {
             cursor = state.mainCursor
-                and cursorCopy(state.mainCursor) or nil,
-            cursors = tbl.map(state.cursors, cursorCopy),
+                and cursorCopy(state.mainCursor, false) or nil,
+            cursors = tbl.map(state.cursors,
+                function(c) return cursorCopy(c, false) end),
             seqCur = state.currentSeq,
             jumpIdx = state.jumpIdx,
             jumplist = state.jumps
@@ -2377,8 +2390,9 @@ function CursorManager:loadUndoItem(direction)
         cursorContextRedraw()
         state.stateHistory[historyItemId()] = {
             cursor = state.mainCursor
-                and cursorCopy(state.mainCursor) or nil,
-            cursors = tbl.map(state.cursors, cursorCopy),
+                and cursorCopy(state.mainCursor, false) or nil,
+            cursors = tbl.map(state.cursors,
+                function (c) return cursorCopy(c, false) end),
             seqCur = state.currentSeq,
             jumpIdx = state.jumpIdx,
             jumplist = state.jumps
@@ -2464,9 +2478,10 @@ function CursorContext:restore()
     local newItem = {
         jumplist = state.jumps,
         jumpIdx = state.jumpIdx,
-        cursors = tbl.map(state.cursors, cursorCopy),
+        cursors = tbl.map(state.cursors,
+            function(c) return cursorCopy(c, false) end),
         cursor = state.mainCursor
-            and cursorCopy(state.mainCursor) or nil,
+            and cursorCopy(state.mainCursor, false) or nil,
         seqCur = state.currentSeq
     }
     if state.mainCursor then
