@@ -2470,20 +2470,14 @@ function CursorManager:navigateJumplist(direction)
 end
 
 function CursorContext:restore()
+    if self:hasCursors() then
+        return
+    end
     local id = historyItemId()
     local item = state.stateHistory[id]
     if not item or item.seqCur ~= state.currentSeq then
         return
     end
-    local newItem = {
-        jumplist = state.jumps,
-        jumpIdx = state.jumpIdx,
-        cursors = tbl.map(state.cursors,
-            function(c) return cursorCopy(c, false) end),
-        cursor = state.mainCursor
-            and cursorCopy(state.mainCursor, false) or nil,
-        seqCur = state.currentSeq
-    }
     if state.mainCursor then
         state.mainCursor:delete()
         state.mainCursor = nil
@@ -2491,7 +2485,6 @@ function CursorContext:restore()
     for _, cursor in ipairs(state.cursors) do
         cursor:delete()
     end
-    state.stateHistory[id] = newItem
     state.jumps = item.jumplist
     state.jumpIdx = item.jumpIdx
     for _, cursor in ipairs(item.cursors) do
@@ -2500,7 +2493,7 @@ function CursorContext:restore()
         cursorSetMarks(cursor)
     end
     if item.cursor then
-        state.mainCursor = cursorCopy(item.cursor)
+        state.mainCursor = cursorCopy(item.cursor, false)
         state.mainCursor._state = CursorState.new
         cursorSetMarks(state.mainCursor)
     end
