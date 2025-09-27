@@ -140,6 +140,7 @@ end
 --- @param callback fun()
 function InputManager:performAction(callback)
     if not self._applying then
+        self:_disableTogglableAdapters()
         self._applying = true
         local success, err = pcall(callback)
         self._applying = false
@@ -270,6 +271,38 @@ local TOGGLABLE_ADAPTERS = {
     },
 }
 
+function InputManager:_disableTogglableAdapters()
+    for k, v in pairs(TOGGLABLE_ADAPTERS) do
+        if v.state.enabled == nil then
+            v.state.enabled = false
+            if package.loaded[k] then
+                local msuccess, m = pcall(require, k)
+                if msuccess then
+                    local success, enabled = pcall(v.enabled, m)
+                    v.state.enabled = success and (enabled or false)
+                    if v.state.enabled then
+                        v.setEnabled(m, false)
+                    end
+                end
+            end
+        end
+    end
+end
+
+function InputManager:_enableTogglableAdapters()
+    for k, v in pairs(TOGGLABLE_ADAPTERS) do
+        if v.state.enabled then
+            if package.loaded[k] then
+                local msuccess, m = pcall(require, k)
+                if msuccess then
+                    v.setEnabled(m, true)
+                end
+            end
+        end
+        v.state.enabled = nil
+    end
+end
+
 function InputManager:_handleKeys(mode)
     local handled = false
     if #self._typed > 0 and cursorManager:hasCursors() then
@@ -331,34 +364,10 @@ function InputManager:_onSafeState()
     end
     if cursorManager:hasCursors() then
         keymapManager:apply(vim.fn.bufnr(), self._keymapLayerCallbacks)
-        for k, v in pairs(TOGGLABLE_ADAPTERS) do
-            if v.state.enabled == nil then
-                v.state.enabled = false
-                if package.loaded[k] then
-                    local msuccess, m = pcall(require, k)
-                    if msuccess then
-                        local success, enabled = pcall(v.enabled, m)
-                        v.state.enabled = success and (enabled or false)
-                        if v.state.enabled then
-                            v.setEnabled(m, false)
-                        end
-                    end
-                end
-            end
-        end
+        self:_disableTogglableAdapters()
     else
         keymapManager:restore()
-        for k, v in pairs(TOGGLABLE_ADAPTERS) do
-            if v.state.enabled then
-                if package.loaded[k] then
-                    local msuccess, m = pcall(require, k)
-                    if msuccess then
-                        v.setEnabled(m, true)
-                    end
-                end
-            end
-            v.state.enabled = nil
-        end
+        self:_enableTogglableAdapters()
     end
     local mode = vim.fn.mode()
     if isInsertOrReplaceMode(mode) then
