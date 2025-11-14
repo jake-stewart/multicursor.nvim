@@ -45,20 +45,17 @@ function FeedkeysManager:setup()
 end
 
 function FeedkeysManager:keepjumpsFeedkeys(keys, mode)
-    mode = mode .. "t"
     keys = vim.fn.substitute(keys, "'", "'..\"'\"..'", "g")
     vim.cmd("keepjumps call feedkeys('" .. keys .. "', '" .. mode .. "')")
 end
 
 function FeedkeysManager:silentKeepjumpsFeedkeys(keys, mode)
-    mode = mode .. "t"
     keys = vim.fn.substitute(keys, "'", "'..\"'\"..'", "g")
     vim.cmd("silent keepjumps call feedkeys('"
         .. keys .. "', '" .. mode .. "')")
 end
 
 function FeedkeysManager:noAutocommandsKeepjumpsFeedkeys(keys, mode)
-    mode = mode .. "t"
     keys = vim.fn.substitute(keys, "'", "'..\"'\"..'", "g")
     vim.cmd("noautocmd keepjumps call feedkeys('"
         .. keys .. "', '" .. mode .. "')")
