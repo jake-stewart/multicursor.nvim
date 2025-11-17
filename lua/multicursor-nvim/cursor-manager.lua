@@ -2071,6 +2071,8 @@ function CursorManager:setup(nsid, opts)
         callback = function()
             if #state.cursors > 0 then
                 state.yanked = true
+            else
+                state.stateHistory = {}
             end
         end
     })
