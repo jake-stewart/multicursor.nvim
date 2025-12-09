@@ -52,7 +52,7 @@ end
 --- @param keys string
 --- @param opts? { remap?: boolean, keycodes?: boolean, silent?: boolean }
 local function feedkeys(keys, opts)
-    local mode = opts and opts.remap and "xt" or "xnt"
+    local mode = opts and opts.remap and "x" or "xn"
     if opts and opts.keycodes then
         keys = replace_termcodes(keys, true, true, true)
     end
