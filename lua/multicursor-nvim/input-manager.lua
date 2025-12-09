@@ -342,6 +342,7 @@ function InputManager:_handleKeys(mode)
             cursorManager:update()
         end
     end
+    return handled
 end
 
 function InputManager:_handleLeaveCommandlineMode()
@@ -427,8 +428,8 @@ function InputManager:_onSafeState()
                 )
             then
                 self:_handleSpecialKey(commandChar)
-            else
-                self:_handleKeys(mode)
+            elseif not self:_handleKeys(mode) and #self._typed == 0 then
+                self._applying = false
             end
         end
         if #self._typed > 0 then
@@ -441,11 +442,13 @@ function InputManager:_onSafeState()
             end)
         end
     end
-    if self._safeStateCallbacks then
-        local info = {
-            wasMode = self._wasMode,
-        }
-        tbl.forEach(self._safeStateCallbacks, function(f) f(info) end)
+    if not self._applying then
+        if self._safeStateCallbacks then
+            local info = {
+                wasMode = self._wasMode,
+            }
+            tbl.forEach(self._safeStateCallbacks, function(f) f(info) end)
+        end
     end
     self._didUndo = false
     self._didRedo = false
