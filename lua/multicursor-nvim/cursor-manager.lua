@@ -50,12 +50,48 @@ local function historyItemId()
 end
 
 --- @param keys string
+local function apply_langmap(keys)
+    local langmap = vim.o.langmap
+    if langmap == "" then
+        return keys
+    end
+
+    -- Remove all escape characters \
+    langmap = langmap:gsub("\\", "")
+
+    local len = #langmap
+    if len % 2 == 0 then
+        return keys -- langmap must have odd length (from + separator + to)
+    end
+
+    local mid = math.floor(len / 2) + 1 -- middle character (separator)
+    local from = langmap:sub(1, mid - 1)
+    local to = langmap:sub(mid + 1, len)
+
+    -- Create map
+    local map = {}
+    for i = 1, math.min(#from, #to) do
+        map[from:sub(i, i)] = to:sub(i, i)
+    end
+
+    -- Apply mapping
+    local result = {}
+    for i = 1, #keys do
+        local char = keys:sub(i, i)
+        table.insert(result, map[char] or char)
+    end
+
+    return table.concat(result)
+end
+
+--- @param keys string
 --- @param opts? { remap?: boolean, keycodes?: boolean, silent?: boolean }
 local function feedkeys(keys, opts)
     local mode = opts and opts.remap and "x" or "xn"
     if opts and opts.keycodes then
         keys = replace_termcodes(keys, true, true, true)
     end
+    keys = apply_langmap(keys)
     -- feedkeysManager.nvim_feedkeys(keys, mode, false)
     if opts and opts.silent then
         feedkeysManager:silentKeepjumpsFeedkeys(keys, mode)
