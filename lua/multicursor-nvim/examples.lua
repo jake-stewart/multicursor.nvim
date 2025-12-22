@@ -886,7 +886,7 @@ function examples.addCursorOperator(placement)
                         end
                     end
                 end
-                col = math.min(col, vim.fn.col({ i, "$" }) - 1)
+                col = math.min(col, vim.fn.col({ i, "$" }))
                 lastCursor = mainCursor:clone():setPos({i, col})
                 if not firstCursor then
                     firstCursor = lastCursor
