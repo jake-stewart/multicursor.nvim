@@ -150,7 +150,7 @@ set("x", "<leader>T", function() mc.transposeCursors(-1) end)
 set("x", "I", mc.insertVisual)
 set("x", "A", mc.appendVisual)
 
--- Increment/decrement sequences, treaing all cursors as one sequence.
+-- Increment/decrement sequences, treating all cursors as one sequence.
 set({"n", "x"}, "g<c-a>", mc.sequenceIncrement)
 set({"n", "x"}, "g<c-x>", mc.sequenceDecrement)
 
