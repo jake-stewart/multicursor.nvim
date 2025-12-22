@@ -120,7 +120,8 @@ you can pick which you find useful.
 
 ```lua
 -- Pressing `gaip` will add a cursor on each line of a paragraph.
-set("n", "ga", mc.addCursorOperator)
+-- Can also be used to add cursor for each line of visual selection.
+set({"n", "v"}, "ga", mc.addCursorOperator)
 
 -- Clone every cursor and disable the originals.
 set({"n", "x"}, "<leader><c-q>", mc.duplicateCursors)
