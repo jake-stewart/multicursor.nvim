@@ -546,6 +546,11 @@ mc.addCursorOperator()                         *multicursor-addCursorOperator*
     For example, if it is mapped to `ga`, then typing `gaip` will add a cursor
     for every line in the current paragraph.
 
+    Parameters: ~
+      • {placement?} (`"START_OF_SELECTION" | "START_OF_LINE" | "CURSOR"`)
+        Where the created cursors should be placed. If omitted, the best
+        placement will be chosen depending on which mode is used.
+
     Usage example: >lua
         vim.keymap.set("n", "ga", mc.addCursorOperator)
 <
