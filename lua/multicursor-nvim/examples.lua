@@ -873,21 +873,19 @@ function examples.addCursorOperator(placement)
             local firstCursor
             local changeStart = vim.fn.getpos("'[")
             local changeEnd = vim.fn.getpos("']")
-            for i = changeStart[2], changeEnd[2] do
-                local col = 1
-                if placement == "CURSOR" then
-                    col = curPos[3]
-                elseif placement == "START_OF_SELECTION" then
-                    if mode == TERM_CODES.CTRL_V or mode == TERM_CODES.CTRL_S then
-                        if atVisualStart then
-                            col = curPos[3]
-                        else
-                            col = vPos[3]
-                        end
-                    end
+            local col = 1
+            if placement == "CURSOR" then
+                col = curPos[3]
+            elseif placement == "START_OF_SELECTION" then
+                if mode == TERM_CODES.CTRL_V or mode == TERM_CODES.CTRL_S then
+                    col = math.min(curPos[3], vPos[3])
                 end
-                col = math.min(col, vim.fn.col({ i, "$" }))
-                lastCursor = mainCursor:clone():setPos({i, col})
+            end
+            for i = changeStart[2], changeEnd[2] do
+                lastCursor = mainCursor:clone():setPos({
+                    i,
+                    math.min(col, vim.fn.col({ i, "$" }))
+                })
                 if not firstCursor then
                     firstCursor = lastCursor
                 end
