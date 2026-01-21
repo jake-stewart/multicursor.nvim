@@ -722,12 +722,12 @@ end
 local function regexAddAllCursors(ctx, regex)
     local mainCursor = ctx:mainCursor()
     mainCursor:setMode("n")
-    vim.fn.search(regex)
+    vim.fn.search(regex, "w")
     local firstPos = vim.fn.getcurpos()
     local pos = firstPos
     repeat
         mainCursor:clone():setPos({ pos[2], pos[3] })
-        vim.fn.search(regex)
+        vim.fn.search(regex, "w")
         pos = vim.fn.getcurpos()
     until firstPos[2] == pos[2] and firstPos[3] == pos[3]
     mainCursor:delete()
