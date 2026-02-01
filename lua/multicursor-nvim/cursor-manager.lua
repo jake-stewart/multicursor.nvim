@@ -186,6 +186,8 @@ Cursor.__index = Cursor
 --- @field mainSignHlExists? boolean
 --- @field jumps mc.Pos[]
 --- @field jumpIdx integer
+--- @field signsOnLeft? boolean
+--- @field renderSigns? boolean
 --- @field package lastJump? mc.Pos
 local state = {
     cursors = {},
@@ -203,7 +205,7 @@ local state = {
     textoffset = 0,
     jumps = {},
     didPushJump = false,
-    jumpIdx = 0
+    jumpIdx = 0,
 }
 
 local OPTIONS_OVERRIDE = {
@@ -716,10 +718,6 @@ local function cursorDraw(cursor)
     local virtCol = col + cursor._pos[4]
     local charLine = lines[cursor._pos[2] - start]
     local outOfBounds = virtCol >= #charLine
-
-    local cursorChar = outOfBounds
-        and " "
-        or vim.fn.strpart(charLine, cursor._pos[3] - 1, 1, 1)
 
     local id = renderVisualPart(cursorHL, {
         priority = priority,
@@ -1850,9 +1848,20 @@ local function cursorApplyDrift(cursor)
 end
 
 local function updateSigns()
-    local signsOnLeft = string.match(vim.o.signcolumn, "yes")
-        or string.match(vim.o.signcolumn, "auto")
-        or vim.o.signcolumn == "number"
+    local sc = vim.o.signcolumn
+
+    state.renderSigns =
+        sc ~= "no" and sc ~= "number"
+        or sc == "number"
+            and (vim.o.number or vim.o.relativenumber)
+
+    if not state.renderSigns then
+        return
+    end
+
+    local signsOnLeft = string.match(sc, "yes")
+        or string.match(sc, "auto")
+        or sc == "number"
         and not vim.o.number
         and not vim.o.relativenumber
 
@@ -1902,6 +1911,10 @@ local function redrawSigns()
         for _, id in ipairs(state.signIds) do
             del_extmark(0, state.nsid, id)
         end
+        state.signIds = nil
+    end
+    if not state.renderSigns then
+        return
     end
     state.signIds = {}
     local hasDisabledCursor = false
