@@ -242,7 +242,24 @@ local CLEARABLE_ADAPTERS = {
     end,
 }
 
+local function NO_OP()
+end
+
 local TOGGLABLE_ADAPTERS = {
+    ["which-key.view"] = {
+        state = {},
+        enabled = function(m)
+            return m.update ~= NO_OP
+        end,
+        setEnabled = function(m, enabled)
+            if enabled then
+                m.update = m._update or m.update
+            else
+                m._update = m.update
+                m.update = NO_OP
+            end
+        end
+    },
     ["snacks.scroll"] = {
         state = {},
         enabled = function(m)
