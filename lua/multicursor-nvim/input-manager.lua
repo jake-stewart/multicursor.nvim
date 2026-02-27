@@ -491,7 +491,7 @@ local IGNORE_KEYS = {
 
 --- @private
 function InputManager:_onKey(key, typed)
-    if IGNORE_KEYS[key] then
+    if IGNORE_KEYS[typed] then
         return
     end
     typed = feedkeysManager:removeFedKeys(typed)
