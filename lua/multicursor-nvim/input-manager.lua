@@ -461,8 +461,22 @@ function InputManager:_onSafeState()
     self._applying = false
 end
 
+local IGNORE_KEYS = {
+    [TERM_CODES.ScrollWheelDown] = true,
+    [TERM_CODES.ScrollWheelUp] = true,
+    [TERM_CODES.ScrollWheelLeft] = true,
+    [TERM_CODES.ScrollWheelRight] = true,
+    [TERM_CODES.Shift_ScrollWheelDown] = true,
+    [TERM_CODES.Shift_ScrollWheelUp] = true,
+    [TERM_CODES.Shift_ScrollWheelLeft] = true,
+    [TERM_CODES.Shift_ScrollWheelRight] = true,
+}
+
 --- @private
 function InputManager:_onKey(key, typed)
+    if IGNORE_KEYS[key] then
+        return
+    end
     typed = feedkeysManager:removeFedKeys(typed)
     if #typed == 0 then
         return
