@@ -507,6 +507,8 @@ local SCROLL_MAPS = {
     [TERM_CODES.CTRL_Y] = true,
     [TERM_CODES.CTRL_F] = true,
     [TERM_CODES.CTRL_B] = true,
+    [TERM_CODES.CTRL_D] = true,
+    [TERM_CODES.CTRL_U] = true,
 }
 
 --- @private
