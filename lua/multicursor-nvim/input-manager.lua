@@ -457,6 +457,16 @@ function InputManager:_onSafeState()
                     cursorManager:onSafeState()
                 end
             end)
+        elseif self._didScroll then
+            local pos = vim.fn.getpos(".")
+            if pos[2] ~= self._pos[2] or pos[3] ~= self._pos[3] then
+                cursorManager:action(function(ctx)
+                    if ctx:numEnabledCursors() > 1 then
+                        ctx:mainCursor():clone():setPos({ self._pos[2], self._pos[3] })
+                        ctx:setCursorsEnabled(false)
+                    end
+                end, {})
+            end
         end
     end
     if not self._applying then
@@ -467,18 +477,21 @@ function InputManager:_onSafeState()
             tbl.forEach(self._safeStateCallbacks, function(f) f(info) end)
         end
     end
+
     self._didUndo = false
     self._didRedo = false
     self._wasMode = vim.fn.mode()
     self._fromSelectMode = isSelectMode(self._wasMode)
     self._cmdType = nil
     self._insertModeStartPos = nil
+    self._pos = vim.fn.getpos(".")
     self._keys = ""
     self._typed = ""
     self._applying = false
+    self._didScroll = false
 end
 
-local IGNORE_KEYS = {
+local SCROLL_KEYS = {
     [TERM_CODES.ScrollWheelDown] = true,
     [TERM_CODES.ScrollWheelUp] = true,
     [TERM_CODES.ScrollWheelLeft] = true,
@@ -491,14 +504,15 @@ local IGNORE_KEYS = {
 
 --- @private
 function InputManager:_onKey(key, typed)
-    if IGNORE_KEYS[typed] then
-        return
-    end
     typed = feedkeysManager:removeFedKeys(typed)
     if #typed == 0 then
         return
     end
     if self._applying or isInsertOrReplaceMode(self._wasMode) then
+        return
+    end
+    if SCROLL_KEYS[typed] or key == TERM_CODES.CTRL_E or key == TERM_CODES.CTRL_Y then
+        self._didScroll = true
         return
     end
     self._keys = self._keys .. key
