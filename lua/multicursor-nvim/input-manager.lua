@@ -502,6 +502,13 @@ local SCROLL_KEYS = {
     [TERM_CODES.Shift_ScrollWheelRight] = true,
 }
 
+local SCROLL_MAPS = {
+    [TERM_CODES.CTRL_E] = true,
+    [TERM_CODES.CTRL_Y] = true,
+    [TERM_CODES.CTRL_F] = true,
+    [TERM_CODES.CTRL_B] = true,
+}
+
 --- @private
 function InputManager:_onKey(key, typed)
     typed = feedkeysManager:removeFedKeys(typed)
@@ -511,7 +518,7 @@ function InputManager:_onKey(key, typed)
     if self._applying or isInsertOrReplaceMode(self._wasMode) then
         return
     end
-    if SCROLL_KEYS[typed] or key == TERM_CODES.CTRL_E or key == TERM_CODES.CTRL_Y then
+    if SCROLL_KEYS[typed] or SCROLL_MAPS[key] then
         self._didScroll = true
         return
     end
