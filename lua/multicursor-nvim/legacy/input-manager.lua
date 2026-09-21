@@ -1,8 +1,9 @@
 local TERM_CODES = require("multicursor-nvim.term-codes")
-local feedkeysManager = require("multicursor-nvim.feedkeys-manager")
-local cursorManager = require("multicursor-nvim.cursor-manager")
+local feedkeysManager = require("multicursor-nvim.legacy.feedkeys-manager")
+local cursorManager = require("multicursor-nvim.legacy.cursor-manager")
 local keymapManager = require("multicursor-nvim.keymap-manager")
-local snippetManager = require("multicursor-nvim.snippet-manager")
+local snippetManager = require("multicursor-nvim.legacy.snippet-manager")
+local adapters = require("multicursor-nvim.adapters")
 local util = require("multicursor-nvim.util")
 local tbl = require("multicursor-nvim.tbl")
 
@@ -32,13 +33,14 @@ local SPECIAL_NORMAL_KEYS = {
 --- @field private _keys string
 --- @field private _wasMode string
 --- @field private _fromSelectMode boolean
---- @field private _modeChangeCallbacks? function[]
---- @field private _keymapLayerCallbacks? mc.KeymapSetterFunc[]
+--- @field private _host mc.Host
 local InputManager = {}
 
 --- @param nsid number
-function InputManager:setup(nsid)
+--- @param host mc.Host
+function InputManager:setup(nsid, host)
     self._nsid = nsid
+    self._host = host
     self._applying = false
     self._keys = ""
     self._typed = ""
@@ -46,7 +48,6 @@ function InputManager:setup(nsid)
     self._fromSelectMode = false
     self._didUndo = false
     self._didRedo = false
-    self._keymapLayerCallbacks = {}
 
     local originalGetChar = vim.fn.getchar
 
@@ -96,51 +97,10 @@ function InputManager:setup(nsid)
     )
 end
 
---- @param callback fun(set: mc.KeymapSetterFunc)
-function InputManager:addKeymapLayer(callback)
-    table.insert(self._keymapLayerCallbacks, callback)
-end
-
---- @param callback fun(set: mc.KeymapSetterFunc)
-function InputManager:removeKeymapLayer(callback)
-    self._keymapLayerCallbacks =
-        tbl.filter(self._keymapLayerCallbacks, function(cb)
-            return cb ~= callback
-        end)
-end
-
---- @param callback fun(cursor: mc.Cursor, from: string, to: string)
-function InputManager:onModeChanged(callback)
-    if not self._modeChangeCallbacks then
-        self._modeChangeCallbacks = {}
-    end
-    self._modeChangeCallbacks[#self._modeChangeCallbacks + 1] = callback
-end
-
---- @class mc.SafeStateInfo
---- @field wasMode string
-
---- @param callback fun(info: mc.SafeStateInfo)
---- @param opts? { once?: boolean }
-function InputManager:onSafeState(callback, opts)
-    if not self._safeStateCallbacks then
-        self._safeStateCallbacks = {}
-    end
-    if opts and opts.once then
-        local wrapped = callback
-        callback = function(info)
-            wrapped(info)
-            tbl.remove(self._safeStateCallbacks, callback)
-        end
-    end
-    self._safeStateCallbacks[#self._safeStateCallbacks + 1] = callback
-end
-
---- Call given callback, handling internal state
 --- @param callback fun()
 function InputManager:performAction(callback)
     if not self._applying then
-        self:_disableTogglableAdapters()
+        adapters.disable()
         self._applying = true
         local success, err = pcall(callback)
         self._applying = false
@@ -166,7 +126,7 @@ end
 
 --- @private
 function InputManager:_emitModeChanged(cursor, fromMode, toMode)
-    for _, callback in ipairs(self._modeChangeCallbacks) do
+    for _, callback in ipairs(self._host.modeChangeCallbacks) do
         callback(cursor, fromMode, toMode)
     end
 end
@@ -176,7 +136,9 @@ function InputManager:_handleExitInsertMode(mode, wasFromSelectMode)
     if cursorManager:hasCursors() then
         local reg = vim.fn.getreg(".")
         cursorManager:action(function(ctx)
-            if self._modeChangeCallbacks and self._wasMode ~= mode then
+            if #self._host.modeChangeCallbacks > 0
+                and self._wasMode ~= mode
+            then
                 local changePos = vim.fn.getpos("'[")
                 self:_emitModeChanged(ctx:mainCursor(), self._wasMode, mode)
                 ctx:mainCursor():setRedoChangePos(
@@ -193,13 +155,15 @@ function InputManager:_handleExitInsertMode(mode, wasFromSelectMode)
                         feedkeysManager.nvim_feedkeys(reg, "nx", false)
                     end
                 end)
-                if self._modeChangeCallbacks and self._wasMode ~= mode then
+                if #self._host.modeChangeCallbacks > 0
+                    and self._wasMode ~= mode
+                then
                     self:_emitModeChanged(cursor, self._wasMode, mode)
                 end
             end)
         end, { excludeMainCursor = true, allowUndo = false })
     else
-        if self._modeChangeCallbacks and self._wasMode ~= mode then
+        if #self._host.modeChangeCallbacks > 0 and self._wasMode ~= mode then
             cursorManager:action(function(ctx)
                 self:_emitModeChanged(ctx:mainCursor(), self._wasMode, mode)
             end, { excludeMainCursor = true, allowUndo = false })
@@ -242,84 +206,6 @@ local CLEARABLE_ADAPTERS = {
     end,
 }
 
-local function NO_OP()
-end
-
-local TOGGLABLE_ADAPTERS = {
-    ["which-key.view"] = {
-        state = {},
-        enabled = function(m)
-            return m.update ~= NO_OP
-        end,
-        setEnabled = function(m, enabled)
-            if enabled then
-                m.update = m._update or m.update
-            else
-                m._update = m.update
-                m.update = NO_OP
-            end
-        end
-    },
-    ["snacks.scroll"] = {
-        state = {},
-        enabled = function(m)
-            return m.enabled
-        end,
-        setEnabled = function(m, enabled)
-            if enabled then
-                m.enable()
-            else
-                m.disable()
-            end
-        end
-    },
-    ["hardtime"] = {
-        state = {},
-        enabled = function(m)
-            return m.is_plugin_enabled
-        end,
-        setEnabled = function(m, enabled)
-            if enabled then
-                m.enable()
-            else
-                m.disable()
-            end
-        end,
-    },
-}
-
-function InputManager:_disableTogglableAdapters()
-    for k, v in pairs(TOGGLABLE_ADAPTERS) do
-        if v.state.enabled == nil then
-            v.state.enabled = false
-            if package.loaded[k] then
-                local msuccess, m = pcall(require, k)
-                if msuccess then
-                    local success, enabled = pcall(v.enabled, m)
-                    v.state.enabled = success and (enabled or false)
-                    if v.state.enabled then
-                        v.setEnabled(m, false)
-                    end
-                end
-            end
-        end
-    end
-end
-
-function InputManager:_enableTogglableAdapters()
-    for k, v in pairs(TOGGLABLE_ADAPTERS) do
-        if v.state.enabled then
-            if package.loaded[k] then
-                local msuccess, m = pcall(require, k)
-                if msuccess then
-                    v.setEnabled(m, true)
-                end
-            end
-        end
-        v.state.enabled = nil
-    end
-end
-
 function InputManager:_handleKeys(mode)
     local handled = false
     if #self._typed > 0 and cursorManager:hasCursors() then
@@ -338,12 +224,16 @@ function InputManager:_handleKeys(mode)
         end
         tbl.forEach(clearable_adapters, function(f) f() end)
         cursorManager:action(function(ctx)
-            if self._modeChangeCallbacks and self._wasMode ~= mode then
+            if #self._host.modeChangeCallbacks > 0
+                and self._wasMode ~= mode
+            then
                 self:_emitModeChanged(ctx:mainCursor(), self._wasMode, mode)
             end
             ctx:forEachCursor(function(cursor)
                 cursor:feedkeys(self._typed, { remap = true })
-                if self._modeChangeCallbacks and self._wasMode ~= mode then
+                if #self._host.modeChangeCallbacks > 0
+                    and self._wasMode ~= mode
+                then
                     self:_emitModeChanged(cursor, self._wasMode, mode)
                 end
                 tbl.forEach(clearable_adapters, function(f) f() end)
@@ -351,7 +241,7 @@ function InputManager:_handleKeys(mode)
         end, { excludeMainCursor = true, allowUndo = true })
     end
     if not handled then
-        if self._modeChangeCallbacks and self._wasMode ~= mode then
+        if #self._host.modeChangeCallbacks > 0 and self._wasMode ~= mode then
             cursorManager:action(function(ctx)
                 self:_emitModeChanged(ctx:mainCursor(), self._wasMode, mode)
             end, { excludeMainCursor = false })
@@ -381,11 +271,11 @@ function InputManager:_onSafeState()
         return
     end
     if cursorManager:hasCursors() then
-        keymapManager:apply(vim.fn.bufnr(), self._keymapLayerCallbacks)
-        self:_disableTogglableAdapters()
+        keymapManager:apply(vim.fn.bufnr())
+        adapters.disable()
     else
         keymapManager:restore()
-        self:_enableTogglableAdapters()
+        adapters.enable()
     end
     local mode = vim.fn.mode()
     if isInsertOrReplaceMode(mode) then
@@ -470,12 +360,10 @@ function InputManager:_onSafeState()
         end
     end
     if not self._applying then
-        if self._safeStateCallbacks then
-            local info = {
-                wasMode = self._wasMode,
-            }
-            tbl.forEach(tbl.shallow_copy(self._safeStateCallbacks), function(f) f(info) end)
-        end
+        local info = {
+            wasMode = self._wasMode,
+        }
+        tbl.forEach(tbl.shallow_copy(self._host.safeStateCallbacks), function(f) f(info) end)
     end
 
     self._didUndo = false

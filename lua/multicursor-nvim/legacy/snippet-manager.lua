@@ -1,8 +1,8 @@
 local tbl = require("multicursor-nvim.tbl")
 local util = require("multicursor-nvim.util")
 local TERM_CODES = require("multicursor-nvim.term-codes")
-local feedkeysManager = require("multicursor-nvim.feedkeys-manager")
-local cursorManager = require("multicursor-nvim.cursor-manager")
+local feedkeysManager = require("multicursor-nvim.legacy.feedkeys-manager")
+local cursorManager = require("multicursor-nvim.legacy.cursor-manager")
 
 --- @class SnippetManager
 --- @field private _snippet table

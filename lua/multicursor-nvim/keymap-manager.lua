@@ -1,7 +1,11 @@
+local tbl = require("multicursor-nvim.tbl")
+
 --- @class mc.KeymapManager
 --- @field private _keymaps table<number, table>
+--- @field private _layers fun(set: mc.KeymapSetterFunc)[]
 local KeymapManager = {
-    _keymaps = {}
+    _keymaps = {},
+    _layers = {},
 }
 
 --- @alias mc.KeymapSetterFunc fun(
@@ -10,9 +14,20 @@ local KeymapManager = {
 ---     rhs: string | function,
 ---     opts?: vim.keymap.set.Opts)
 
+--- @param callback fun(set: mc.KeymapSetterFunc)
+function KeymapManager:addLayer(callback)
+    table.insert(self._layers, callback)
+end
+
+--- @param callback fun(set: mc.KeymapSetterFunc)
+function KeymapManager:removeLayer(callback)
+    self._layers = tbl.filter(self._layers, function(cb)
+        return cb ~= callback
+    end)
+end
+
 --- @param bufnr number
---- @param callbacks fun(set: mc.KeymapSetterFunc)[]
-function KeymapManager:apply(bufnr, callbacks)
+function KeymapManager:apply(bufnr)
     if self._keymaps[bufnr] then
         return
     end
@@ -23,7 +38,7 @@ function KeymapManager:apply(bufnr, callbacks)
         table.insert(self._keymaps[bufnr], { mode, lhs })
         vim.keymap.set(mode, lhs, rhs, opts)
     end
-    for _, callback in ipairs(callbacks) do
+    for _, callback in ipairs(self._layers) do
         callback(set)
     end
 end
