@@ -474,7 +474,7 @@ function InputManager:_onSafeState()
             local info = {
                 wasMode = self._wasMode,
             }
-            tbl.forEach(self._safeStateCallbacks, function(f) f(info) end)
+            tbl.forEach(tbl.shallow_copy(self._safeStateCallbacks), function(f) f(info) end)
         end
     end
 
