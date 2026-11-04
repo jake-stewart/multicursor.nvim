@@ -350,8 +350,7 @@ end
 --- @param cursor mc.Cursor
 --- @param line integer
 --- @param col integer
---- @param coladd integer
-local function cursorSetNative(buf, cursor, line, col, coladd)
+local function cursorSetNative(buf, cursor, line, col)
     local row = line - 1
     local lineLength = #get_lines(buf, row, line)[1]
     col = math.max(1, math.min(col, lineLength + 1))
@@ -368,11 +367,7 @@ local function cursorSetNative(buf, cursor, line, col, coladd)
             strict = false,
         })
     else
-        local ok, id = pcall(vim.api.nvim_mcursor, buf, coladd ~= 0
-            and { line, col - 1, coladd }
-            or { line, col - 1 })
-        cursor._nativeId = ok and id
-            or vim.api.nvim_mcursor(buf, { line, col - 1 })
+        cursor._nativeId = set_extmark(buf, NATIVE_NS, row, col - 1, {})
     end
 end
 
@@ -426,7 +421,7 @@ local function exportCursors(buf, mainCursor)
                 needMirror = true
             end
             local pos = selecting and cursor._vPos or cursor._pos
-            cursorSetNative(buf, cursor, pos[2], pos[3], pos[4])
+            cursorSetNative(buf, cursor, pos[2], pos[3])
             enabled[cursor._nativeId] = cursor
         end
         cursorClearMarks(cursor)
@@ -483,7 +478,7 @@ function CursorManager:setup(nsid, opts)
                 return
             end
             local buf = vim.api.nvim_get_current_buf()
-            if vim.api.nvim__mcursor_cascading() then
+            if vim.v.cascading then
                 local startPos = vim.fn.getpos("'[")
                 local endPos = vim.fn.getpos("']")
                 local endCol = math.min(

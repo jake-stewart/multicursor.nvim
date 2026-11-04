@@ -16,7 +16,7 @@ local NativeBackend = {
 
 --- @param callback fun()
 function NativeBackend:performAction(callback)
-    if not self._applying and not vim.api.nvim__mcursor_cascading() then
+    if not self._applying and not vim.v.cascading then
         adapters.disable()
         self._applying = true
         local success, err = pcall(callback)

@@ -4,7 +4,6 @@ local tbl = require("multicursor-nvim.tbl")
 
 local function nativeAvailable()
     return vim.fn.has("nvim-0.13") == 1
-        and vim.api.nvim_mcursor ~= nil
 end
 
 local backend
